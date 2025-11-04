@@ -4,13 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import type { Message } from '@/lib/types/chat'
 import { ChatAPI } from '@/lib/services/chat-api'
 import { MessageProcessor } from '@/lib/processors/message-processor'
-import {
-  TabSyncManager,
-  LeaderElection,
-  type MessageSyncPayload,
-  type StreamSyncPayload,
-  type LoadingStateSyncPayload,
-} from '@/lib/tab-sync'
+import { TabSyncManager, LeaderElection } from '@/lib/tab-sync'
 
 export function useTabSync() {
   const [messages, setMessages] = useState<Message[]>([])
@@ -28,16 +22,16 @@ export function useTabSync() {
       setIsLeader(leader)
     })
 
-    const handleMessageAdd = (payload: MessageSyncPayload) => {
+    tabSyncRef.current.on('MESSAGE_ADD', (payload) => {
       setMessages((prev) => {
         if (prev.find((m) => m.id === payload.id)) {
           return prev
         }
         return [...prev, payload as Message]
       })
-    }
+    })
 
-    const handleMessageStream = (payload: StreamSyncPayload) => {
+    tabSyncRef.current.on('MESSAGE_STREAM', (payload) => {
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === payload.messageId
@@ -49,15 +43,11 @@ export function useTabSync() {
             : msg
         )
       )
-    }
+    })
 
-    const handleLoadingState = (payload: LoadingStateSyncPayload) => {
+    tabSyncRef.current.on('LOADING_STATE', (payload) => {
       setIsLoading(payload.isLoading)
-    }
-
-    tabSyncRef.current.on('MESSAGE_ADD', handleMessageAdd)
-    tabSyncRef.current.on('MESSAGE_STREAM', handleMessageStream)
-    tabSyncRef.current.on('LOADING_STATE', handleLoadingState)
+    })
 
     return () => {
       tabSyncRef.current?.close()

@@ -2,7 +2,8 @@
 
 import { cn } from '@/lib/utils'
 import { MessageContent } from '@/components/MessageContent'
-import { User, Bot } from 'lucide-react'
+import { AudioControl } from '@/components/AudioControl'
+import { User, Bot, RotateCw } from 'lucide-react'
 import type { Message } from '@/lib/types/chat'
 
 interface ChatMessageProps {
@@ -21,20 +22,13 @@ export function ChatMessage({
   const isUser = message.role === 'user'
 
   return (
-    <div
-      className={cn(
-        'w-full py-8',
-        !isUser && 'bg-muted/30'
-      )}
-    >
+    <div className={cn('w-full py-8', !isUser && 'bg-muted/30')}>
       <div className="mx-auto max-w-3xl px-4">
         <div className="flex gap-4">
           <div
             className={cn(
               'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-              isUser
-                ? 'bg-blue-500 text-white'
-                : 'bg-green-600 text-white'
+              isUser ? 'bg-blue-500 text-white' : 'bg-green-600 text-white'
             )}
           >
             {isUser ? <User className="h-4 w-4" /> : <Bot className="h-5 w-5" />}
@@ -46,13 +40,20 @@ export function ChatMessage({
               isStreaming={isStreaming && !isUser}
             />
 
+            {!isUser && message.content && !isStreaming && (
+              <div className="flex items-center gap-2">
+                <AudioControl text={message.content} />
+              </div>
+            )}
+
             {hasError && onRetry && (
               <div className="mt-3">
                 <button
                   onClick={onRetry}
-                  className="rounded-lg bg-foreground px-4 py-2 text-sm text-background hover:bg-foreground/90 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-lg bg-foreground px-4 py-2 text-sm text-background hover:bg-foreground/90 transition-colors"
                 >
-                  重试继续
+                  <RotateCw className="h-4 w-4" />
+                  重试
                 </button>
               </div>
             )}

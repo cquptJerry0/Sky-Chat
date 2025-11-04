@@ -27,10 +27,15 @@ export type SyncPayload =
   | StreamSyncPayload
   | LoadingStateSyncPayload
 
-export interface SyncMessage {
-  type: SyncEventType
-  payload: SyncPayload
+export interface SyncEventMap {
+  MESSAGE_ADD: MessageSyncPayload
+  MESSAGE_STREAM: StreamSyncPayload
+  LOADING_STATE: LoadingStateSyncPayload
+}
+
+export interface SyncMessage<T extends SyncEventType = SyncEventType> {
+  type: T
+  payload: SyncEventMap[T]
   timestamp: number
   tabId: string
 }
-

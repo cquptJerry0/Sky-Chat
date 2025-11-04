@@ -1,11 +1,17 @@
-import type { SyncMessage, SyncEventType, SyncPayload } from './types'
+import type {
+  SyncMessage,
+  SyncEventType,
+  SyncEventMap,
+} from './types'
 
 export class TabSyncManager {
   private channel: BroadcastChannel | null = null
   private useFallback = false
   private tabId: string
-  private listeners: Map<SyncEventType, Set<(payload: SyncPayload) => void>> =
-    new Map()
+  private listeners: Map<
+    SyncEventType,
+    Set<(payload: SyncEventMap[SyncEventType]) => void>
+  > = new Map()
 
   constructor(channelName = 'sky-chat-sync') {
     this.tabId = `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -51,7 +57,10 @@ export class TabSyncManager {
     }
   }
 
-  private notifyListeners(type: SyncEventType, payload: SyncPayload) {
+  private notifyListeners<T extends SyncEventType>(
+    type: T,
+    payload: SyncEventMap[T]
+  ) {
     const listeners = this.listeners.get(type)
     if (listeners) {
       listeners.forEach((listener) => {
@@ -64,8 +73,8 @@ export class TabSyncManager {
     }
   }
 
-  broadcast(type: SyncEventType, payload: SyncPayload) {
-    const message: SyncMessage = {
+  broadcast<T extends SyncEventType>(type: T, payload: SyncEventMap[T]) {
+    const message: SyncMessage<T> = {
       type,
       payload,
       timestamp: Date.now(),
@@ -92,15 +101,21 @@ export class TabSyncManager {
     }
   }
 
-  on(type: SyncEventType, listener: (payload: SyncPayload) => void) {
+  on<T extends SyncEventType>(
+    type: T,
+    listener: (payload: SyncEventMap[T]) => void
+  ) {
     if (!this.listeners.has(type)) {
       this.listeners.set(type, new Set())
     }
-    this.listeners.get(type)!.add(listener)
+    this.listeners.get(type)!.add(listener as (payload: SyncEventMap[SyncEventType]) => void)
   }
 
-  off(type: SyncEventType, listener: (payload: SyncPayload) => void) {
-    this.listeners.get(type)?.delete(listener)
+  off<T extends SyncEventType>(
+    type: T,
+    listener: (payload: SyncEventMap[T]) => void
+  ) {
+    this.listeners.get(type)?.delete(listener as (payload: SyncEventMap[SyncEventType]) => void)
   }
 
   getTabId() {
@@ -115,4 +130,3 @@ export class TabSyncManager {
     this.listeners.clear()
   }
 }
-

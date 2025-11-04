@@ -21,7 +21,7 @@ export function MessageContent({
   const customComponents = {
     ...markdownComponents,
     cursor: () => (
-      <span className="inline-block h-4 w-0.5 animate-pulse bg-foreground ml-0.5" />
+      <span className="inline-block h-4 w-[2px] bg-foreground ml-0.5 align-middle animate-blink" />
     ),
   } as Components
 
@@ -37,4 +37,3 @@ export function MessageContent({
     </div>
   )
 }
-

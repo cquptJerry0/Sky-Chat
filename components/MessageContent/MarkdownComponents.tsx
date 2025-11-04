@@ -2,8 +2,8 @@ import { CodeBlock } from './CodeBlock'
 import type { Components } from 'react-markdown'
 
 export const markdownComponents: Components = {
-  code: ({ node, inline, className, children, ...props }) => {
-    const isInline = inline ?? !className
+  code: ({ className, children, ...props }) => {
+    const isInline = !className
     return (
       <CodeBlock inline={isInline} className={className} {...props}>
         {children}
@@ -55,4 +55,3 @@ export const markdownComponents: Components = {
     <td className="border border-border px-4 py-2">{children}</td>
   ),
 }
-
