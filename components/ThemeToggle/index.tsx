@@ -3,30 +3,27 @@
 import * as React from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { Button } from '@/components/ui/button'
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
 
-  // 避免服务端渲染时的水合错误
   React.useEffect(() => {
     setMounted(true)
   }, [])
 
   if (!mounted) {
     return (
-      <Button variant="ghost" size="icon">
+      <button className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted/50 transition-colors">
         <Sun className="h-5 w-5" />
-      </Button>
+      </button>
     )
   }
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
+    <button
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted/50 transition-colors"
     >
       {theme === 'dark' ? (
         <Sun className="h-5 w-5" />
@@ -34,6 +31,6 @@ export function ThemeToggle() {
         <Moon className="h-5 w-5" />
       )}
       <span className="sr-only">切换主题</span>
-    </Button>
+    </button>
   )
 }
