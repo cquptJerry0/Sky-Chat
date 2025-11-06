@@ -1,12 +1,14 @@
 'use client'
 
 import * as React from 'react'
-import { ArrowUp, Mic, Square, Loader2 } from 'lucide-react'
+import { ArrowUp, Mic, Loader2, Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAudioRecorder } from '@/lib/hooks/use-audio-recorder'
 import { ChatAPI } from '@/lib/services/chat-api'
+import { useToast } from '@/hooks/use-toast'
 
-interface ChatInputProps {
+type ChatInputProps = {
   onSend: (message: string) => void
   disabled?: boolean
 }
@@ -14,30 +16,22 @@ interface ChatInputProps {
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [input, setInput] = React.useState('')
   const [isTranscribing, setIsTranscribing] = React.useState(false)
-  const {
-    isRecording,
-    audioBlob,
-    startRecording,
-    stopRecording,
-    clearAudio,
-  } = useAudioRecorder()
+  const { isRecording, audioBlob, startRecording, stopRecording, clearAudio } = useAudioRecorder()
+  const { toast } = useToast()
 
+  // 防抖处理输入
+  const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null)
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (input.trim() && !disabled) {
+    if (input.trim() && !disabled && !isRecording && !isTranscribing) {
       onSend(input.trim())
       setInput('')
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit(e)
-    }
-  }
-
-  const handleMicClick = async () => {
+  // 处理录音（防抖）
+  const handleVoiceInput = React.useCallback(async () => {
     if (isRecording) {
       stopRecording()
     } else {
@@ -45,104 +39,125 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         await startRecording()
       } catch (error) {
         console.error('Failed to start recording:', error)
+        toast({
+          title: '无法访问麦克风',
+          description: '请检查浏览器权限设置',
+          variant: 'destructive',
+        })
       }
     }
-  }
+  }, [isRecording, startRecording, stopRecording, toast])
 
+  // 当录音完成后，自动转文字
   React.useEffect(() => {
     if (audioBlob && !isRecording) {
-      const transcribe = async () => {
+      const transcribeAudio = async () => {
         setIsTranscribing(true)
         try {
+          // 将 Blob 转为 File
           const audioFile = new File([audioBlob], 'recording.webm', {
             type: 'audio/webm',
           })
+          
+          // 调用语音转文字 API
           const result = await ChatAPI.speechToText(audioFile)
-          setInput(result.text)
-          clearAudio()
+          
+          // 将识别结果填充到输入框
+          if (result.text) {
+            setInput(result.text)
+          }
         } catch (error) {
-          console.error('Transcription failed:', error)
+          console.error('Failed to transcribe audio:', error)
+          toast({
+            title: '语音识别失败',
+            description: '请重试或检查网络连接',
+            variant: 'destructive',
+          })
         } finally {
           setIsTranscribing(false)
+          clearAudio()
         }
       }
-      transcribe()
+
+      transcribeAudio()
     }
   }, [audioBlob, isRecording, clearAudio])
 
   return (
-    <div className="bg-background pb-6 pt-4">
-      <div className="mx-auto max-w-3xl px-4">
-        <form onSubmit={handleSubmit} className="relative">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="给 Sky Chat 发送消息"
-            disabled={disabled || isRecording || isTranscribing}
-            rows={1}
-            className={cn(
-              'w-full resize-none rounded-3xl border border-input bg-background px-5 py-4 pr-24 text-sm shadow-sm transition-colors',
-              'placeholder:text-muted-foreground',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              'disabled:cursor-not-allowed disabled:opacity-50',
-              'max-h-32 overflow-y-auto'
-            )}
-            style={{
-              height: 'auto',
-              minHeight: '56px',
-            }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement
-              target.style.height = 'auto'
-              target.style.height = `${Math.min(target.scrollHeight, 128)}px`
-            }}
-          />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            <button
-              type="button"
-              onClick={handleMicClick}
-              disabled={disabled || isTranscribing}
+    <div className="bg-white dark:bg-gray-900 pb-4">
+      <div className="mx-auto max-w-3xl px-6">
+        <form onSubmit={handleSubmit}>
+          <div className={cn(
+            'relative flex items-center',
+            'bg-gray-100 dark:bg-gray-800 rounded-[26px]',
+            'px-4 py-3',
+            'transition-all'
+          )}>
+            {/* 输入框 */}
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="给 Sky Chat 发送消息"
+              disabled={disabled || isRecording || isTranscribing}
               className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
-                isRecording
-                  ? 'bg-red-500 text-white hover:bg-red-600'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80',
-                (disabled || isTranscribing) && 'opacity-50 cursor-not-allowed'
+                'flex-1 bg-transparent text-[15px]',
+                'placeholder:text-gray-500 dark:placeholder:text-gray-400',
+                'focus:outline-none',
+                'disabled:cursor-not-allowed disabled:opacity-50'
               )}
-            >
-              {isTranscribing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : isRecording ? (
-                <Square className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-              <span className="sr-only">
-                {isRecording ? '停止录音' : '开始录音'}
-              </span>
-            </button>
-            <button
-              type="submit"
-              disabled={disabled || !input.trim() || isRecording || isTranscribing}
-              className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
-                input.trim() && !disabled && !isRecording && !isTranscribing
-                  ? 'bg-foreground text-background hover:bg-foreground/90'
-                  : 'bg-muted text-muted-foreground cursor-not-allowed'
-              )}
-            >
-              <ArrowUp className="h-5 w-5" />
-              <span className="sr-only">发送</span>
-            </button>
+            />
+            
+            {/* 右侧按钮组 */}
+            <div className="flex items-center gap-1 ml-2">
+              {/* 麦克风按钮 */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={handleVoiceInput}
+                disabled={disabled || isTranscribing}
+                className={cn(
+                  'h-8 w-8 hover:bg-gray-200 dark:hover:bg-gray-700',
+                  isRecording && 'text-red-500 animate-pulse'
+                )}
+              >
+                {isTranscribing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </Button>
+
+              {/* 发送按钮 */}
+              <Button
+                type="submit"
+                size="icon"
+                disabled={disabled || !input.trim() || isRecording || isTranscribing}
+                className={cn(
+                  'h-8 w-8 rounded-lg',
+                  input.trim() && !disabled && !isRecording && !isTranscribing
+                    ? 'bg-gray-800 text-white hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-gray-300'
+                    : 'bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500'
+                )}
+              >
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
+
+          {/* 状态提示 */}
+          {(isRecording || isTranscribing) && (
+            <div className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
+              {isRecording && '正在录音...'}
+              {isTranscribing && '正在识别...'}
+            </div>
+          )}
         </form>
-        {isRecording && (
-          <div className="mt-2 flex items-center justify-center gap-2 text-xs text-red-500">
-            <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-            正在录音...
-          </div>
-        )}
+
+        {/* 免责声明 */}
+        <div className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
+          Sky Chat 可能会出错。请核对重要信息。
+        </div>
       </div>
     </div>
   )

@@ -17,7 +17,6 @@ export async function POST(req: Request) {
       )
     }
 
-    // 验证文件类型
     const validTypes = [
       'audio/webm',
       'audio/mp4',
@@ -32,40 +31,64 @@ export async function POST(req: Request) {
       )
     }
 
-    // 调用硅基流动语音转文本 API
-    // 根据官方文档，只需要 file 和 model 两个必填字段
+    const MAX_SIZE = 10 * 1024 * 1024
+    if (audioFile.size > MAX_SIZE) {
+      return Response.json(
+        { error: 'Audio file too large (max 10MB)' },
+        { status: 400 }
+      )
+    }
+
     const apiFormData = new FormData()
     apiFormData.append('file', audioFile)
     apiFormData.append('model', 'FunAudioLLM/SenseVoiceSmall')
 
-    const response = await fetch(
-      'https://api.siliconflow.cn/v1/audio/transcriptions',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.SILICONFLOW_API_KEY}`,
-        },
-        body: apiFormData,
-      }
-    )
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 120000)
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      return Response.json(
+    try {
+      const response = await fetch(
+        'https://api.siliconflow.cn/v1/audio/transcriptions',
         {
-          error: `Speech transcription failed: ${response.status} - ${errorText}`,
-        },
-        { status: response.status }
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.SILICONFLOW_API_KEY}`,
+          },
+          body: apiFormData,
+          signal: controller.signal,
+        }
       )
+
+      clearTimeout(timeout)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('STT API error:', errorText)
+        return Response.json(
+          {
+            error: `Speech transcription failed: ${response.status}`,
+          },
+          { status: response.status }
+        )
+      }
+
+      const data = await response.json()
+
+      return Response.json({
+        text: data.text,
+        language: data.language || 'zh',
+        duration: data.duration,
+      })
+    } catch (fetchError) {
+      clearTimeout(timeout)
+      if ((fetchError as Error).name === 'AbortError') {
+        return Response.json(
+          { error: 'Request timeout (120s)' },
+          { status: 408 }
+        )
+      }
+      throw fetchError
     }
-
-    const data = await response.json()
-
-    return Response.json({
-      text: data.text,
-      language: data.language || 'zh',
-      duration: data.duration,
-    })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     console.error('Speech API error:', errorMessage)
@@ -77,4 +100,3 @@ export async function POST(req: Request) {
     )
   }
 }
-

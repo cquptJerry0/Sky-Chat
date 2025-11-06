@@ -2,62 +2,93 @@
 
 import { cn } from '@/lib/utils'
 import { MessageContent } from '@/components/MessageContent'
-import { AudioControl } from '@/components/AudioControl'
-import { User, Bot, RotateCw } from 'lucide-react'
-import type { Message } from '@/lib/types/chat'
+import { MessageActions } from '@/components/MessageActions'
+import { Button } from '@/components/ui/button'
+
+type Message = {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  sessionId?: string
+  userMessage?: string
+}
 
 interface ChatMessageProps {
   message: Message
   isStreaming?: boolean
-  onRetry?: () => void
   hasError?: boolean
+  canResume?: boolean
+  onRetry?: () => void
+  onResume?: () => void
 }
 
 export function ChatMessage({
   message,
   isStreaming,
-  onRetry,
   hasError,
+  canResume,
+  onRetry,
+  onResume,
 }: ChatMessageProps) {
   const isUser = message.role === 'user'
 
-  return (
-    <div className={cn('w-full py-8', !isUser && 'bg-muted/30')}>
-      <div className="mx-auto max-w-3xl px-4">
-        <div className="flex gap-4">
+  // 用户消息：浅灰气泡，右对齐，无头像
+  if (isUser) {
+    return (
+      <div className="w-full py-3 px-4">
+        <div className="mx-auto max-w-3xl flex justify-end">
           <div
             className={cn(
-              'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-              isUser ? 'bg-blue-500 text-white' : 'bg-green-600 text-white'
+              'rounded-3xl bg-gray-100 dark:bg-gray-700 px-5 py-3 max-w-[70%]',
+              'text-gray-900 dark:text-gray-100'
             )}
           >
-            {isUser ? <User className="h-4 w-4" /> : <Bot className="h-5 w-5" />}
+            <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+              {message.content}
+            </div>
           </div>
+        </div>
+      </div>
+    )
+  }
 
-          <div className="flex-1 space-y-2 overflow-hidden pt-1">
-            <MessageContent
+  // AI 消息：占整行，左对齐，无头像，极简背景
+  return (
+    <div className={cn(
+      'w-full py-6 px-4',
+      'bg-white dark:bg-gray-900'
+    )}>
+      <div className="mx-auto max-w-3xl">
+        <div className="space-y-3">
+          <MessageContent
+            content={message.content}
+            isStreaming={isStreaming}
+          />
+
+          {/* AI 消息操作按钮 */}
+          {message.content && !isStreaming && (
+            <MessageActions
               content={message.content}
-              isStreaming={isStreaming && !isUser}
+              messageId={message.id}
+              sessionId={message.sessionId}
+              hasError={hasError}
+              canResume={canResume}
+              onRetry={onRetry}
+              onResume={onResume}
             />
+          )}
 
-            {!isUser && message.content && !isStreaming && (
-              <div className="flex items-center gap-2">
-                <AudioControl text={message.content} />
-              </div>
-            )}
-
-            {hasError && onRetry && (
-              <div className="mt-3">
-                <button
-                  onClick={onRetry}
-                  className="inline-flex items-center gap-2 rounded-lg bg-foreground px-4 py-2 text-sm text-background hover:bg-foreground/90 transition-colors"
-                >
-                  <RotateCw className="h-4 w-4" />
-                  重试
-                </button>
-              </div>
-            )}
-          </div>
+          {/* 错误重试按钮（独立显示，更显眼） */}
+          {hasError && onRetry && (
+            <div className="mt-3">
+              <Button
+                onClick={onRetry}
+                className="bg-gray-800 text-white hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-gray-300"
+              >
+                重试继续
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

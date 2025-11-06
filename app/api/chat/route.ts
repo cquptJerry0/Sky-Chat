@@ -1,5 +1,5 @@
-import { Observable, from, concatMap, delay } from 'rxjs'
-import { StreamManager } from '@/lib/stream-manager'
+import { Observable, from, concatMap, delay, Subscription } from 'rxjs'
+import { StreamManager } from '../utils/stream-manager'
 
 export async function POST(req: Request) {
   if (!process.env.SILICONFLOW_API_KEY) {
@@ -147,6 +147,9 @@ export async function POST(req: Request) {
     }
 
     // 步骤2: 用 RxJS 处理完整文本，从 startIndex 开始逐字发送（SSE 格式）
+    let thinkingSubscription: Subscription | null = null
+    let answerSubscription: Subscription | null = null
+    
     const stream = new ReadableStream({
       start(controller) {
         let currentIndex = startIndex
@@ -156,7 +159,7 @@ export async function POST(req: Request) {
           const thinkingChars = fullThinking.split('')
           const thinking$ = from(thinkingChars)
 
-          thinking$
+          thinkingSubscription = thinking$
             .pipe(
               concatMap((char) =>
                 new Observable((subscriber) => {
@@ -167,19 +170,27 @@ export async function POST(req: Request) {
             )
             .subscribe({
               next: (char) => {
+                try {
                 const data = JSON.stringify({
                   type: 'thinking',
                   content: char,
                   sessionId,
                 })
                 controller.enqueue(encoder.encode(`data: ${data}\n\n`))
+                } catch (error) {
+                  // Controller 已关闭，忽略错误
+                }
               },
               complete: () => {
                 // 思考完成，开始发送回答
                 sendAnswer()
               },
               error: (err) => {
+                try {
                 controller.error(err)
+                } catch {
+                  // Controller 已关闭，忽略错误
+                }
               },
             })
         } else {
@@ -190,7 +201,7 @@ export async function POST(req: Request) {
         function sendAnswer() {
           const chars$ = from(fullContent.slice(startIndex).split(''))
 
-          chars$
+          answerSubscription = chars$
             .pipe(
               concatMap((char) =>
                 new Observable((subscriber) => {
@@ -201,6 +212,7 @@ export async function POST(req: Request) {
             )
             .subscribe({
               next: (char) => {
+                try {
                 currentIndex++
                 StreamManager.updateProgress(sessionId, currentIndex)
 
@@ -211,8 +223,13 @@ export async function POST(req: Request) {
                   progress: currentIndex / fullContent.length,
                 })
                 controller.enqueue(encoder.encode(`data: ${data}\n\n`))
+                } catch (error) {
+                  // Controller 已关闭，取消订阅
+                  answerSubscription?.unsubscribe()
+                }
               },
               complete: () => {
+                try {
                 // 如果有函数调用，发送函数调用信息
                 if (toolCalls && toolCalls.length > 0) {
                   const toolData = JSON.stringify({
@@ -226,11 +243,31 @@ export async function POST(req: Request) {
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'))
                 StreamManager.cleanup(sessionId)
                 controller.close()
+                } catch {
+                  // Controller 已关闭，忽略错误
+                }
               },
               error: (err) => {
+                try {
                 controller.error(err)
+                } catch {
+                  // Controller 已关闭，忽略错误
+                }
               },
             })
+        }
+      },
+      cancel() {
+        // 客户端断开连接时，取消所有订阅
+        if (thinkingSubscription) {
+          thinkingSubscription.unsubscribe()
+        }
+        if (answerSubscription) {
+          answerSubscription.unsubscribe()
+        }
+        // 清理会话
+        if (sessionId) {
+          StreamManager.cleanup(sessionId)
         }
       },
     })
