@@ -1,5 +1,4 @@
-import { Observable, from, concatMap, delay, Subscription } from 'rxjs'
-import { StreamManager } from '../utils/stream-manager'
+import { getModelById } from '@/lib/constants/models'
 
 export async function POST(req: Request) {
   if (!process.env.SILICONFLOW_API_KEY) {
@@ -11,264 +10,159 @@ export async function POST(req: Request) {
 
   const {
     message,
-    resumeSessionId,
+    model = 'Qwen/Qwen2.5-7B-Instruct',
     enableThinking = false,
     thinkingBudget = 4096,
     tools,
   } = await req.json()
 
-  if (!message?.trim() && !resumeSessionId) {
+  if (!message?.trim()) {
     return Response.json({ error: 'Message is required' }, { status: 400 })
   }
 
-  const encoder = new TextEncoder()
-  let fullContent = ''
-  let fullThinking = ''
-  let toolCalls: unknown[] = []
-  let startIndex = 0
-  let sessionId = ''
+  const modelInfo = getModelById(model)
 
   try {
-    // 检查是否是续传请求
-    if (resumeSessionId) {
-      const session = StreamManager.get(resumeSessionId)
-      if (session) {
-        fullContent = session.fullContent
-        startIndex = session.sentLength
-        sessionId = resumeSessionId
-      }
+    // 构建请求体
+    const requestBody: Record<string, unknown> = {
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a helpful assistant. 你是一个友好的 AI 助手。',
+        },
+        {
+          role: 'user',
+          content: message,
+        },
+      ],
+      stream: true,
+      temperature: 0.7,
+      max_tokens: enableThinking || modelInfo?.isReasoningModel ? 4096 : 1024,
     }
 
-    // 如果不是续传，调用硅基流动 API
-    if (!fullContent) {
-      // 根据是否启用思考模式选择模型
-      const model = enableThinking
-        ? 'Qwen/QwQ-32B'
-        : 'Qwen/Qwen2.5-7B-Instruct'
+    // Reasoning 模型：只用 thinking_budget
+    if (modelInfo?.isReasoningModel) {
+      requestBody.thinking_budget = thinkingBudget
+    }
+    // 普通模型支持思考开关：用 enable_thinking + thinking_budget
+    else if (enableThinking && modelInfo?.supportsThinkingToggle) {
+      requestBody.enable_thinking = true
+      requestBody.thinking_budget = thinkingBudget
+    }
 
-      // 构建请求体
-      const requestBody: Record<string, unknown> = {
-        model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful assistant. 你是一个友好的 AI 助手。',
-          },
-          {
-            role: 'user',
-            content: message,
-          },
-        ],
-        stream: true,
-        temperature: 0.7,
-        max_tokens: enableThinking ? 4096 : 1024,
+    // 如果提供了 tools，添加到请求中
+    if (tools && Array.isArray(tools) && tools.length > 0) {
+      requestBody.tools = tools
+    }
+
+    const siliconResponse = await fetch(
+      'https://api.siliconflow.cn/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.SILICONFLOW_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
       }
+    )
 
-      // 如果启用思考模式，添加思考相关参数
-      if (enableThinking) {
-        requestBody.thinking_budget = thinkingBudget
-      }
-
-      // 如果提供了 tools，添加到请求中
-      if (tools && Array.isArray(tools) && tools.length > 0) {
-        requestBody.tools = tools
-      }
-
-      const siliconResponse = await fetch(
-        'https://api.siliconflow.cn/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${process.env.SILICONFLOW_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        }
+    if (!siliconResponse.ok) {
+      const errorText = await siliconResponse.text()
+      throw new Error(
+        `SiliconFlow API error: ${siliconResponse.status} - ${errorText}`
       )
+    }
 
-      if (!siliconResponse.ok) {
-        const errorText = await siliconResponse.text()
-        throw new Error(
-          `SiliconFlow API error: ${siliconResponse.status} - ${errorText}`
-        )
-      }
+    const reader = siliconResponse.body?.getReader()
+    if (!reader) {
+      throw new Error('No stream available')
+    }
 
-      const reader = siliconResponse.body?.getReader()
-      if (!reader) {
-        throw new Error('No stream available')
-      }
+    const sessionId = Date.now().toString()
+    const decoder = new TextDecoder()
+    const encoder = new TextEncoder()
 
-      const decoder = new TextDecoder()
+    // 实时转发流
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          let buffer = ''
 
-      // 步骤1: 读取硅基流动的流式响应，收集完整内容
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) {
+              // 发送完成消息
+              const completeData = JSON.stringify({
+                type: 'complete',
+                sessionId,
+              })
+              controller.enqueue(encoder.encode(`data: ${completeData}\n\n`))
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+              controller.close()
+              break
+            }
 
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n').filter((line) => line.trim())
+            const chunk = decoder.decode(value, { stream: true })
+            buffer += chunk
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim()
-            if (data === '[DONE]') continue
+            // 按行分割，但保留最后一行（可能不完整）
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
 
-            try {
-              const parsed = JSON.parse(data)
-              const delta = parsed.choices?.[0]?.delta
-              const message = parsed.choices?.[0]?.message
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6).trim()
+                if (data === '[DONE]') {
+                  continue
+                }
 
-              // 处理常规内容
-              const content = delta?.content || ''
-              if (content) {
-                fullContent += content
+                try {
+                  const parsed = JSON.parse(data)
+                  const delta = parsed.choices?.[0]?.delta
+
+                  // 处理 reasoning_content (thinking)
+                  if (delta?.reasoning_content) {
+                    const thinkingData = JSON.stringify({
+                      type: 'thinking',
+                      content: delta.reasoning_content,
+                      sessionId,
+                    })
+                    controller.enqueue(encoder.encode(`data: ${thinkingData}\n\n`))
+                  }
+
+                  // 处理 content (answer)
+                  if (delta?.content) {
+                    const answerData = JSON.stringify({
+                      type: 'answer',
+                      content: delta.content,
+                      sessionId,
+                    })
+                    controller.enqueue(encoder.encode(`data: ${answerData}\n\n`))
+                  }
+
+                  // 处理 tool_calls
+                  if (delta?.tool_calls) {
+                    const toolData = JSON.stringify({
+                      type: 'tool_calls',
+                      tool_calls: delta.tool_calls,
+                      sessionId,
+                    })
+                    controller.enqueue(encoder.encode(`data: ${toolData}\n\n`))
+                  }
+                } catch {
+                  // 忽略解析错误
+                }
               }
-
-              // 处理思考内容（reasoning_content）
-              const reasoningContent = delta?.reasoning_content || ''
-              if (reasoningContent) {
-                fullThinking += reasoningContent
-              }
-
-              // 处理函数调用
-              if (delta?.tool_calls || message?.tool_calls) {
-                const calls = delta?.tool_calls || message?.tool_calls
-                toolCalls = calls
-              }
-            } catch {
-              // 忽略解析错误的行
             }
           }
-        }
-      }
-
-      // 创建新会话
-      sessionId = StreamManager.create(Date.now().toString(), fullContent)
-    }
-
-    // 步骤2: 用 RxJS 处理完整文本，从 startIndex 开始逐字发送（SSE 格式）
-    let thinkingSubscription: Subscription | null = null
-    let answerSubscription: Subscription | null = null
-    
-    const stream = new ReadableStream({
-      start(controller) {
-        let currentIndex = startIndex
-
-        // 如果有思考内容，先发送思考内容
-        if (fullThinking && enableThinking) {
-          const thinkingChars = fullThinking.split('')
-          const thinking$ = from(thinkingChars)
-
-          thinkingSubscription = thinking$
-            .pipe(
-              concatMap((char) =>
-                new Observable((subscriber) => {
-                  subscriber.next(char)
-                  subscriber.complete()
-                }).pipe(delay(10))
-              )
-            )
-            .subscribe({
-              next: (char) => {
-                try {
-                const data = JSON.stringify({
-                  type: 'thinking',
-                  content: char,
-                  sessionId,
-                })
-                controller.enqueue(encoder.encode(`data: ${data}\n\n`))
-                } catch (error) {
-                  // Controller 已关闭，忽略错误
-                }
-              },
-              complete: () => {
-                // 思考完成，开始发送回答
-                sendAnswer()
-              },
-              error: (err) => {
-                try {
-                controller.error(err)
-                } catch {
-                  // Controller 已关闭，忽略错误
-                }
-              },
-            })
-        } else {
-          // 没有思考内容，直接发送回答
-          sendAnswer()
-        }
-
-        function sendAnswer() {
-          const chars$ = from(fullContent.slice(startIndex).split(''))
-
-          answerSubscription = chars$
-            .pipe(
-              concatMap((char) =>
-                new Observable((subscriber) => {
-                  subscriber.next(char)
-                  subscriber.complete()
-                }).pipe(delay(20))
-              )
-            )
-            .subscribe({
-              next: (char) => {
-                try {
-                currentIndex++
-                StreamManager.updateProgress(sessionId, currentIndex)
-
-                const data = JSON.stringify({
-                  type: 'answer',
-                  content: char,
-                  sessionId,
-                  progress: currentIndex / fullContent.length,
-                })
-                controller.enqueue(encoder.encode(`data: ${data}\n\n`))
-                } catch (error) {
-                  // Controller 已关闭，取消订阅
-                  answerSubscription?.unsubscribe()
-                }
-              },
-              complete: () => {
-                try {
-                // 如果有函数调用，发送函数调用信息
-                if (toolCalls && toolCalls.length > 0) {
-                  const toolData = JSON.stringify({
-                    type: 'tool_calls',
-                    tool_calls: toolCalls,
-                    sessionId,
-                  })
-                  controller.enqueue(encoder.encode(`data: ${toolData}\n\n`))
-                }
-
-                controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-                StreamManager.cleanup(sessionId)
-                controller.close()
-                } catch {
-                  // Controller 已关闭，忽略错误
-                }
-              },
-              error: (err) => {
-                try {
-                controller.error(err)
-                } catch {
-                  // Controller 已关闭，忽略错误
-                }
-              },
-            })
+        } catch (error) {
+          controller.error(error)
         }
       },
       cancel() {
-        // 客户端断开连接时，取消所有订阅
-        if (thinkingSubscription) {
-          thinkingSubscription.unsubscribe()
-        }
-        if (answerSubscription) {
-          answerSubscription.unsubscribe()
-        }
-        // 清理会话
-        if (sessionId) {
-          StreamManager.cleanup(sessionId)
-        }
+        reader.cancel()
       },
     })
 

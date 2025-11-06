@@ -23,8 +23,9 @@ export type MessageRole = 'user' | 'assistant' | 'system'
  * - thinking: AI 思考过程（用于 CoT 模型）
  * - answer: AI 回答内容
  * - tool_calls: 工具调用请求
+ * - complete: 流式传输完成
  */
-export type SSEEventType = 'thinking' | 'answer' | 'tool_calls'
+export type SSEEventType = 'thinking' | 'answer' | 'tool_calls' | 'complete'
 
 /**
  * 工具调用结构
@@ -105,6 +106,8 @@ export interface Message {
  * @description 控制聊天行为的配置选项
  */
 export interface ChatConfig {
+  /** 模型 ID */
+  model?: string
   /** 是否启用思考模式（使用 CoT 模型） */
   enableThinking?: boolean
   /** 思考过程的 token 预算 */
@@ -134,6 +137,32 @@ export interface SSEData {
   sessionId?: string
   /** 传输进度（0-1） */
   progress?: number
+}
+
+/**
+ * Message 类型补充字段
+ */
+export interface Message {
+  /** 消息唯一标识 */
+  id: string
+  /** 消息角色 */
+  role: MessageRole
+  /** 消息文本内容 */
+  content: string
+  /** 思考过程（仅 AI 消息，需启用思考模式） */
+  thinking?: string
+  /** 工具调用列表 */
+  toolCalls?: ToolCall[]
+  /** 是否出现错误 */
+  hasError?: boolean
+  /** 会话 ID（用于断点续传） */
+  sessionId?: string
+  /** 用户消息（用于继续生成） */
+  userMessage?: string
+  /** 是否正在流式传输中 */
+  isStreaming?: boolean
+  /** 时间戳 */
+  timestamp?: number
 }
 
 /**

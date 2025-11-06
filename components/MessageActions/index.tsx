@@ -11,9 +11,18 @@
  */
 
 import * as React from 'react'
-import { Copy, Volume2, RotateCw, PlayCircle } from 'lucide-react'
+import { Copy, Volume2, RotateCw, Check, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { VOICE_OPTIONS } from '@/lib/constants/voices'
 import { cn } from '@/lib/utils'
 import { useAudioPlayer } from '@/lib/hooks/use-audio-player'
 import { useToast } from '@/hooks/use-toast'
@@ -43,9 +52,11 @@ export function MessageActions({
   onRetry,
   className,
 }: MessageActionsProps) {
-  const { playText, isGenerating } = useAudioPlayer()
+  const { playText, isGenerating, selectedVoice, setSelectedVoice } = useAudioPlayer()
   const { toast } = useToast()
   const copyingRef = React.useRef(false)
+  
+  const currentVoice = VOICE_OPTIONS.find(v => v.id === selectedVoice) || VOICE_OPTIONS[0]
 
   // 复制到剪贴板（防抖）
   const handleCopy = React.useCallback(async () => {
@@ -109,24 +120,88 @@ export function MessageActions({
           </TooltipContent>
         </Tooltip>
 
-        {/* 朗读按钮 */}
+        {/* 朗读按钮组（朗读 + 语音选择） */}
         {content && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handlePlay}
-                disabled={isGenerating}
-                className="h-7 w-7 hover:bg-gray-100 dark:hover:bg-gray-800"
+          <div className="flex items-center gap-0.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handlePlay}
+                  disabled={isGenerating}
+                  className="h-7 w-7 hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  <Volume2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900">
+                <p>朗读</p>
+              </TooltipContent>
+            </Tooltip>
+
+            {/* 语音选择 */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  {currentVoice.label}
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent 
+                className="w-48 bg-white dark:bg-gray-900"
+                align="start"
               >
-                <Volume2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900">
-              <p>朗读</p>
-            </TooltipContent>
-          </Tooltip>
+                {/* 女声 */}
+                <DropdownMenuLabel className="text-gray-900 dark:text-gray-100">
+                  女声
+                </DropdownMenuLabel>
+                {VOICE_OPTIONS.filter(v => v.gender === 'female').map((voice) => (
+                  <DropdownMenuItem
+                    key={voice.id}
+                    onClick={() => setSelectedVoice(voice.id)}
+                    className={cn(
+                      'flex items-center justify-between cursor-pointer',
+                      'hover:bg-gray-100 dark:hover:bg-gray-800',
+                      voice.id === selectedVoice && 'bg-gray-100 dark:bg-gray-800'
+                    )}
+                  >
+                    <span className="text-sm text-gray-900 dark:text-gray-100">
+                      {voice.label}
+                    </span>
+                    {voice.id === selectedVoice && <Check className="h-4 w-4 text-green-600" />}
+                  </DropdownMenuItem>
+                ))}
+
+                <DropdownMenuSeparator />
+
+                {/* 男声 */}
+                <DropdownMenuLabel className="text-gray-900 dark:text-gray-100">
+                  男声
+                </DropdownMenuLabel>
+                {VOICE_OPTIONS.filter(v => v.gender === 'male').map((voice) => (
+                  <DropdownMenuItem
+                    key={voice.id}
+                    onClick={() => setSelectedVoice(voice.id)}
+                    className={cn(
+                      'flex items-center justify-between cursor-pointer',
+                      'hover:bg-gray-100 dark:hover:bg-gray-800',
+                      voice.id === selectedVoice && 'bg-gray-100 dark:bg-gray-800'
+                    )}
+                  >
+                    <span className="text-sm text-gray-900 dark:text-gray-100">
+                      {voice.label}
+                    </span>
+                    {voice.id === selectedVoice && <Check className="h-4 w-4 text-green-600" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )}
 
         {/* 重试按钮 */}

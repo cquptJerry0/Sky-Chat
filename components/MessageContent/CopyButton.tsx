@@ -39,17 +39,17 @@ export function CopyButton({ text }: CopyButtonProps) {
       variant="ghost"
       size="sm"
       onClick={handleCopy}
-      className="h-6 px-2 opacity-0 transition-opacity group-hover:opacity-100"
+      className="h-7 px-2.5 text-xs hover:bg-background/60"
     >
       {copied ? (
         <>
-          <Check className="h-3 w-3 mr-1" />
-          已复制
+          <Check className="h-3.5 w-3.5 mr-1.5" />
+          <span>已复制</span>
         </>
       ) : (
         <>
-          <Copy className="h-3 w-3 mr-1" />
-          复制
+          <Copy className="h-3.5 w-3.5 mr-1.5" />
+          <span>复制</span>
         </>
       )}
     </Button>

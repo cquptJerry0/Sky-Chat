@@ -42,7 +42,7 @@ export function Sidebar({ isLeader, onNewChat, className }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex h-screen w-64 flex-col bg-gray-50 dark:bg-gray-900',
+        'flex h-screen w-64 flex-col bg-[hsl(var(--sidebar-bg))] dark:bg-[hsl(var(--sidebar-bg))]',
         className
       )}
     >
@@ -58,8 +58,8 @@ export function Sidebar({ isLeader, onNewChat, className }: SidebarProps) {
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
-              variant="outline"
-              className="w-full justify-start gap-3 bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700"
+              variant="ghost"
+              className="w-full justify-start gap-3 hover:bg-[hsl(var(--sidebar-hover))] dark:hover:bg-[hsl(var(--sidebar-hover))]"
             >
               <PenSquare className="h-4 w-4" />
               <span>新建对话</span>

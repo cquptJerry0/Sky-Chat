@@ -2,71 +2,132 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  
+  /* 隐藏滚动条但保持滚动功能 */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
 
 @layer base {
   :root {
-    /* ChatGPT 极简灰色主题 */
-    --background: 0 0% 100%;
-    --foreground: 0 0% 10%;
+    /* ChatGPT 精确配色方案 */
+    --background: 0 0% 100%;              /* #FFFFFF - 主背景 */
+    --foreground: 0 0% 5%;                /* #0D0D0D - 主文字 */
+    
+    /* Sidebar 配色 */
+    --sidebar-bg: 0 0% 98.5%;             /* #FBFBFB - 侧边栏背景（更白） */
+    --sidebar-hover: 0 0% 95%;            /* #F2F2F2 - 侧边栏悬停 */
+    --sidebar-active: 0 0% 92%;           /* #EBEBEB - 侧边栏激活 */
+    
+    /* Input 配色 */
+    --input-bg: 0 0% 96%;                 /* #F4F4F4 - 输入框背景 */
+    --input-hover: 0 0% 94%;              /* #EFEFEF - 输入框悬停 */
+    --input-border: 0 0% 88%;             /* #E0E0E0 - 输入框边框（仅focus） */
+    
+    /* 消息配色 */
+    --message-user-bg: 0 0% 97.5%;        /* #F9F9F9 - 用户消息背景（更白） */
+    --message-ai-bg: 0 0% 100%;           /* #FFFFFF - AI消息背景（透明） */
+    
+    /* 文字配色 */
+    --text-primary: 0 0% 5%;              /* #0D0D0D - 主要文字 */
+    --text-secondary: 0 0% 40%;           /* #666666 - 次要文字 */
+    --text-tertiary: 0 0% 60%;            /* #999999 - 三级文字 */
+    
+    /* 按钮配色 */
+    --button-primary-bg: 0 0% 7%;         /* #121212 - 主按钮背景 */
+    --button-primary-hover: 0 0% 10%;     /* #1A1A1A - 主按钮悬停 */
+    --button-secondary-bg: 0 0% 96%;      /* #F4F4F4 - 次按钮背景 */
+    --button-secondary-hover: 0 0% 93%;   /* #ECECEC - 次按钮悬停 */
+    
+    /* 状态配色 */
+    --accent-thinking: 160 60% 45%;       /* #2D9D78 - 深青绿色（思考模式） */
+    --accent-thinking-bg: 160 45% 96%;    /* #F0F9F6 - 思考背景 */
+    --accent-thinking-border: 160 30% 85%; /* #D4E8E1 - 思考边框 */
+    --accent-green: 142 71% 45%;          /* #10B981 - 绿色（成功） */
+    --accent-red: 0 84% 60%;              /* #EF4444 - 红色（错误） */
+    
+    /* 其他 */
+    --border: 0 0% 93%;                   /* #ECECEC - 边框（少用） */
+    --ring: 217 91% 60%;                  /* #3B82F6 - 聚焦环 */
+    --radius: 0.75rem;                    /* 12px - 圆角 */
+    
+    /* 兼容旧变量 */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
+    --card-foreground: 0 0% 5%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
-    --primary: 0 0% 20%;
+    --popover-foreground: 0 0% 5%;
+    --primary: 0 0% 7%;
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 10%;
-    --muted: 0 0% 97%;
-    --muted-foreground: 0 0% 50%;
+    --secondary-foreground: 0 0% 5%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 40%;
     --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 10%;
+    --accent-foreground: 0 0% 5%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 93%;
-    --input: 0 0% 93%;
-    --ring: 0 0% 85%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.75rem;
+    --input: 0 0% 96%;
   }
+  
   .dark {
-    /* ChatGPT 深色主题 */
-    --background: 0 0% 10%;
-    --foreground: 0 0% 95%;
-    --card: 0 0% 10%;
+    /* ChatGPT 深色主题配色 */
+    --background: 0 0% 7%;                /* #121212 - 主背景 */
+    --foreground: 0 0% 95%;               /* #F2F2F2 - 主文字 */
+    
+    --sidebar-bg: 0 0% 10%;               /* #1A1A1A - 侧边栏背景 */
+    --sidebar-hover: 0 0% 15%;            /* #262626 - 侧边栏悬停 */
+    --sidebar-active: 0 0% 18%;           /* #2E2E2E - 侧边栏激活 */
+    
+    --input-bg: 0 0% 15%;                 /* #262626 - 输入框背景 */
+    --input-hover: 0 0% 18%;              /* #2E2E2E - 输入框悬停 */
+    --input-border: 0 0% 25%;             /* #404040 - 输入框边框 */
+    
+    --message-user-bg: 0 0% 15%;          /* #262626 - 用户消息背景 */
+    --message-ai-bg: 0 0% 7%;             /* #121212 - AI消息背景 */
+    
+    --text-primary: 0 0% 95%;             /* #F2F2F2 - 主要文字 */
+    --text-secondary: 0 0% 70%;           /* #B3B3B3 - 次要文字 */
+    --text-tertiary: 0 0% 50%;            /* #808080 - 三级文字 */
+    
+    --button-primary-bg: 0 0% 95%;        /* #F2F2F2 - 主按钮背景 */
+    --button-primary-hover: 0 0% 88%;     /* #E0E0E0 - 主按钮悬停 */
+    --button-secondary-bg: 0 0% 15%;      /* #262626 - 次按钮背景 */
+    --button-secondary-hover: 0 0% 18%;   /* #2E2E2E - 次按钮悬停 */
+    
+    --accent-blue: 217 91% 60%;           /* #3B82F6 - 蓝色强调 */
+    --accent-green: 142 71% 45%;          /* #10B981 - 绿色 */
+    --accent-red: 0 84% 60%;              /* #EF4444 - 红色 */
+    
+    --border: 0 0% 18%;
+    --ring: 217 91% 60%;
+    --radius: 0.75rem;
+    
+    /* 兼容旧变量 */
+    --card: 0 0% 7%;
     --card-foreground: 0 0% 95%;
-    --popover: 0 0% 10%;
+    --popover: 0 0% 7%;
     --popover-foreground: 0 0% 95%;
-    --primary: 0 0% 90%;
-    --primary-foreground: 0 0% 10%;
+    --primary: 0 0% 95%;
+    --primary-foreground: 0 0% 7%;
     --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 95%;
     --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 60%;
+    --muted-foreground: 0 0% 70%;
     --accent: 0 0% 15%;
     --accent-foreground: 0 0% 95%;
-    --destructive: 0 63% 40%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 95%;
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
-    --ring: 0 0% 25%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --input: 0 0% 15%;
   }
 }
 
@@ -111,4 +172,83 @@ body {
 
 .animate-blink {
   animation: cursor-blink 1s step-end infinite;
+}
+
+/* Prose 样式优化 */
+.prose-container {
+  @apply text-gray-900 dark:text-gray-100;
+}
+
+.prose-container .prose {
+  @apply text-[15px] leading-relaxed;
+  color: hsl(var(--text-primary));
+}
+
+.prose-container .prose p {
+  @apply my-2;
+}
+
+.prose-container .prose ul,
+.prose-container .prose ol {
+  @apply my-2;
+}
+
+.prose-container .prose li {
+  @apply my-1;
+}
+
+.prose-container .prose pre {
+  @apply my-3 rounded-lg px-0 py-0;
+  background: hsl(var(--background));
+  border: none;
+}
+
+.prose-container .prose pre code {
+  @apply text-sm;
+  color: #1F1F1F;
+  font-weight: 400;
+  background: hsl(var(--background));
+}
+
+/* 确保prose中的pre不会被覆盖 */
+.prose pre {
+  @apply border-none rounded-none p-0 m-0;
+  background: hsl(var(--background));
+}
+
+.prose-container .prose :not(pre) > code {
+  @apply text-sm px-1.5 py-0.5 rounded;
+  background: hsl(var(--background));
+  color: #D63384;
+  border: none;
+}
+
+.prose-container .prose h1,
+.prose-container .prose h2,
+.prose-container .prose h3,
+.prose-container .prose h4,
+.prose-container .prose h5,
+.prose-container .prose h6 {
+  @apply font-semibold text-gray-900 dark:text-gray-100;
+}
+
+.prose-container .prose blockquote {
+  @apply border-l-4 border-gray-300 dark:border-gray-600 pl-4 italic;
+}
+
+.prose-container .prose a {
+  @apply text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300;
+}
+
+.prose-container .prose table {
+  @apply w-full border-collapse;
+}
+
+.prose-container .prose th,
+.prose-container .prose td {
+  @apply border border-gray-300 dark:border-gray-600 px-4 py-2;
+}
+
+.prose-container .prose th {
+  @apply bg-gray-100 dark:bg-gray-800 font-semibold;
 }

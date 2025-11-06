@@ -50,6 +50,9 @@ export class ChatAPI {
     // 构建请求体
     const body: Record<string, unknown> = { message }
 
+    // 模型配置
+    if (config?.model) body.model = config.model
+    
     // 断点续传：传入 sessionId 继续生成
     if (resumeSessionId) body.resumeSessionId = resumeSessionId
     
