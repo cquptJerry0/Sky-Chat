@@ -13,7 +13,6 @@
  */
 
 import { create } from 'zustand'
-import { devtools, persist } from 'zustand/middleware'
 import type { Message } from '@/lib/types/chat'
 import { getDefaultModel } from '@/lib/constants/models'
 

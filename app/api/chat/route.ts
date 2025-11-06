@@ -1,15 +1,32 @@
 import { getModelById } from '@/lib/constants/models'
+import { getCurrentUserId } from '@/server/auth/utils'
+import { ConversationRepository } from '@/server/repositories/conversation.repository'
+import { MessageRepository } from '@/server/repositories/message.repository'
+import { UserRepository } from '@/server/repositories/user.repository'
 
 export async function POST(req: Request) {
-  if (!process.env.SILICONFLOW_API_KEY) {
+  let userId: string
+  try {
+    userId = await getCurrentUserId()
+  } catch {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const user = await UserRepository.findById(userId)
+  if (!user) {
+    return Response.json({ error: 'User not found' }, { status: 404 })
+  }
+
+  if (!user.apiKey) {
     return Response.json(
-      { error: 'SILICONFLOW_API_KEY not configured' },
-      { status: 500 }
+      { error: 'API Key not configured. Please set your SiliconFlow API Key in your profile.' },
+      { status: 400 }
     )
   }
 
   const {
     message,
+    conversationId,
     model = 'Qwen/Qwen2.5-7B-Instruct',
     enableThinking = false,
     thinkingBudget = 4096,
@@ -23,6 +40,25 @@ export async function POST(req: Request) {
   const modelInfo = getModelById(model)
 
   try {
+    let conversation
+    if (conversationId) {
+      conversation = await ConversationRepository.findById(conversationId, userId)
+      if (!conversation) {
+        return Response.json(
+          { error: 'Conversation not found' },
+          { status: 404 }
+        )
+      }
+    } else {
+      conversation = await ConversationRepository.create(userId)
+    }
+
+    await MessageRepository.create({
+      conversationId: conversation.id,
+      role: 'user',
+      content: message,
+    })
+
     // 构建请求体
     const requestBody: Record<string, unknown> = {
       model,
@@ -61,7 +97,7 @@ export async function POST(req: Request) {
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${process.env.SILICONFLOW_API_KEY}`,
+          Authorization: `Bearer ${user.apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
@@ -89,11 +125,23 @@ export async function POST(req: Request) {
       async start(controller) {
         try {
           let buffer = ''
+          let thinkingContent = ''
+          let answerContent = ''
+          let toolCallsData = null
 
           while (true) {
             const { done, value } = await reader.read()
             if (done) {
-              // 发送完成消息
+              await MessageRepository.create({
+                conversationId: conversation.id,
+                role: 'assistant',
+                content: answerContent,
+                thinking: thinkingContent || undefined,
+                toolCalls: toolCallsData || undefined,
+              })
+
+              await ConversationRepository.touch(conversation.id)
+
               const completeData = JSON.stringify({
                 type: 'complete',
                 sessionId,
@@ -124,6 +172,7 @@ export async function POST(req: Request) {
 
                   // 处理 reasoning_content (thinking)
                   if (delta?.reasoning_content) {
+                    thinkingContent += delta.reasoning_content
                     const thinkingData = JSON.stringify({
                       type: 'thinking',
                       content: delta.reasoning_content,
@@ -134,6 +183,7 @@ export async function POST(req: Request) {
 
                   // 处理 content (answer)
                   if (delta?.content) {
+                    answerContent += delta.content
                     const answerData = JSON.stringify({
                       type: 'answer',
                       content: delta.content,
@@ -144,6 +194,7 @@ export async function POST(req: Request) {
 
                   // 处理 tool_calls
                   if (delta?.tool_calls) {
+                    toolCallsData = delta.tool_calls
                     const toolData = JSON.stringify({
                       type: 'tool_calls',
                       tool_calls: delta.tool_calls,
@@ -172,6 +223,7 @@ export async function POST(req: Request) {
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
         'X-Session-ID': sessionId,
+        'X-Conversation-ID': conversation.id,
       },
     })
   } catch (error) {
