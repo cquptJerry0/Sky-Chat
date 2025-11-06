@@ -88,14 +88,17 @@ export function useChatInput() {
       abortControllerRef.current = new AbortController()
       
       try {
+        // 获取当前会话ID
+        const currentConversationId = useChatStore.getState().currentConversationId
+        
         // 构建请求体
-        const chatConfig: ChatConfig = {
+        const requestBody = {
+          message,
+          conversationId: currentConversationId,
           model: selectedModel,
           enableThinking,
           thinkingBudget: 4096,
         }
-        
-        const requestBody = PayloadBuilder.buildChatPayload(message, chatConfig)
         
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -106,6 +109,15 @@ export function useChatInput() {
         
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`)
+        }
+        
+        // 从响应header获取conversationId
+        const conversationId = response.headers.get('X-Conversation-ID')
+        if (conversationId && !currentConversationId) {
+          // 如果是新创建的会话，保存到store
+          useChatStore.getState().setConversationId(conversationId)
+          // 重新加载会话列表
+          useChatStore.getState().loadConversations()
         }
         
         const reader = response.body?.getReader()

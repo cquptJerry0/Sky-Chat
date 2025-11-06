@@ -20,6 +20,8 @@ import { Sidebar } from '@/components/Sidebar'
 import { Header } from '@/components/Header'
 import { ChatMessage } from '@/modules/chat-message'
 import { ChatInput } from '@/modules/chat-input'
+import { ConversationList } from '@/modules/conversation-list'
+import { NewChatButton } from '@/modules/new-chat-button'
 
 /**
  * 主页面组件
@@ -33,9 +35,6 @@ export default function Home() {
   
   // 获取流式传输状态
   const streamingMessageId = useChatStore((s) => s.streamingMessageId)
-  
-  // 获取 reset 方法用于新建对话
-  const resetChat = useChatStore((s) => s.reset)
   
   // 消息容器引用
   const messagesContainerRef = React.useRef<HTMLDivElement>(null)
@@ -66,10 +65,15 @@ export default function Home() {
   return (
     <div className="flex h-screen bg-background">
       {/* 左侧边栏 */}
-      <Sidebar 
-        isLeader={true} 
-        onNewChat={resetChat} 
-      />
+      <Sidebar isLeader={true}>
+        <div className="space-y-2">
+          {/* 新建对话按钮模块 */}
+          <NewChatButton />
+          
+          {/* 会话列表模块 */}
+          <ConversationList />
+        </div>
+      </Sidebar>
       
       {/* 主聊天区域 */}
       <div className="flex flex-1 flex-col h-screen">

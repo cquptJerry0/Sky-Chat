@@ -1,44 +1,33 @@
 'use client'
 
 /**
- * ChatGPT 风格侧边栏组件
+ * Sidebar Layout Component - 侧边栏布局组件
  * 
- * 提供左侧导航栏，包括：
- * - Logo 和品牌名
- * - 新建对话按钮
- * - 历史对话列表（暂未实现）
- * - 主题切换器
+ * 只负责布局和容器，不包含业务逻辑
+ * 会话列表等功能模块通过children注入
+ * 
+ * 布局结构：
+ * - 顶部：Logo和品牌
+ * - 中间：children（会话列表等模块）
+ * - 底部：设置和状态
  */
 
 import * as React from 'react'
-import { PenSquare, MessageSquare } from 'lucide-react'
+import { MessageSquare } from 'lucide-react'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 
 interface SidebarProps {
+  /** 子组件（如会话列表模块） */
+  children?: React.ReactNode
   /** 是否为主标签页 */
   isLeader?: boolean
-  /** 新建对话回调 */
-  onNewChat?: () => void
   /** 额外的 CSS 类名 */
   className?: string
 }
 
-export function Sidebar({ isLeader, onNewChat, className }: SidebarProps) {
+export function Sidebar({ children, isLeader, className }: SidebarProps) {
   return (
     <aside
       className={cn(
@@ -46,56 +35,17 @@ export function Sidebar({ isLeader, onNewChat, className }: SidebarProps) {
         className
       )}
     >
-      {/* 顶部：Logo 和新建按钮 */}
+      {/* 顶部：Logo */}
       <div className="flex flex-col gap-2 p-3">
-        {/* Logo */}
         <div className="flex items-center gap-2 px-3 py-2">
           <MessageSquare className="h-5 w-5" />
           <span className="font-semibold text-lg">Sky Chat</span>
         </div>
-
-        {/* 新建对话按钮（带确认） */}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 hover:bg-[hsl(var(--sidebar-hover))] dark:hover:bg-[hsl(var(--sidebar-hover))]"
-            >
-              <PenSquare className="h-4 w-4" />
-              <span>新建对话</span>
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-gray-900 dark:text-gray-100">
-                开始新对话？
-              </AlertDialogTitle>
-              <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
-                当前对话将被清空，此操作无法撤销。
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700">
-                取消
-              </AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={onNewChat}
-                className="bg-gray-800 text-white hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-gray-300"
-              >
-                确定
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
 
-      {/* 中间：历史对话列表（占据剩余空间） */}
+      {/* 中间：动态内容（会话列表等模块） */}
       <div className="flex-1 overflow-y-auto px-3">
-        <div className="py-2">
-          <p className="text-xs text-muted-foreground px-3 py-2">
-            历史记录功能即将推出...
-          </p>
-        </div>
+        {children}
       </div>
 
       {/* 底部：状态和设置 */}

@@ -78,12 +78,12 @@ export function ThinkingPanel({
         }`}
       >
         <div className={`px-4 py-3 overflow-y-auto ${isExpanded ? 'max-h-[500px]' : 'h-0'}`}>
-          {isExpanded && (
-            <MessageContent
-              content={content}
-              isStreaming={isStreaming}
-              showCursor={false}
-            />
+      {isExpanded && (
+          <MessageContent
+            content={content}
+            isStreaming={isStreaming}
+            showCursor={false}
+          />
           )}
         </div>
       </div>

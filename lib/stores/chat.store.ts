@@ -15,6 +15,7 @@
 import { create } from 'zustand'
 import type { Message } from '@/lib/types/chat'
 import { getDefaultModel } from '@/lib/constants/models'
+import { ConversationAPI, type Conversation } from '@/lib/services/conversation-api'
 
 /**
  * 流式传输阶段指示器
@@ -40,6 +41,16 @@ interface ChatState {
   
   /** 是否启用思考模式（支持的模型） */
   enableThinking: boolean
+  
+  // ============ 会话管理 ============
+  /** 当前会话 ID */
+  currentConversationId: string | null
+  
+  /** 会话列表 */
+  conversations: Conversation[]
+  
+  /** 会话列表加载状态 */
+  conversationsLoading: boolean
   
   // ============ 流式传输状态 ============
   /** 当前正在流式传输的消息 ID */
@@ -96,6 +107,47 @@ interface ChatState {
    */
   setLoading: (loading: boolean) => void
   
+  // ============ 会话管理操作 ============
+  /**
+   * 设置当前会话ID
+   */
+  setConversationId: (id: string | null) => void
+  
+  /**
+   * 加载会话列表
+   */
+  loadConversations: () => Promise<void>
+  
+  /**
+   * 创建新会话并切换
+   */
+  createNewConversation: () => Promise<void>
+  
+  /**
+   * 切换到指定会话（加载消息）
+   */
+  switchConversation: (id: string) => Promise<void>
+  
+  /**
+   * 删除会话
+   */
+  deleteConversation: (id: string) => Promise<void>
+  
+  /**
+   * 更新会话标题
+   */
+  updateConversationTitle: (id: string, title: string) => Promise<void>
+  
+  /**
+   * 清空当前消息列表
+   */
+  clearMessages: () => void
+  
+  /**
+   * 批量设置消息
+   */
+  setMessages: (messages: Message[]) => void
+  
   // ============ 工具方法 ============
   /**
    * 重置到初始状态（新对话）
@@ -111,6 +163,9 @@ const initialState = {
   isLoading: false,
   selectedModel: getDefaultModel().id,
   enableThinking: false,
+  currentConversationId: null,
+  conversations: [],
+  conversationsLoading: false,
   streamingMessageId: null,
   streamingPhase: null as StreamingPhase,
 }
@@ -180,6 +235,82 @@ export const useChatStore = create<ChatState>()((set) => ({
   
   setLoading: (loading) =>
     set({ isLoading: loading }),
+  
+  // ============ Conversation Actions ============
+  setConversationId: (id) =>
+    set({ currentConversationId: id }),
+  
+  loadConversations: async () => {
+    set({ conversationsLoading: true })
+    try {
+      const { conversations } = await ConversationAPI.list()
+      set({ conversations, conversationsLoading: false })
+    } catch (error) {
+      console.error('Failed to load conversations:', error)
+      set({ conversationsLoading: false })
+    }
+  },
+  
+  createNewConversation: async () => {
+    try {
+      const { conversation } = await ConversationAPI.create()
+      set((state) => ({
+        conversations: [conversation, ...state.conversations],
+        currentConversationId: conversation.id,
+        messages: [],
+      }))
+    } catch (error) {
+      console.error('Failed to create conversation:', error)
+    }
+  },
+  
+  switchConversation: async (id) => {
+    set({ isLoading: true, messages: [] })
+    try {
+      const { messages } = await ConversationAPI.getMessages(id)
+      set({
+        currentConversationId: id,
+        messages: messages as Message[],
+        isLoading: false,
+      })
+    } catch (error) {
+      console.error('Failed to switch conversation:', error)
+      set({ isLoading: false })
+    }
+  },
+  
+  deleteConversation: async (id) => {
+    try {
+      await ConversationAPI.delete(id)
+      set((state) => ({
+        conversations: state.conversations.filter((c) => c.id !== id),
+        // 如果删除的是当前会话，清空
+        currentConversationId: state.currentConversationId === id ? null : state.currentConversationId,
+        messages: state.currentConversationId === id ? [] : state.messages,
+      }))
+    } catch (error) {
+      console.error('Failed to delete conversation:', error)
+    }
+  },
+  
+  updateConversationTitle: async (id, title) => {
+    try {
+      await ConversationAPI.updateTitle(id, title)
+      set((state) => ({
+        conversations: state.conversations.map((c) =>
+          c.id === id ? { ...c, title } : c
+        ),
+      }))
+    } catch (error) {
+      console.error('Failed to update conversation title:', error)
+    }
+  },
+  
+  clearMessages: () =>
+    set({ messages: [] }),
+  
+  setMessages: (messages) =>
+    set({ messages }),
   
   // ============ Utility Actions ============
   reset: () =>

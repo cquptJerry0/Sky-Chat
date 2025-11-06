@@ -65,19 +65,19 @@ export function rehypeCursor(options: PluginOptions = {}) {
     traverse(tree)
     
     // 创建光标元素
-    const cursorElement: Element = {
-      type: 'element',
-      tagName: 'span',
-      properties: {
-        className: ['animate-blink']
-      },
-      children: [
-        {
-          type: 'text',
-          value: cursorChar
-        }
-      ]
-    }
+          const cursorElement: Element = {
+            type: 'element',
+            tagName: 'span',
+            properties: {
+              className: ['animate-blink']
+            },
+            children: [
+              {
+                type: 'text',
+                value: cursorChar
+              }
+            ]
+          }
     
     // 在最后一个文本节点后添加闪烁光标，如果没找到就添加到根节点末尾
     if (state.lastTextNode && state.lastTextNode.value) {

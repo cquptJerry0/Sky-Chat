@@ -28,7 +28,7 @@ export function CodeBlock({ inline, className, children }: CodeBlockProps) {
           {language || 'text'}
         </span>
         <div className="opacity-60 group-hover:opacity-100 transition-opacity">
-          <CopyButton text={code} />
+        <CopyButton text={code} />
         </div>
       </div>
 
