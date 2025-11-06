@@ -7,11 +7,13 @@
  * @module modules/chat-message/ChatMessageUI
  */
 
+import * as React from 'react'
 import { ThinkingPanel } from '@/components/ThinkingPanel'
 import { MessageContent } from '@/components/MessageContent'
 import { MessageActions } from '@/components/MessageActions'
+import { MessageEdit } from '@/components/MessageEdit'
 import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Edit2 } from 'lucide-react'
 import type { Message } from '@/lib/types/chat'
 
 interface ChatMessageUIProps {
@@ -29,6 +31,12 @@ interface ChatMessageUIProps {
   
   /** 重试回调 */
   onRetry?: () => void
+  
+  /** 编辑并重新发送回调 */
+  onEdit?: (newContent: string) => void
+  
+  /** 继续生成回调 */
+  onContinue?: () => void
 }
 
 /**
@@ -44,18 +52,46 @@ export function ChatMessageUI({
   isStreamingAnswer,
   isWaitingForResponse,
   onRetry,
+  onEdit,
+  onContinue,
 }: ChatMessageUIProps) {
   const isUser = message.role === 'user'
+  const [isEditing, setIsEditing] = React.useState(false)
   
   // ============ 用户消息 ============
   if (isUser) {
     return (
-      <div className="w-full py-4">
-        <div className="flex justify-end">
-          <div className="rounded-3xl bg-[hsl(var(--message-user-bg))] px-5 py-3 max-w-[70%]">
-            <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words text-[hsl(var(--text-primary))]">
-              {message.content}
-            </div>
+      <div className="w-full py-4 group">
+        <div className="flex justify-end items-start gap-2">
+          {/* 编辑按钮（hover显示） */}
+          {onEdit && !isEditing && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsEditing(true)}
+              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity mt-2"
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
+          )}
+          
+          <div className="max-w-[70%]">
+            {isEditing ? (
+              <MessageEdit
+                originalContent={message.content}
+                onCancel={() => setIsEditing(false)}
+                onSend={(newContent) => {
+                  setIsEditing(false)
+                  onEdit?.(newContent)
+                }}
+              />
+            ) : (
+              <div className="rounded-3xl bg-[hsl(var(--message-user-bg))] px-5 py-3">
+                <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words text-[hsl(var(--text-primary))]">
+                  {message.content}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -101,9 +137,10 @@ export function ChatMessageUI({
             <MessageActions
               content={message.content}
               messageId={message.id}
-              sessionId={message.sessionId}
+              role={message.role as 'user' | 'assistant'}
               hasError={message.hasError}
               onRetry={onRetry}
+              onContinue={onContinue}
             />
           )}
           

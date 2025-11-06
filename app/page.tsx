@@ -21,7 +21,11 @@ import { Header } from '@/components/Header'
 import { ChatMessage } from '@/modules/chat-message'
 import { ChatInput } from '@/modules/chat-input'
 import { ConversationList } from '@/modules/conversation-list'
-import { NewChatButton } from '@/modules/new-chat-button'
+import { NewChatButton } from '@/components/NewChatButton'
+import { ConversationSearch } from '@/components/ConversationSearch'
+import { MainLayout } from '@/app/layout-components/MainLayout'
+import { LoginDialog } from '@/components/LoginDialog'
+import { useAuth } from '@/lib/hooks/use-auth'
 
 /**
  * 主页面组件
@@ -30,6 +34,9 @@ import { NewChatButton } from '@/modules/new-chat-button'
  * 只负责页面布局，不包含业务逻辑
  */
 export default function Home() {
+  // 认证状态
+  const { showLoginDialog, login, isLoading: authLoading } = useAuth()
+  
   // 获取消息列表
   const messages = useChatStore((s) => s.messages)
   
@@ -62,51 +69,69 @@ export default function Home() {
     }
   }, [messages, streamingMessageId, scrollToBottom])
   
-  return (
-    <div className="flex h-screen bg-background">
-      {/* 左侧边栏 */}
-      <Sidebar isLeader={true}>
-        <div className="space-y-2">
-          {/* 新建对话按钮模块 */}
-          <NewChatButton />
-          
-          {/* 会话列表模块 */}
-          <ConversationList />
+  // 显示登录对话框
+  if (authLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground">加载中...</p>
         </div>
-      </Sidebar>
-      
-      {/* 主聊天区域 */}
-      <div className="flex flex-1 flex-col h-screen">
-        {/* Header（顶部固定） */}
-        <Header />
-        
-        {/* 消息列表 */}
-        <main 
-          ref={messagesContainerRef} 
-          className="flex-1 overflow-y-auto pb-40"
-        >
-          {messages.length === 0 ? (
-            // 空状态
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center">
-                <h1 className="text-[32px] font-normal text-[hsl(var(--text-primary))] mb-8">
-                  我能帮你什么？
-                </h1>
-              </div>
-            </div>
-          ) : (
-            // 消息列表
-            <div className="mx-auto max-w-3xl px-6 pt-4">
-              {messages.map((message) => (
-                <ChatMessage key={message.id} messageId={message.id} />
-              ))}
-            </div>
-          )}
-        </main>
-        
-        {/* 输入框（固定在底部）- 零 props */}
-        <ChatInput />
       </div>
-    </div>
+    )
+  }
+  
+  return (
+    <>
+      {/* 登录对话框 */}
+      <LoginDialog open={showLoginDialog} onLogin={login} />
+      
+      {/* 主界面 */}
+    <MainLayout
+      sidebar={
+        <Sidebar isLeader={true}>
+          <div className="space-y-2">
+            {/* 新建对话按钮模块 */}
+            <NewChatButton />
+            
+            {/* 会话搜索模块 */}
+            <ConversationSearch />
+            
+            {/* 会话列表模块 */}
+            <ConversationList />
+          </div>
+        </Sidebar>
+      }
+    >
+      {/* Header（顶部固定） */}
+      <Header />
+      
+      {/* 消息列表 */}
+      <main 
+        ref={messagesContainerRef} 
+        className="flex-1 overflow-y-auto pb-40"
+      >
+        {messages.length === 0 ? (
+          // 空状态
+          <div className="flex h-full items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-[32px] font-normal text-[hsl(var(--text-primary))] mb-8">
+                我能帮你什么？
+              </h1>
+            </div>
+          </div>
+        ) : (
+          // 消息列表
+          <div className="mx-auto max-w-3xl px-6 pt-4">
+            {messages.map((message) => (
+              <ChatMessage key={message.id} messageId={message.id} />
+            ))}
+          </div>
+        )}
+      </main>
+      
+      {/* 输入框（固定在底部）- 零 props */}
+      <ChatInput />
+    </MainLayout>
+    </>
   )
 }

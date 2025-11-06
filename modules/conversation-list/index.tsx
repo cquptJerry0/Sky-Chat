@@ -23,8 +23,8 @@ import { ConversationListUI } from './ConversationListUI'
  * 零props设计，所有数据从store获取
  */
 export function ConversationList() {
-  // 从store获取状态
-  const conversations = useChatStore((s) => s.conversations)
+  // 从store获取状态（使用filteredConversations支持搜索）
+  const conversations = useChatStore((s) => s.filteredConversations)
   const currentConversationId = useChatStore((s) => s.currentConversationId)
   const loading = useChatStore((s) => s.conversationsLoading)
   

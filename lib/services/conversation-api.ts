@@ -24,7 +24,7 @@ export interface Message {
   role: string
   content: string
   thinking?: string
-  toolCalls?: any
+  toolCalls?: unknown
   createdAt: string
 }
 

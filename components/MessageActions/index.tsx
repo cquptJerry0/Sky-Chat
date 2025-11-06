@@ -11,7 +11,7 @@
  */
 
 import * as React from 'react'
-import { Copy, Volume2, RotateCw, Check, ChevronDown } from 'lucide-react'
+import { Copy, Volume2, RotateCw, Check, ChevronDown, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
@@ -32,24 +32,27 @@ interface MessageActionsProps {
   content: string
   /** 消息 ID */
   messageId: string
-  /** 会话 ID（用于断点续传） */
-  sessionId?: string
+  /** 消息角色（用于判断是否显示继续生成按钮） */
+  role: 'user' | 'assistant'
   /** 是否有错误 */
   hasError?: boolean
   /** 复制回调 */
   onCopy?: () => void
   /** 重试回调 */
   onRetry?: () => void
+  /** 继续生成回调 */
+  onContinue?: () => void
   /** 额外的 CSS 类名 */
   className?: string
 }
 
 export function MessageActions({
   content,
-  sessionId,
+  role,
   hasError,
   onCopy,
   onRetry,
+  onContinue,
   className,
 }: MessageActionsProps) {
   const { playText, isGenerating, selectedVoice, setSelectedVoice } = useAudioPlayer()
@@ -219,6 +222,25 @@ export function MessageActions({
             </TooltipTrigger>
             <TooltipContent className="bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900">
               <p>重试</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+        
+        {/* 继续生成按钮（仅对assistant消息显示） */}
+        {role === 'assistant' && onContinue && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onContinue}
+                className="h-7 w-7 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900">
+              <p>继续生成</p>
             </TooltipContent>
           </Tooltip>
         )}

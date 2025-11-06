@@ -13,11 +13,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useChatStore } from '@/lib/stores/chat.store'
 import { SSEParser } from '@/lib/services/sse-parser'
-import { PayloadBuilder } from '@/lib/services/payload-builder'
 import { useToast } from '@/hooks/use-toast'
 import { useAudioRecorder } from '@/lib/hooks/use-audio-recorder'
 import { ChatAPI } from '@/lib/services/chat-api'
-import type { ChatConfig, Message } from '@/lib/types/chat'
+import type { Message } from '@/lib/types/chat'
 
 /**
  * 输入逻辑钩子
@@ -52,18 +51,13 @@ export function useChatInput() {
   } = useAudioRecorder()
   
   /**
-   * 提交消息
+   * 发送消息（内部方法，可被handleSubmit和重试调用）
    */
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault()
-      
-      if (!input.trim() || isLoading || isRecording || isTranscribing) {
+  const sendMessage = useCallback(
+    async (message: string) => {
+      if (isLoading || isRecording || isTranscribing) {
         return
       }
-      
-      const message = input.trim()
-      setInput('')
       
       // 创建用户消息
       const userMsg: Message = {
@@ -179,7 +173,6 @@ export function useChatInput() {
       }
     },
     [
-      input,
       isLoading,
       isRecording,
       isTranscribing,
@@ -194,6 +187,24 @@ export function useChatInput() {
       updateMessage,
       toast,
     ]
+  )
+  
+  /**
+   * 提交消息（从表单）
+   */
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      
+      if (!input.trim()) {
+        return
+      }
+      
+      const message = input.trim()
+      setInput('')
+      await sendMessage(message)
+    },
+    [input, sendMessage]
   )
   
   /**
@@ -242,6 +253,33 @@ export function useChatInput() {
     
     transcribe()
   }, [audioBlob, isRecording, clearAudio, toast])
+  
+  /**
+   * 监听重试和编辑事件
+   */
+  useEffect(() => {
+    const handleRetryMessage = (event: Event) => {
+      const customEvent = event as CustomEvent<{ content: string }>
+      if (customEvent.detail?.content) {
+        sendMessage(customEvent.detail.content)
+      }
+    }
+    
+    const handleEditAndResend = (event: Event) => {
+      const customEvent = event as CustomEvent<{ content: string }>
+      if (customEvent.detail?.content) {
+        sendMessage(customEvent.detail.content)
+      }
+    }
+    
+    window.addEventListener('retry-message', handleRetryMessage)
+    window.addEventListener('edit-and-resend', handleEditAndResend)
+    
+    return () => {
+      window.removeEventListener('retry-message', handleRetryMessage)
+      window.removeEventListener('edit-and-resend', handleEditAndResend)
+    }
+  }, [sendMessage])
   
   return {
     // 状态

@@ -2,12 +2,11 @@
 'use client'
 
 /**
- * New Chat Button Module - 新建对话按钮模块
+ * New Chat Button Component - 新建对话按钮组件
  * 
- * Container Component（容器组件）
  * 零props设计，所有逻辑自包含
  * 
- * @module modules/new-chat-button
+ * @module components/NewChatButton
  */
 
 import * as React from 'react'
@@ -27,7 +26,7 @@ import {
 } from '@/components/ui/alert-dialog'
 
 /**
- * 新建对话按钮模块
+ * 新建对话按钮组件
  * 
  * 零props设计，点击时创建新会话并切换
  */

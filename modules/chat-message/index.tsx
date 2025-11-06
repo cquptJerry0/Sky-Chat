@@ -39,6 +39,11 @@ export function ChatMessage({ messageId }: ChatMessageProps) {
   const isLoading = useChatStore((s) => s.isLoading)
   const messages = useChatStore((s) => s.messages)
   
+  // 获取重试、编辑和继续生成方法
+  const retryMessage = useChatStore((s) => s.retryMessage)
+  const editAndResend = useChatStore((s) => s.editAndResend)
+  const continueGeneration = useChatStore((s) => s.continueGeneration)
+  
   // 如果消息不存在，不渲染
   if (!message) {
     return null
@@ -54,11 +59,32 @@ export function ChatMessage({ messageId }: ChatMessageProps) {
   const isAIMessage = message.role === 'assistant'
   const isWaitingForResponse = isLoading && isLastMessage && isAIMessage
   
-  // 重试逻辑（暂时为空，后续可扩展）
+  // 重试逻辑
   const handleRetry = message.hasError ? () => {
-    console.log('Retry message:', messageId)
-    // TODO: 实现重试逻辑
+    // 删除错误消息
+    retryMessage(messageId)
+    
+    // 获取最后一个用户消息并重新发送
+    const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')
+    if (lastUserMessage?.content) {
+      // 触发重新发送（通过创建一个自定义事件）
+      window.dispatchEvent(new CustomEvent('retry-message', {
+        detail: { content: lastUserMessage.content }
+      }))
+    }
   } : undefined
+  
+  // 编辑逻辑（仅用户消息）
+  const handleEdit = message.role === 'user' ? (newContent: string) => {
+    editAndResend(messageId, newContent)
+  } : undefined
+  
+  // 继续生成逻辑（仅AI消息且非流式状态）
+  const handleContinue = (message.role === 'assistant' && !isStreamingThinking && !isStreamingAnswer) 
+    ? () => {
+        continueGeneration(messageId)
+      } 
+    : undefined
   
   return (
     <ChatMessageUI
@@ -67,6 +93,8 @@ export function ChatMessage({ messageId }: ChatMessageProps) {
       isStreamingAnswer={isStreamingAnswer}
       isWaitingForResponse={isWaitingForResponse}
       onRetry={handleRetry}
+      onEdit={handleEdit}
+      onContinue={handleContinue}
     />
   )
 }

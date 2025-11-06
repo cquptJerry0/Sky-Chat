@@ -49,6 +49,9 @@ interface ChatState {
   /** 会话列表 */
   conversations: Conversation[]
   
+  /** 过滤后的会话列表（用于搜索） */
+  filteredConversations: Conversation[]
+  
   /** 会话列表加载状态 */
   conversationsLoading: boolean
   
@@ -119,6 +122,11 @@ interface ChatState {
   loadConversations: () => Promise<void>
   
   /**
+   * 设置过滤后的会话列表（用于搜索）
+   */
+  setFilteredConversations: (conversations: Conversation[]) => void
+  
+  /**
    * 创建新会话并切换
    */
   createNewConversation: () => Promise<void>
@@ -148,6 +156,24 @@ interface ChatState {
    */
   setMessages: (messages: Message[]) => void
   
+  /**
+   * 重试失败的消息
+   * 删除该消息及其之后的所有消息，然后重新发送用户输入
+   */
+  retryMessage: (messageId: string) => void
+  
+  /**
+   * 编辑用户消息并重新发送
+   * 删除该消息之后的所有消息，更新该消息内容，然后重新发送
+   */
+  editAndResend: (messageId: string, newContent: string) => void
+  
+  /**
+   * 继续生成（断点续传）
+   * 让AI继续生成当前消息的后续内容
+   */
+  continueGeneration: (messageId: string) => Promise<void>
+  
   // ============ 工具方法 ============
   /**
    * 重置到初始状态（新对话）
@@ -165,6 +191,7 @@ const initialState = {
   enableThinking: false,
   currentConversationId: null,
   conversations: [],
+  filteredConversations: [],
   conversationsLoading: false,
   streamingMessageId: null,
   streamingPhase: null as StreamingPhase,
@@ -244,12 +271,15 @@ export const useChatStore = create<ChatState>()((set) => ({
     set({ conversationsLoading: true })
     try {
       const { conversations } = await ConversationAPI.list()
-      set({ conversations, conversationsLoading: false })
+      set({ conversations, filteredConversations: conversations, conversationsLoading: false })
     } catch (error) {
       console.error('Failed to load conversations:', error)
       set({ conversationsLoading: false })
     }
   },
+  
+  setFilteredConversations: (conversations: Conversation[]) =>
+    set({ filteredConversations: conversations }),
   
   createNewConversation: async () => {
     try {
@@ -311,6 +341,122 @@ export const useChatStore = create<ChatState>()((set) => ({
   
   setMessages: (messages) =>
     set({ messages }),
+  
+  retryMessage: (messageId) =>
+    set((state) => {
+      // 找到该消息的索引
+      const messageIndex = state.messages.findIndex(m => m.id === messageId)
+      if (messageIndex === -1) return state
+      
+      // 找到该消息及其对应的用户消息
+      const message = state.messages[messageIndex]
+      
+      // 如果是AI消息，找到前一个用户消息
+      if (message.role === 'assistant') {
+        // 删除该AI消息及其之后的所有消息
+        const newMessages = state.messages.slice(0, messageIndex)
+        
+        // 找到最后一个用户消息
+        const lastUserMessage = [...newMessages].reverse().find(m => m.role === 'user')
+        
+        if (lastUserMessage) {
+          // 触发重新生成（这里只是删除消息，实际的重新生成需要在UI层触发）
+          return { messages: newMessages }
+        }
+      }
+      
+      return state
+    }),
+  
+  editAndResend: (messageId, newContent) =>
+    set((state) => {
+      // 找到该消息的索引
+      const messageIndex = state.messages.findIndex(m => m.id === messageId)
+      if (messageIndex === -1) return state
+      
+      // 确保是用户消息
+      const message = state.messages[messageIndex]
+      if (message.role !== 'user') return state
+      
+      // 删除该消息之后的所有消息
+      const newMessages = state.messages.slice(0, messageIndex + 1)
+      
+      // 更新该消息的内容
+      newMessages[messageIndex] = {
+        ...newMessages[messageIndex],
+        content: newContent,
+      }
+      
+      // 触发重新生成（通过自定义事件）
+      window.dispatchEvent(new CustomEvent('edit-and-resend', {
+        detail: { content: newContent }
+      }))
+      
+      return { messages: newMessages }
+    }),
+  
+  continueGeneration: async (messageId) => {
+    const state = useChatStore.getState()
+    const message = state.messages.find(m => m.id === messageId)
+    
+    if (!message || message.role !== 'assistant') {
+      return
+    }
+    
+    const conversationId = state.currentConversationId
+    if (!conversationId) {
+      return
+    }
+    
+    // 开始流式传输
+    state.startStreaming(messageId, 'answer')
+    state.setLoading(true)
+    
+    try {
+      const response = await fetch('/api/chat/continue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId, conversationId }),
+      })
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+      
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No reader available')
+      }
+      
+      // 使用 SSEParser 处理流
+      const { SSEParser } = await import('@/lib/services/sse-parser')
+      SSEParser.parseStream(reader).subscribe({
+        next: (data) => {
+          if (data.type === 'answer' && data.content) {
+            state.appendContent(messageId, data.content)
+          } else if (data.type === 'complete') {
+            state.stopStreaming()
+            state.setLoading(false)
+          }
+        },
+        error: (error) => {
+          console.error('Continue generation error:', error)
+          state.updateMessage(messageId, { hasError: true })
+          state.stopStreaming()
+          state.setLoading(false)
+        },
+        complete: () => {
+          state.stopStreaming()
+          state.setLoading(false)
+        },
+      })
+    } catch (error) {
+      console.error('Continue generation error:', error)
+      state.updateMessage(messageId, { hasError: true })
+      state.stopStreaming()
+      state.setLoading(false)
+    }
+  },
   
   // ============ Utility Actions ============
   reset: () =>
