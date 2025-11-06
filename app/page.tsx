@@ -322,26 +322,14 @@ export default function Home() {
                   index === messages.length - 1 &&
                   message.role === 'assistant'
                 
-                // 判断是否可以继续生成
-                const canResume = Boolean(
-                  message.role === 'assistant' && 
-                  message.sessionId && 
-                  !isLoading && 
-                  !message.hasError
-                )
-                
                 return (
                   <ChatMessage
                     key={message.id}
                     message={message}
                     isStreaming={isLastAssistant}
                     hasError={message.hasError}
-                    canResume={canResume}
                     onRetry={
                       message.hasError ? () => handleRetry(message) : undefined
-                    }
-                    onResume={
-                      canResume ? () => handleResume(message) : undefined
                     }
                   />
                 )
@@ -351,9 +339,10 @@ export default function Home() {
           )}
         </main>
 
-        {/* 停止生成按钮（悬浮在消息区域底部） */}
-        {isLoading && (
-          <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-10">
+        {/* 输入框上方的操作按钮（居中悬浮） */}
+        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-10">
+          {/* 停止生成按钮 */}
+          {isLoading && (
             <Button
               onClick={handleStop}
               className="gap-2 rounded-full bg-gray-800 text-white hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-gray-300"
@@ -361,8 +350,26 @@ export default function Home() {
               <Square className="h-3 w-3" fill="currentColor" />
               <span className="text-sm">停止生成</span>
             </Button>
-          </div>
-        )}
+          )}
+
+          {/* 继续生成按钮（最后一条 AI 消息可继续时显示） */}
+          {!isLoading && messages.length > 0 && (() => {
+            const lastMessage = messages[messages.length - 1]
+            const canResume = 
+              lastMessage.role === 'assistant' && 
+              lastMessage.sessionId && 
+              !lastMessage.hasError
+            
+            return canResume && (
+              <Button
+                onClick={() => handleResume(lastMessage)}
+                className="gap-2 rounded-full bg-gray-800 text-white hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-gray-300"
+              >
+                <span className="text-sm">继续</span>
+              </Button>
+            )
+          })()}
+        </div>
 
         {/* 输入框（固定在底部） */}
         <ChatInput onSend={handleSend} disabled={isLoading} />

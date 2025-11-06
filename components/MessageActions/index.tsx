@@ -27,14 +27,10 @@ interface MessageActionsProps {
   sessionId?: string
   /** 是否有错误 */
   hasError?: boolean
-  /** 是否可以继续生成 */
-  canResume?: boolean
   /** 复制回调 */
   onCopy?: () => void
   /** 重试回调 */
   onRetry?: () => void
-  /** 继续生成回调 */
-  onResume?: () => void
   /** 额外的 CSS 类名 */
   className?: string
 }
@@ -43,10 +39,8 @@ export function MessageActions({
   content,
   sessionId,
   hasError,
-  canResume,
   onCopy,
   onRetry,
-  onResume,
   className,
 }: MessageActionsProps) {
   const { playText, isGenerating } = useAudioPlayer()
@@ -154,25 +148,6 @@ export function MessageActions({
           </Tooltip>
         )}
 
-        {/* 继续生成按钮 */}
-        {canResume && sessionId && onResume && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onResume}
-                className="h-7 px-2 hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                <PlayCircle className="h-4 w-4 mr-1" />
-                <span className="text-xs">继续</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900">
-              <p>继续生成</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
       </div>
     </TooltipProvider>
   )

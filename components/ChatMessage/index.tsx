@@ -17,18 +17,14 @@ interface ChatMessageProps {
   message: Message
   isStreaming?: boolean
   hasError?: boolean
-  canResume?: boolean
   onRetry?: () => void
-  onResume?: () => void
 }
 
 export function ChatMessage({
   message,
   isStreaming,
   hasError,
-  canResume,
   onRetry,
-  onResume,
 }: ChatMessageProps) {
   const isUser = message.role === 'user'
 
@@ -72,9 +68,7 @@ export function ChatMessage({
               messageId={message.id}
               sessionId={message.sessionId}
               hasError={hasError}
-              canResume={canResume}
               onRetry={onRetry}
-              onResume={onResume}
             />
           )}
 
