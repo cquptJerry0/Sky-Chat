@@ -35,7 +35,7 @@ import { useAuth } from '@/lib/hooks/use-auth'
  */
 export default function Home() {
   // 认证状态
-  const { showLoginDialog, login, isLoading: authLoading } = useAuth()
+  const { showLoginDialog, isLoading: authLoading } = useAuth()
   
   // 获取消息列表
   const messages = useChatStore((s) => s.messages)
@@ -64,7 +64,9 @@ export default function Home() {
     if (streamingMessageId) {
       const streamingMessage = messages.find(m => m.id === streamingMessageId)
       if (streamingMessage) {
-        scrollToBottom()
+        // 使用节流避免过于频繁的滚动
+        const timeoutId = setTimeout(scrollToBottom, 100)
+        return () => clearTimeout(timeoutId)
       }
     }
   }, [messages, streamingMessageId, scrollToBottom])
@@ -83,7 +85,7 @@ export default function Home() {
   return (
     <>
       {/* 登录对话框 */}
-      <LoginDialog open={showLoginDialog} onLogin={login} />
+      <LoginDialog open={showLoginDialog} />
       
       {/* 主界面 */}
     <MainLayout
@@ -102,35 +104,35 @@ export default function Home() {
         </Sidebar>
       }
     >
-      {/* Header（顶部固定） */}
-      <Header />
-      
-      {/* 消息列表 */}
-      <main 
-        ref={messagesContainerRef} 
-        className="flex-1 overflow-y-auto pb-40"
-      >
-        {messages.length === 0 ? (
-          // 空状态
-          <div className="flex h-full items-center justify-center">
-            <div className="text-center">
-              <h1 className="text-[32px] font-normal text-[hsl(var(--text-primary))] mb-8">
-                我能帮你什么？
-              </h1>
+        {/* Header（顶部固定） */}
+        <Header />
+        
+        {/* 消息列表 */}
+        <main 
+          ref={messagesContainerRef} 
+          className="flex-1 overflow-y-auto pb-40"
+        >
+          {messages.length === 0 ? (
+            // 空状态
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <h1 className="text-[32px] font-normal text-[hsl(var(--text-primary))] mb-8">
+                  我能帮你什么？
+                </h1>
+              </div>
             </div>
-          </div>
-        ) : (
-          // 消息列表
-          <div className="mx-auto max-w-3xl px-6 pt-4">
-            {messages.map((message) => (
-              <ChatMessage key={message.id} messageId={message.id} />
-            ))}
-          </div>
-        )}
-      </main>
-      
-      {/* 输入框（固定在底部）- 零 props */}
-      <ChatInput />
+          ) : (
+            // 消息列表
+            <div className="mx-auto max-w-3xl px-6 pt-4">
+              {messages.map((message) => (
+                <ChatMessage key={message.id} messageId={message.id} />
+              ))}
+            </div>
+          )}
+        </main>
+        
+        {/* 输入框（固定在底部）- 零 props */}
+        <ChatInput />
     </MainLayout>
     </>
   )

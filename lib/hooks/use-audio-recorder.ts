@@ -37,7 +37,7 @@
  * @module hooks/use-audio-recorder
  */
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 
 /**
  * 音频录制 Hook
@@ -58,6 +58,8 @@ export function useAudioRecorder() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   /** 音频数据块缓存 */
   const chunksRef = useRef<Blob[]>([])
+  /** MediaStream 引用（用于清理） */
+  const streamRef = useRef<MediaStream | null>(null)
 
   /**
    * 开始录音
@@ -85,6 +87,7 @@ export function useAudioRecorder() {
     try {
       // 请求麦克风权限
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
       
       // 创建 MediaRecorder 实例
       const mediaRecorder = new MediaRecorder(stream, {
@@ -107,7 +110,10 @@ export function useAudioRecorder() {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
         setAudioBlob(blob)
         // 释放麦克风资源
-        stream.getTracks().forEach((track) => track.stop())
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop())
+          streamRef.current = null
+        }
       }
 
       // 开始录音
@@ -157,6 +163,20 @@ export function useAudioRecorder() {
     setAudioBlob(null)
     chunksRef.current = []
   }, [])
+
+  // 清理资源：组件卸载时停止录音并释放麦克风
+  useEffect(() => {
+    return () => {
+      // 如果还在录音，停止录音
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop()
+      }
+      // 释放麦克风资源
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop())
+      }
+    }
+  }, [isRecording])
 
   return {
     isRecording,

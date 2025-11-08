@@ -7,11 +7,19 @@
  * - 选中/激活状态
  * - 重命名
  * - 删除
+ * - 置顶
  */
 
 import * as React from 'react'
-import { MessageSquare, Trash2, Edit2, Check, X } from 'lucide-react'
+import { MessageSquare, Trash2, Edit2, Check, X, MoreVertical, Eye, Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import type { Conversation } from '@/lib/services/conversation-api'
 
@@ -104,32 +112,56 @@ export function ConversationItem({
             <span className="truncate text-sm text-left">{conversation.title}</span>
           </Button>
           
-          {/* 操作按钮（悬停时显示） */}
+          {/* 三点菜单（悬停或激活时显示） */}
           {(isHovered || isActive) && (
-            <div className="flex gap-1 shrink-0">
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-6 w-6 opacity-70 hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setIsEditing(true)
-                }}
-              >
-                <Edit2 className="h-3 w-3" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-6 w-6 opacity-70 hover:opacity-100 hover:text-red-500"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDelete()
-                }}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 shrink-0 opacity-70 hover:opacity-100"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-36 mr-2" sideOffset={8}>
+                <DropdownMenuItem onClick={onSelect}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  <span>查看全部</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsEditing(true)
+                  }}
+                >
+                  <Edit2 className="mr-2 h-4 w-4" />
+                  <span>编辑标题</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    // TODO: 实现置顶功能
+                    console.log('置顶会话:', conversation.id)
+                  }}
+                >
+                  <Pin className="mr-2 h-4 w-4" />
+                  <span>置顶</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete()
+                  }}
+                  className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  <span>删除</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </>
       )}

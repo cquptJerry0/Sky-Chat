@@ -1,21 +1,37 @@
 'use client'
 
 import * as React from 'react'
-import { Settings, MoreVertical, User } from 'lucide-react'
+import Image from 'next/image'
+import { Settings, MoreVertical, UserCircle2, LogOut, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ModelSelector } from '@/components/ModelSelector'
 import { useChatStore } from '@/lib/stores/chat.store'
+import { useSession, signOut } from 'next-auth/react'
+import { useTheme } from 'next-themes'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
-import { ThemeToggle } from '@/components/ThemeToggle'
 
 export function Header() {
   const selectedModel = useChatStore((s) => s.selectedModel)
   const setModel = useChatStore((s) => s.setModel)
+  const { data: session } = useSession()
+  const { theme, setTheme } = useTheme()
+
+  const handleLogout = () => {
+    signOut({ callbackUrl: '/' })
+  }
+
+  const cycleTheme = () => {
+    if (theme === 'light') setTheme('dark')
+    else if (theme === 'dark') setTheme('system')
+    else setTheme('light')
+  }
 
   return (
     <header className="sticky top-0 z-10 h-[60px] flex items-center justify-between px-6 bg-background border-none">
@@ -35,9 +51,6 @@ export function Header() {
           <Settings className="h-4 w-4" />
         </Button>
 
-        {/* 主题切换 */}
-        <ThemeToggle />
-
         {/* 更多选项 */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -56,14 +69,64 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* 用户头像 */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-full bg-[hsl(var(--button-primary-bg))] hover:bg-[hsl(var(--button-primary-hover))] text-white"
-        >
-          <User className="h-4 w-4" />
-        </Button>
+        {/* 用户菜单 */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full hover:bg-[hsl(var(--sidebar-hover))] p-0 overflow-hidden"
+            >
+              {session?.user?.image ? (
+                <Image 
+                  src={session.user.image} 
+                  alt={session.user.name || '用户'} 
+                  width={36}
+                  height={36}
+                  className="rounded-full object-cover"
+                />
+              ) : (
+                <UserCircle2 className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            {/* 用户信息 */}
+            <DropdownMenuLabel>
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">
+                  {session?.user?.name || '用户'}
+                </p>
+                {session?.user?.email && (
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {session.user.email}
+                  </p>
+                )}
+              </div>
+            </DropdownMenuLabel>
+            
+            <DropdownMenuSeparator />
+            
+            {/* 主题切换 */}
+            <DropdownMenuItem onClick={cycleTheme} className="cursor-pointer">
+              <Palette className="mr-2 h-4 w-4" />
+              <span>
+                主题: {theme === 'light' ? '浅色' : theme === 'dark' ? '深色' : '跟随系统'}
+              </span>
+            </DropdownMenuItem>
+            
+            <DropdownMenuSeparator />
+            
+            {/* 退出登录 */}
+            <DropdownMenuItem 
+              onClick={handleLogout}
+              className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>退出登录</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )

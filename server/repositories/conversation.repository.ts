@@ -52,13 +52,22 @@ export const ConversationRepository = {
   },
 
   /**
-   * 更新会话的 updatedAt 时间戳
+   * 更新会话的 updatedAt 时间戳（带权限检查）
    */
-  async touch(id: string) {
-    await prisma.conversation.update({
-      where: { id },
-      data: { updatedAt: new Date() },
-    })
+  async touch(id: string, userId?: string) {
+    if (userId) {
+      // 带权限检查的更新
+      await prisma.conversation.updateMany({
+        where: { id, userId },
+        data: { updatedAt: new Date() },
+      })
+    } else {
+      // 无权限检查（向后兼容）
+      await prisma.conversation.update({
+        where: { id },
+        data: { updatedAt: new Date() },
+      })
+    }
   },
 
   /**

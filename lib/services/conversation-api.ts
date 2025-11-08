@@ -39,6 +39,9 @@ export const ConversationAPI = {
     })
     
     if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error('Unauthorized')
+      }
       throw new Error('Failed to fetch conversations')
     }
     

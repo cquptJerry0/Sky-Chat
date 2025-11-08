@@ -87,9 +87,9 @@ export function ChatMessageUI({
               />
             ) : (
               <div className="rounded-3xl bg-[hsl(var(--message-user-bg))] px-5 py-3">
-                <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words text-[hsl(var(--text-primary))]">
-                  {message.content}
-                </div>
+            <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words text-[hsl(var(--text-primary))]">
+              {message.content}
+            </div>
               </div>
             )}
           </div>
@@ -132,7 +132,7 @@ export function ChatMessageUI({
             </div>
           )}
           
-          {/* 操作按钮（仅在非流式状态且有内容时显示） */}
+          {/* 操作按钮（仅在非流式状态且有内容时显示，包含错误重试） */}
           {message.content && !isStreamingAnswer && !isStreamingThinking && (
             <MessageActions
               content={message.content}
@@ -142,18 +142,6 @@ export function ChatMessageUI({
               onRetry={onRetry}
               onContinue={onContinue}
             />
-          )}
-          
-          {/* 错误重试按钮（独立显示） */}
-          {message.hasError && onRetry && (
-            <div className="mt-3">
-              <Button
-                onClick={onRetry}
-              className="bg-[hsl(var(--button-primary-bg))] text-white hover:bg-[hsl(var(--button-primary-hover))]"
-              >
-                重试继续
-              </Button>
-            </div>
           )}
       </div>
     </div>

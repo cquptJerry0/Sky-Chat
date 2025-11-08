@@ -79,8 +79,8 @@ export function ChatMessage({ messageId }: ChatMessageProps) {
     editAndResend(messageId, newContent)
   } : undefined
   
-  // 继续生成逻辑（仅AI消息且非流式状态）
-  const handleContinue = (message.role === 'assistant' && !isStreamingThinking && !isStreamingAnswer) 
+  // 继续生成逻辑（仅AI消息且非流式状态且未loading）
+  const handleContinue = (message.role === 'assistant' && !isStreamingThinking && !isStreamingAnswer && !isLoading) 
     ? () => {
         continueGeneration(messageId)
       } 

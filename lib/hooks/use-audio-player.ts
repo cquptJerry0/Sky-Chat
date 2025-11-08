@@ -165,11 +165,21 @@ export function useAudioPlayer() {
     }
   }, [])
 
-  // 清理音频资源
+  // 清理音频资源和事件监听器
   useEffect(() => {
     return () => {
+      // 清理音频URL
       if (audioURLRef.current) {
         URL.revokeObjectURL(audioURLRef.current)
+      }
+      // 清理Audio元素和事件监听器
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.onplay = null
+        audioRef.current.onpause = null
+        audioRef.current.onended = null
+        audioRef.current.onerror = null
+        audioRef.current = null
       }
     }
   }, [])

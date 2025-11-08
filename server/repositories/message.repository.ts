@@ -9,6 +9,15 @@ import type { Prisma } from '@prisma/client'
 
 export const MessageRepository = {
   /**
+   * 根据ID获取单个消息
+   */
+  async findById(id: string) {
+    return prisma.message.findUnique({
+      where: { id },
+    })
+  },
+
+  /**
    * 获取会话所有消息
    */
   async findByConversationId(conversationId: string) {
@@ -22,6 +31,7 @@ export const MessageRepository = {
    * 创建消息
    */
   async create(data: {
+    id?: string
     conversationId: string
     role: string
     content: string
@@ -29,6 +39,23 @@ export const MessageRepository = {
     toolCalls?: Prisma.InputJsonValue
   }) {
     return prisma.message.create({
+      data,
+    })
+  },
+
+  /**
+   * 更新消息
+   */
+  async update(
+    id: string,
+    data: {
+      content?: string
+      thinking?: string
+      toolCalls?: Prisma.InputJsonValue
+    }
+  ) {
+    return prisma.message.update({
+      where: { id },
       data,
     })
   },

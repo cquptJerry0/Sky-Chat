@@ -21,7 +21,8 @@ export class SSEParser {
     
     try {
       return JSON.parse(data) as SSEData
-    } catch {
+    } catch (error) {
+      console.error('[SSEParser] Failed to parse SSE data:', data, error)
       return null
     }
   }

@@ -39,7 +39,9 @@ export function ConversationSearch() {
   
   React.useEffect(() => {
     setFilteredConversations(filteredConversations)
-  }, [filteredConversations, setFilteredConversations])
+    // Zustand actions are stable, safe to omit from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredConversations])
   
   const handleClear = () => {
     setSearchQuery('')

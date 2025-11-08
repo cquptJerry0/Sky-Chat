@@ -62,6 +62,9 @@ interface ChatState {
   /** 当前流式传输阶段（thinking/answer） */
   streamingPhase: StreamingPhase
   
+  /** 续传请求的AbortController */
+  continueAbortController: AbortController | null
+  
   // ============ 消息操作 ============
   /**
    * 添加新消息到历史记录
@@ -195,6 +198,7 @@ const initialState = {
   conversationsLoading: false,
   streamingMessageId: null,
   streamingPhase: null as StreamingPhase,
+  continueAbortController: null,
 }
 
 /**
@@ -247,11 +251,17 @@ export const useChatStore = create<ChatState>()((set) => ({
       streamingPhase: phase 
     }),
   
-  stopStreaming: () =>
+  stopStreaming: () => {
+    // 中止续传请求（如果存在）
+    const state = useChatStore.getState()
+    state.continueAbortController?.abort()
+    
     set({ 
       streamingMessageId: null, 
-      streamingPhase: null 
-    }),
+      streamingPhase: null,
+      continueAbortController: null,
+    })
+  },
   
   // ============ Configuration Actions ============
   setModel: (modelId) =>
@@ -273,8 +283,12 @@ export const useChatStore = create<ChatState>()((set) => ({
       const { conversations } = await ConversationAPI.list()
       set({ conversations, filteredConversations: conversations, conversationsLoading: false })
     } catch (error) {
-      console.error('Failed to load conversations:', error)
-      set({ conversationsLoading: false })
+      // 静默处理未登录错误（401），避免控制台报错
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (!errorMessage.includes('Unauthorized') && !errorMessage.includes('401')) {
+        console.error('Failed to load conversations:', error)
+      }
+      set({ conversationsLoading: false, conversations: [], filteredConversations: [] })
     }
   },
   
@@ -286,6 +300,7 @@ export const useChatStore = create<ChatState>()((set) => ({
       const { conversation } = await ConversationAPI.create()
       set((state) => ({
         conversations: [conversation, ...state.conversations],
+        filteredConversations: [conversation, ...state.filteredConversations],
         currentConversationId: conversation.id,
         messages: [],
       }))
@@ -314,6 +329,7 @@ export const useChatStore = create<ChatState>()((set) => ({
       await ConversationAPI.delete(id)
       set((state) => ({
         conversations: state.conversations.filter((c) => c.id !== id),
+        filteredConversations: state.filteredConversations.filter((c) => c.id !== id),
         // 如果删除的是当前会话，清空
         currentConversationId: state.currentConversationId === id ? null : state.currentConversationId,
         messages: state.currentConversationId === id ? [] : state.messages,
@@ -328,6 +344,9 @@ export const useChatStore = create<ChatState>()((set) => ({
       await ConversationAPI.updateTitle(id, title)
       set((state) => ({
         conversations: state.conversations.map((c) =>
+          c.id === id ? { ...c, title } : c
+        ),
+        filteredConversations: state.filteredConversations.map((c) =>
           c.id === id ? { ...c, title } : c
         ),
       }))
@@ -360,7 +379,12 @@ export const useChatStore = create<ChatState>()((set) => ({
         const lastUserMessage = [...newMessages].reverse().find(m => m.role === 'user')
         
         if (lastUserMessage) {
-          // 触发重新生成（这里只是删除消息，实际的重新生成需要在UI层触发）
+          // 触发重新生成（通过自定义事件）
+          // 注意：这个事件会在use-chat-input.ts中被监听
+          window.dispatchEvent(new CustomEvent('retry-message', {
+            detail: { content: lastUserMessage.content }
+          }))
+          
           return { messages: newMessages }
         }
       }
@@ -408,6 +432,10 @@ export const useChatStore = create<ChatState>()((set) => ({
       return
     }
     
+    // 创建AbortController用于中断续传
+    const abortController = new AbortController()
+    set({ continueAbortController: abortController })
+    
     // 开始流式传输
     state.startStreaming(messageId, 'answer')
     state.setLoading(true)
@@ -417,6 +445,7 @@ export const useChatStore = create<ChatState>()((set) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messageId, conversationId }),
+        signal: abortController.signal,
       })
       
       if (!response.ok) {
@@ -432,16 +461,34 @@ export const useChatStore = create<ChatState>()((set) => ({
       const { SSEParser } = await import('@/lib/services/sse-parser')
       SSEParser.parseStream(reader).subscribe({
         next: (data) => {
-          if (data.type === 'answer' && data.content) {
+          if (data.type === 'thinking' && data.content) {
+            // 处理thinking内容
+            if (state.streamingPhase !== 'thinking') {
+              state.startStreaming(messageId, 'thinking')
+            }
+            state.appendThinking(messageId, data.content)
+          } else if (data.type === 'answer' && data.content) {
+            // 处理answer内容
+            if (state.streamingPhase !== 'answer') {
+              state.startStreaming(messageId, 'answer')
+            }
             state.appendContent(messageId, data.content)
           } else if (data.type === 'complete') {
+            state.stopStreaming()
+            state.setLoading(false)
+          } else if (data.type === 'error') {
+            console.error('Continue generation error from server:', data.error)
+            state.updateMessage(messageId, { hasError: true })
             state.stopStreaming()
             state.setLoading(false)
           }
         },
         error: (error) => {
-          console.error('Continue generation error:', error)
-          state.updateMessage(messageId, { hasError: true })
+          // 忽略AbortError（用户主动中止）
+          if (error.name !== 'AbortError') {
+            console.error('Continue generation error:', error)
+            state.updateMessage(messageId, { hasError: true })
+          }
           state.stopStreaming()
           state.setLoading(false)
         },
@@ -451,8 +498,11 @@ export const useChatStore = create<ChatState>()((set) => ({
         },
       })
     } catch (error) {
-      console.error('Continue generation error:', error)
-      state.updateMessage(messageId, { hasError: true })
+      // 忽略AbortError（用户主动中止）
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('Continue generation error:', error)
+        state.updateMessage(messageId, { hasError: true })
+      }
       state.stopStreaming()
       state.setLoading(false)
     }

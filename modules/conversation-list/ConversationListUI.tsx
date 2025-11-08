@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, History } from 'lucide-react'
 import { ConversationItem } from './ConversationItem'
 import type { Conversation } from '@/lib/services/conversation-api'
 import {
@@ -62,30 +62,34 @@ export function ConversationListUI({
     )
   }
 
-  if (conversations.length === 0) {
-    return (
-      <div className="py-4">
-        <p className="text-xs text-muted-foreground px-3">
-          暂无历史对话
-        </p>
-      </div>
-    )
-  }
-
   return (
     <>
-      <div className="space-y-1">
-        {conversations.map((conversation) => (
-          <ConversationItem
-            key={conversation.id}
-            conversation={conversation}
-            isActive={conversation.id === currentConversationId}
-            onSelect={() => onSelect(conversation.id)}
-            onDelete={() => handleDeleteClick(conversation.id)}
-            onRename={(newTitle) => onRename(conversation.id, newTitle)}
-          />
-        ))}
+      {/* 历史会话标题 */}
+      <div className="flex items-center gap-2 px-3 py-2 mb-2">
+        <History className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium text-muted-foreground">历史会话</span>
       </div>
+
+      {conversations.length === 0 ? (
+        <div className="py-4">
+          <p className="text-xs text-muted-foreground px-3">
+            暂无历史对话
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {conversations.map((conversation) => (
+            <ConversationItem
+              key={conversation.id}
+              conversation={conversation}
+              isActive={conversation.id === currentConversationId}
+              onSelect={() => onSelect(conversation.id)}
+              onDelete={() => handleDeleteClick(conversation.id)}
+              onRename={(newTitle) => onRename(conversation.id, newTitle)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* 删除确认对话框 */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

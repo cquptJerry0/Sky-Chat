@@ -34,10 +34,11 @@ export function ConversationList() {
   const updateConversationTitle = useChatStore((s) => s.updateConversationTitle)
   const loadConversations = useChatStore((s) => s.loadConversations)
 
-  // 初始化：加载会话列表
+  // 初始化：加载会话列表（只执行一次）
   React.useEffect(() => {
     loadConversations()
-  }, [loadConversations])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 将所有状态和方法传递给UI组件
   return (

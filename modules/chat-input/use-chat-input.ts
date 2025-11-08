@@ -59,16 +59,18 @@ export function useChatInput() {
         return
       }
       
-      // 创建用户消息
+      // 创建用户消息（使用时间戳+随机数避免ID冲突）
+      const timestamp = Date.now()
+      const randomSuffix = Math.random().toString(36).substring(2, 9)
       const userMsg: Message = {
-        id: Date.now().toString(),
+        id: `${timestamp}-user-${randomSuffix}`,
         role: 'user',
         content: message,
       }
       
       // 创建 AI 消息
       const aiMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `${timestamp}-ai-${randomSuffix}`,
         role: 'assistant',
         content: '',
         thinking: '',
@@ -80,6 +82,9 @@ export function useChatInput() {
       
       // 创建 AbortController
       abortControllerRef.current = new AbortController()
+      
+      // 初始化actualMessageId为aiMsg.id，避免作用域问题
+      let actualMessageId = aiMsg.id
       
       try {
         // 获取当前会话ID
@@ -105,13 +110,22 @@ export function useChatInput() {
           throw new Error(`API error: ${response.status}`)
         }
         
-        // 从响应header获取conversationId
+        // 从响应header获取conversationId和messageId
         const conversationId = response.headers.get('X-Conversation-ID')
+        const serverMessageId = response.headers.get('X-Message-ID')
+        
         if (conversationId && !currentConversationId) {
           // 如果是新创建的会话，保存到store
           useChatStore.getState().setConversationId(conversationId)
           // 重新加载会话列表
           useChatStore.getState().loadConversations()
+        }
+        
+        // 更新AI消息的ID为服务端返回的ID（用于续传）
+        // 使用新ID进行后续操作
+        actualMessageId = serverMessageId || aiMsg.id
+        if (serverMessageId) {
+          useChatStore.getState().updateMessage(aiMsg.id, { id: serverMessageId })
         }
         
         const reader = response.body?.getReader()
@@ -125,15 +139,15 @@ export function useChatInput() {
             if (data.type === 'thinking' && data.content) {
               // 开始 thinking 阶段
               if (useChatStore.getState().streamingPhase !== 'thinking') {
-                startStreaming(aiMsg.id, 'thinking')
+                startStreaming(actualMessageId, 'thinking')
               }
-              appendThinking(aiMsg.id, data.content)
+              appendThinking(actualMessageId, data.content)
             } else if (data.type === 'answer' && data.content) {
               // 开始 answer 阶段
               if (useChatStore.getState().streamingPhase !== 'answer') {
-                startStreaming(aiMsg.id, 'answer')
+                startStreaming(actualMessageId, 'answer')
               }
-              appendContent(aiMsg.id, data.content)
+              appendContent(actualMessageId, data.content)
             } else if (data.type === 'complete') {
               stopStreaming()
               setLoading(false)
@@ -142,7 +156,7 @@ export function useChatInput() {
           error: (error) => {
             if (error.name !== 'AbortError') {
               console.error('Stream error:', error)
-              updateMessage(aiMsg.id, { hasError: true })
+              updateMessage(actualMessageId, { hasError: true })
               stopStreaming()
               setLoading(false)
               toast({
@@ -161,7 +175,7 @@ export function useChatInput() {
         console.error('Send message error:', error)
         stopStreaming()
         setLoading(false)
-        updateMessage(aiMsg.id, { hasError: true })
+        updateMessage(actualMessageId, { hasError: true })
         
         if (error instanceof Error && error.name !== 'AbortError') {
           toast({
