@@ -110,9 +110,10 @@ export function useChatInput() {
           throw new Error(`API error: ${response.status}`)
         }
         
-        // 从响应header获取conversationId和messageId
+        // 从响应header获取conversationId、messageId和canContinue
         const conversationId = response.headers.get('X-Conversation-ID')
         const serverMessageId = response.headers.get('X-Message-ID')
+        const canContinue = response.headers.get('X-Can-Continue') === 'true'
         
         if (conversationId && !currentConversationId) {
           // 如果是新创建的会话，保存到store
@@ -125,7 +126,10 @@ export function useChatInput() {
         // 使用新ID进行后续操作
         actualMessageId = serverMessageId || aiMsg.id
         if (serverMessageId) {
-          useChatStore.getState().updateMessage(aiMsg.id, { id: serverMessageId })
+          useChatStore.getState().updateMessage(aiMsg.id, { 
+            id: serverMessageId,
+            canContinue: canContinue,
+          })
         }
         
         const reader = response.body?.getReader()
@@ -294,6 +298,38 @@ export function useChatInput() {
       window.removeEventListener('edit-and-resend', handleEditAndResend)
     }
   }, [sendMessage])
+  
+  /**
+   * 监听标签页可见性变化
+   * 当标签页隐藏时，暂停正在进行的请求
+   */
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // 只在标签页隐藏且正在加载时才暂停
+      if (document.hidden && isLoading) {
+        console.log('[Visibility] Tab hidden, pausing request...')
+        
+        // 中止当前请求
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+          abortControllerRef.current = null
+        }
+        
+        // 标记为标签页切换导致的暂停
+        stopStreaming('tab_hidden')
+        setLoading(false)
+      } else if (!document.hidden && !isLoading) {
+        console.log('[Visibility] Tab visible again')
+        // 标签页重新可见时，不自动继续，让用户决定是否继续
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [isLoading, stopStreaming, setLoading])
   
   return {
     // 状态

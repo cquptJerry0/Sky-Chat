@@ -13,7 +13,11 @@
     "db:migrate": "dotenv -e .env -- prisma migrate dev",
     "db:seed": "dotenv -e .env -- tsx server/db/seed.ts",
     "db:studio": "dotenv -e .env -- prisma studio",
-    "db:push": "dotenv -e .env -- prisma db push"
+    "db:push": "dotenv -e .env -- prisma db push",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f postgres",
+    "docker:restart": "docker-compose restart"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

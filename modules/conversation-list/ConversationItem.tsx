@@ -11,6 +11,7 @@
  */
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { MessageSquare, Trash2, Edit2, Check, X, MoreVertical, Eye, Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,7 +27,6 @@ import type { Conversation } from '@/lib/services/conversation-api'
 interface ConversationItemProps {
   conversation: Conversation
   isActive: boolean
-  onSelect: () => void
   onDelete: () => void
   onRename: (newTitle: string) => void
 }
@@ -34,13 +34,18 @@ interface ConversationItemProps {
 export function ConversationItem({
   conversation,
   isActive,
-  onSelect,
   onDelete,
   onRename,
 }: ConversationItemProps) {
+  const router = useRouter()
   const [isEditing, setIsEditing] = React.useState(false)
   const [editTitle, setEditTitle] = React.useState(conversation.title)
   const [isHovered, setIsHovered] = React.useState(false)
+  
+  // 使用路由导航切换会话
+  const handleSelect = React.useCallback(() => {
+    router.push(`/chat/${conversation.id}`)
+  }, [router, conversation.id])
 
   const handleSave = () => {
     if (editTitle.trim() && editTitle !== conversation.title) {
@@ -74,16 +79,17 @@ export function ConversationItem({
       onMouseLeave={() => setIsHovered(false)}
     >
       {isEditing ? (
-        <>
+        <div className="flex items-center gap-1 w-full">
           <input
             type="text"
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={handleSave}
-            className="flex-1 bg-background border border-border rounded px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-primary"
+            className="flex-1 min-w-0 bg-background border border-border rounded px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-primary"
             autoFocus
           />
+          <div className="flex items-center gap-1 shrink-0">
           <Button
             size="icon"
             variant="ghost"
@@ -100,13 +106,14 @@ export function ConversationItem({
           >
             <X className="h-3 w-3" />
           </Button>
-        </>
+          </div>
+        </div>
       ) : (
         <>
           <Button
             variant="ghost"
             className="flex-1 justify-start gap-2 p-0 h-auto hover:bg-transparent"
-            onClick={onSelect}
+            onClick={handleSelect}
           >
             <MessageSquare className="h-4 w-4 shrink-0" />
             <span className="truncate text-sm text-left">{conversation.title}</span>
@@ -126,7 +133,7 @@ export function ConversationItem({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-36 mr-2" sideOffset={8}>
-                <DropdownMenuItem onClick={onSelect}>
+                <DropdownMenuItem onClick={handleSelect}>
                   <Eye className="mr-2 h-4 w-4" />
                   <span>查看全部</span>
                 </DropdownMenuItem>

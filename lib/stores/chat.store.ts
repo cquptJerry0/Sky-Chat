@@ -13,8 +13,8 @@
  */
 
 import { create } from 'zustand'
-import type { Message } from '@/lib/types/chat'
-import { getDefaultModel } from '@/lib/constants/models'
+import type { Message, AbortReason } from '@/lib/types/chat'
+import { getDefaultModel, getModelById } from '@/lib/constants/models'
 import { ConversationAPI, type Conversation } from '@/lib/services/conversation-api'
 
 /**
@@ -65,6 +65,9 @@ interface ChatState {
   /** 续传请求的AbortController */
   continueAbortController: AbortController | null
   
+  /** 中断原因（用于标记消息被中断的原因） */
+  abortReason: AbortReason | null
+  
   // ============ 消息操作 ============
   /**
    * 添加新消息到历史记录
@@ -94,8 +97,9 @@ interface ChatState {
   
   /**
    * 停止所有流式传输活动
+   * @param reason - 中断原因（可选）
    */
-  stopStreaming: () => void
+  stopStreaming: (reason?: AbortReason) => void
   
   // ============ 配置操作 ============
   /**
@@ -185,12 +189,35 @@ interface ChatState {
 }
 
 /**
+ * 从 localStorage 读取上次选择的模型
+ */
+const getInitialModel = (): string => {
+  if (typeof window === 'undefined') return getDefaultModel().id
+  
+  try {
+    const savedModel = localStorage.getItem('sky-chat-selected-model')
+    if (savedModel) {
+      // 验证模型是否仍然有效
+      const model = getModelById(savedModel)
+      if (model) {
+        console.log('[ChatStore] Restored model from localStorage:', savedModel)
+        return savedModel
+      }
+    }
+  } catch (error) {
+    console.error('[ChatStore] Failed to load model from localStorage:', error)
+  }
+  
+  return getDefaultModel().id
+}
+
+/**
  * 初始状态
  */
 const initialState = {
   messages: [],
   isLoading: false,
-  selectedModel: getDefaultModel().id,
+  selectedModel: getInitialModel(),
   enableThinking: false,
   currentConversationId: null,
   conversations: [],
@@ -199,6 +226,7 @@ const initialState = {
   streamingMessageId: null,
   streamingPhase: null as StreamingPhase,
   continueAbortController: null,
+  abortReason: null as AbortReason | null,
 }
 
 /**
@@ -248,24 +276,47 @@ export const useChatStore = create<ChatState>()((set) => ({
   startStreaming: (messageId, phase) =>
     set({ 
       streamingMessageId: messageId, 
-      streamingPhase: phase 
+      streamingPhase: phase,
+      abortReason: null, // 开始新的流式传输时清除之前的中断原因
     }),
   
-  stopStreaming: () => {
+  stopStreaming: (reason) => {
     // 中止续传请求（如果存在）
     const state = useChatStore.getState()
     state.continueAbortController?.abort()
+    
+    // 如果提供了中断原因，标记当前streaming的消息
+    if (reason && state.streamingMessageId) {
+      const shouldPause = reason !== 'user_stop' // 主动停止不需要暂停标记
+      state.updateMessage(state.streamingMessageId, {
+        isPaused: shouldPause,
+        pauseReason: reason,
+        canContinue: shouldPause, // 非主动停止的都可以续传
+      })
+    }
     
     set({ 
       streamingMessageId: null, 
       streamingPhase: null,
       continueAbortController: null,
+      abortReason: reason || null,
     })
   },
   
   // ============ Configuration Actions ============
-  setModel: (modelId) =>
-    set({ selectedModel: modelId }),
+  setModel: (modelId) => {
+    // 保存到 localStorage
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sky-chat-selected-model', modelId)
+        console.log('[ChatStore] Saved model to localStorage:', modelId)
+      }
+    } catch (error) {
+      console.error('[ChatStore] Failed to save model to localStorage:', error)
+    }
+    
+    set({ selectedModel: modelId })
+  },
   
   toggleThinking: (enabled) =>
     set({ enableThinking: enabled }),
@@ -281,6 +332,16 @@ export const useChatStore = create<ChatState>()((set) => ({
     set({ conversationsLoading: true })
     try {
       const { conversations } = await ConversationAPI.list()
+      console.log(`[ChatStore] Loaded ${conversations.length} conversations for current user`)
+      
+      // 安全检查：确保所有会话都有 userId（开发环境下）
+      if (process.env.NODE_ENV === 'development') {
+        const invalidConversations = conversations.filter(c => !c.userId)
+        if (invalidConversations.length > 0) {
+          console.warn('[ChatStore] Found conversations without userId:', invalidConversations)
+        }
+      }
+      
       set({ conversations, filteredConversations: conversations, conversationsLoading: false })
     } catch (error) {
       // 静默处理未登录错误（401），避免控制台报错
@@ -474,11 +535,6 @@ export const useChatStore = create<ChatState>()((set) => ({
             }
             state.appendContent(messageId, data.content)
           } else if (data.type === 'complete') {
-            state.stopStreaming()
-            state.setLoading(false)
-          } else if (data.type === 'error') {
-            console.error('Continue generation error from server:', data.error)
-            state.updateMessage(messageId, { hasError: true })
             state.stopStreaming()
             state.setLoading(false)
           }

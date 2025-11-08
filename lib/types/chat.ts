@@ -140,6 +140,15 @@ export interface SSEData {
 }
 
 /**
+ * 中断原因类型
+ * @description 描述消息生成被中断的原因
+ * - user_stop: 用户主动点击停止按钮
+ * - tab_hidden: 标签页切换导致暂停
+ * - network_error: 网络错误导致中断
+ */
+export type AbortReason = 'user_stop' | 'tab_hidden' | 'network_error'
+
+/**
  * Message 类型补充字段
  */
 export interface Message {
@@ -163,6 +172,14 @@ export interface Message {
   isStreaming?: boolean
   /** 时间戳 */
   timestamp?: number
+  
+  // ===== 新增：暂停与续传相关字段 =====
+  /** 是否被暂停（等待续传） */
+  isPaused?: boolean
+  /** 暂停原因 */
+  pauseReason?: AbortReason
+  /** 后端是否还在收集内容（可以续传） */
+  canContinue?: boolean
 }
 
 /**

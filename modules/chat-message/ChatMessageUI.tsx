@@ -29,6 +29,9 @@ interface ChatMessageUIProps {
   /** 是否正在等待响应 */
   isWaitingForResponse: boolean
   
+  /** 是否是最后一条助手消息 */
+  isLastAssistantMessage?: boolean
+  
   /** 重试回调 */
   onRetry?: () => void
   
@@ -51,6 +54,7 @@ export function ChatMessageUI({
   isStreamingThinking,
   isStreamingAnswer,
   isWaitingForResponse,
+  isLastAssistantMessage,
   onRetry,
   onEdit,
   onContinue,
@@ -139,6 +143,9 @@ export function ChatMessageUI({
               messageId={message.id}
               role={message.role as 'user' | 'assistant'}
               hasError={message.hasError}
+              isPaused={message.isPaused}
+              pauseReason={message.pauseReason}
+              isLastMessage={isLastAssistantMessage}
               onRetry={onRetry}
               onContinue={onContinue}
             />

@@ -1,139 +1,87 @@
 'use client'
 
 /**
- * Main Chat Page - 主聊天页面
+ * Home Page - 首页（重定向页面）
  * 
- * 零 props 布局组件，只负责页面结构
- * 所有状态和逻辑都封装在 Module 中
- * 
- * 架构：
- * - Sidebar: 侧边栏（新建对话等）
- * - ChatMessage: 消息列表（Module，零 props）
- * - ChatInput: 输入框（Module，零 props）
+ * 根据会话列表自动重定向：
+ * - 有会话：重定向到最近的会话
+ * - 无会话：创建新会话并重定向
  * 
  * @module app/page
  */
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import { useChatStore } from '@/lib/stores/chat.store'
-import { Sidebar } from '@/components/Sidebar'
-import { Header } from '@/components/Header'
-import { ChatMessage } from '@/modules/chat-message'
-import { ChatInput } from '@/modules/chat-input'
-import { ConversationList } from '@/modules/conversation-list'
-import { NewChatButton } from '@/components/NewChatButton'
-import { ConversationSearch } from '@/components/ConversationSearch'
-import { MainLayout } from '@/app/layout-components/MainLayout'
-import { LoginDialog } from '@/components/LoginDialog'
-import { useAuth } from '@/lib/hooks/use-auth'
+import { AuthGuard } from '@/components/AuthGuard'
 
 /**
- * 主页面组件
- * 
- * 零 props 设计，所有数据从 store 获取
- * 只负责页面布局，不包含业务逻辑
+ * 首页内容组件 - 处理会话重定向逻辑
  */
-export default function Home() {
-  // 认证状态
-  const { showLoginDialog, isLoading: authLoading } = useAuth()
+function HomeContent() {
+  const router = useRouter()
+  const loadConversations = useChatStore((s) => s.loadConversations)
+  const createNewConversation = useChatStore((s) => s.createNewConversation)
   
-  // 获取消息列表
-  const messages = useChatStore((s) => s.messages)
+  const [isRedirecting, setIsRedirecting] = React.useState(false)
   
-  // 获取流式传输状态
-  const streamingMessageId = useChatStore((s) => s.streamingMessageId)
-  
-  // 消息容器引用
-  const messagesContainerRef = React.useRef<HTMLDivElement>(null)
-  
-  // 自动滚动到底部
-  const scrollToBottom = React.useCallback(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop =
-        messagesContainerRef.current.scrollHeight
-    }
-  }, [])
-  
-  // 监听消息数量变化，自动滚动
+  // 加载会话列表并重定向
   React.useEffect(() => {
-    scrollToBottom()
-  }, [messages.length, scrollToBottom])
+    // 避免重复重定向
+    if (isRedirecting) return
+    
+    const redirectToConversation = async () => {
+      setIsRedirecting(true)
+      
+      try {
+        // 先加载会话列表
+        await loadConversations()
   
-  // 监听流式传输时的内容变化，自动滚动
-  React.useEffect(() => {
-    if (streamingMessageId) {
-      const streamingMessage = messages.find(m => m.id === streamingMessageId)
-      if (streamingMessage) {
-        // 使用节流避免过于频繁的滚动
-        const timeoutId = setTimeout(scrollToBottom, 100)
-        return () => clearTimeout(timeoutId)
+        // 获取最新的会话列表
+        const latestConversations = useChatStore.getState().conversations
+        
+        if (latestConversations.length > 0) {
+          // 有会话：重定向到最近的会话
+          router.push(`/chat/${latestConversations[0].id}`)
+        } else {
+          // 无会话：创建新会话并重定向
+          await createNewConversation()
+          const newConversation = useChatStore.getState().conversations[0]
+          if (newConversation) {
+            router.push(`/chat/${newConversation.id}`)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to redirect:', error)
+        setIsRedirecting(false)
       }
     }
-  }, [messages, streamingMessageId, scrollToBottom])
+    
+    redirectToConversation()
+  }, [isRedirecting, router, loadConversations, createNewConversation])
   
-  // 显示登录对话框
-  if (authLoading) {
+  // 显示重定向中的加载状态
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
-          <p className="text-muted-foreground">加载中...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
+        <p className="text-muted-foreground">正在打开会话...</p>
         </div>
       </div>
     )
   }
   
+/**
+ * 首页组件 - 使用 AuthGuard 保护
+ */
+export default function Home() {
   return (
-    <>
-      {/* 登录对话框 */}
-      <LoginDialog open={showLoginDialog} />
-      
-      {/* 主界面 */}
-    <MainLayout
-      sidebar={
-        <Sidebar isLeader={true}>
-          <div className="space-y-2">
-            {/* 新建对话按钮模块 */}
-            <NewChatButton />
-            
-            {/* 会话搜索模块 */}
-            <ConversationSearch />
-            
-            {/* 会话列表模块 */}
-            <ConversationList />
-          </div>
-        </Sidebar>
-      }
+    <AuthGuard
+      loadingText="加载中..."
+      unauthenticatedText="请先登录..."
     >
-        {/* Header（顶部固定） */}
-        <Header />
-        
-        {/* 消息列表 */}
-        <main 
-          ref={messagesContainerRef} 
-          className="flex-1 overflow-y-auto pb-40"
-        >
-          {messages.length === 0 ? (
-            // 空状态
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center">
-                <h1 className="text-[32px] font-normal text-[hsl(var(--text-primary))] mb-8">
-                  我能帮你什么？
-                </h1>
-              </div>
-            </div>
-          ) : (
-            // 消息列表
-            <div className="mx-auto max-w-3xl px-6 pt-4">
-              {messages.map((message) => (
-                <ChatMessage key={message.id} messageId={message.id} />
-              ))}
-            </div>
-          )}
-        </main>
-        
-        {/* 输入框（固定在底部）- 零 props */}
-        <ChatInput />
-    </MainLayout>
-    </>
+      <HomeContent />
+    </AuthGuard>
   )
 }

@@ -36,6 +36,12 @@ interface MessageActionsProps {
   role: 'user' | 'assistant'
   /** 是否有错误 */
   hasError?: boolean
+  /** 是否被暂停（等待续传） */
+  isPaused?: boolean
+  /** 暂停原因 */
+  pauseReason?: 'user_stop' | 'tab_hidden' | 'network_error'
+  /** 是否是最后一条助手消息 */
+  isLastMessage?: boolean
   /** 复制回调 */
   onCopy?: () => void
   /** 重试回调 */
@@ -50,6 +56,9 @@ export function MessageActions({
   content,
   role,
   hasError,
+  isPaused,
+  pauseReason,
+  isLastMessage,
   onCopy,
   onRetry,
   onContinue,
@@ -60,6 +69,30 @@ export function MessageActions({
   const copyingRef = React.useRef(false)
   
   const currentVoice = VOICE_OPTIONS.find(v => v.id === selectedVoice) || VOICE_OPTIONS[0]
+  
+  // 智能续传按钮显示逻辑
+  const showContinueButton = React.useMemo(() => {
+    // 必须是助手消息
+    if (role !== 'assistant') return false
+    // 必须是最后一条助手消息
+    if (!isLastMessage) return false
+    // 必须被暂停且不是主动停止
+    if (!isPaused || pauseReason === 'user_stop') return false
+    // 必须有续传回调
+    if (!onContinue) return false
+    
+    return true
+  }, [role, isLastMessage, isPaused, pauseReason, onContinue])
+  
+  // 续传按钮文案
+  const continueButtonText = React.useMemo(() => {
+    if (pauseReason === 'tab_hidden') {
+      return '继续生成（标签页切换已暂停）'
+    } else if (pauseReason === 'network_error') {
+      return '继续生成（网络中断）'
+    }
+    return '继续生成'
+  }, [pauseReason])
 
   // 复制到剪贴板（防抖）
   const handleCopy = React.useCallback(async () => {
@@ -226,21 +259,22 @@ export function MessageActions({
           </Tooltip>
         )}
         
-        {/* 继续生成按钮（仅对assistant消息显示） */}
-        {role === 'assistant' && onContinue && (
+        {/* 智能续传按钮（仅在特定条件下显示） */}
+        {showContinueButton && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 onClick={onContinue}
-                className="h-7 w-7 hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="h-7 px-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-800 text-blue-600 dark:text-blue-400 font-medium"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                继续生成
               </Button>
             </TooltipTrigger>
             <TooltipContent className="bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900">
-              <p>继续生成</p>
+              <p>{continueButtonText}</p>
             </TooltipContent>
           </Tooltip>
         )}

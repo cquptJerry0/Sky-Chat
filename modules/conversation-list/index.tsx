@@ -29,7 +29,6 @@ export function ConversationList() {
   const loading = useChatStore((s) => s.conversationsLoading)
   
   // 从store获取方法
-  const switchConversation = useChatStore((s) => s.switchConversation)
   const deleteConversation = useChatStore((s) => s.deleteConversation)
   const updateConversationTitle = useChatStore((s) => s.updateConversationTitle)
   const loadConversations = useChatStore((s) => s.loadConversations)
@@ -46,7 +45,6 @@ export function ConversationList() {
       conversations={conversations}
       currentConversationId={currentConversationId}
       loading={loading}
-      onSelect={switchConversation}
       onDelete={deleteConversation}
       onRename={updateConversationTitle}
     />

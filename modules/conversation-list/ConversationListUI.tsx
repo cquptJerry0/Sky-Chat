@@ -25,7 +25,6 @@ interface ConversationListUIProps {
   conversations: Conversation[]
   currentConversationId: string | null
   loading: boolean
-  onSelect: (id: string) => void
   onDelete: (id: string) => void
   onRename: (id: string, newTitle: string) => void
 }
@@ -34,7 +33,6 @@ export function ConversationListUI({
   conversations,
   currentConversationId,
   loading,
-  onSelect,
   onDelete,
   onRename,
 }: ConversationListUIProps) {
@@ -83,7 +81,6 @@ export function ConversationListUI({
               key={conversation.id}
               conversation={conversation}
               isActive={conversation.id === currentConversationId}
-              onSelect={() => onSelect(conversation.id)}
               onDelete={() => handleDeleteClick(conversation.id)}
               onRename={(newTitle) => onRename(conversation.id, newTitle)}
             />

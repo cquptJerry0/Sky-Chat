@@ -59,6 +59,9 @@ export function ChatMessage({ messageId }: ChatMessageProps) {
   const isAIMessage = message.role === 'assistant'
   const isWaitingForResponse = isLoading && isLastMessage && isAIMessage
   
+  // 判断是否是最后一条助手消息（用于智能续传按钮）
+  const isLastAssistantMessage = isAIMessage && isLastMessage
+  
   // 重试逻辑
   const handleRetry = message.hasError ? () => {
     // 删除错误消息
@@ -92,6 +95,7 @@ export function ChatMessage({ messageId }: ChatMessageProps) {
       isStreamingThinking={isStreamingThinking}
       isStreamingAnswer={isStreamingAnswer}
       isWaitingForResponse={isWaitingForResponse}
+      isLastAssistantMessage={isLastAssistantMessage}
       onRetry={handleRetry}
       onEdit={handleEdit}
       onContinue={handleContinue}
