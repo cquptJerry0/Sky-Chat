@@ -15,7 +15,7 @@
  */
 
 import * as React from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useChatStore } from '@/lib/stores/chat.store'
 import { Sidebar } from '@/components/Sidebar'
 import { Header } from '@/components/Header'
@@ -24,8 +24,10 @@ import { ChatInput } from '@/modules/chat-input'
 import { ConversationList } from '@/modules/conversation-list'
 import { NewChatButton } from '@/components/NewChatButton'
 import { ConversationSearch } from '@/components/ConversationSearch'
-import { MainLayout } from '@/app/layout-components/MainLayout'
+import { MainLayout } from '@/components/MainLayout'
 import { AuthGuard } from '@/components/AuthGuard'
+import { Loading } from '@/components/Loading'
+import { useLoading } from '@/lib/hooks/use-loading'
 
 /**
  * 会话内容组件
@@ -35,7 +37,9 @@ import { AuthGuard } from '@/components/AuthGuard'
 function ConversationContent() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const conversationId = params.conversationId as string
+  const messageToSend = searchParams.get('message')
   
   // 获取消息列表和当前会话ID
   const messages = useChatStore((s) => s.messages)
@@ -48,8 +52,11 @@ function ConversationContent() {
   // 消息容器引用
   const messagesContainerRef = React.useRef<HTMLDivElement>(null)
   
-  // 加载状态
-  const [isLoadingMessages, setIsLoadingMessages] = React.useState(false)
+  // 使用 loading hook
+  const { withLoading, shouldShowLoading } = useLoading()
+  
+  // 自动发送待发送消息的标记
+  const [hasAutoSent, setHasAutoSent] = React.useState(false)
   
   // 当conversationId变化时，加载对应会话的消息
   React.useEffect(() => {
@@ -59,20 +66,19 @@ function ConversationContent() {
     if (currentConversationId === conversationId) return
     
     const loadConversation = async () => {
-      setIsLoadingMessages(true)
-      try {
-        await switchConversation(conversationId)
-      } catch (error) {
-        console.error('Failed to load conversation:', error)
-        // 如果加载失败，重定向到首页
-        router.push('/')
-      } finally {
-        setIsLoadingMessages(false)
-      }
+      await withLoading(async () => {
+        try {
+          await switchConversation(conversationId)
+        } catch (error) {
+          console.error('Failed to load conversation:', error)
+          // 如果加载失败，重定向到首页
+          router.push('/')
+        }
+      }, 'visible')
     }
     
     loadConversation()
-  }, [conversationId, currentConversationId, switchConversation, router])
+  }, [conversationId, currentConversationId, switchConversation, router, withLoading])
   
   // 自动滚动到底部
   const scrollToBottom = React.useCallback(() => {
@@ -99,6 +105,29 @@ function ConversationContent() {
     }
   }, [messages, streamingMessageId, scrollToBottom])
   
+  // 自动发送待发送消息（仅一次）
+  React.useEffect(() => {
+    if (
+      messageToSend && 
+      !hasAutoSent && 
+      currentConversationId === conversationId &&
+      !shouldShowLoading
+    ) {
+      console.log('[ConversationPage] Auto-sending pending message:', messageToSend)
+      setHasAutoSent(true)
+      
+      // 使用自定义事件触发发送
+      window.dispatchEvent(
+        new CustomEvent('auto-send-message', {
+          detail: { content: messageToSend },
+        })
+      )
+      
+      // 清理URL参数
+      window.history.replaceState(null, '', `/chat/${conversationId}`)
+    }
+  }, [messageToSend, hasAutoSent, currentConversationId, conversationId, shouldShowLoading])
+  
   return (
     <MainLayout
         sidebar={
@@ -120,12 +149,8 @@ function ConversationContent() {
         <Header />
         
         {/* 加载状态 */}
-        {isLoadingMessages ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-center">
-              <p className="text-muted-foreground">加载会话中...</p>
-            </div>
-          </div>
+        {shouldShowLoading ? (
+          <Loading text="加载会话中..." />
         ) : (
           <>
             {/* 消息列表 */}

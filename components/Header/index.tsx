@@ -8,6 +8,7 @@ import { ModelSelector } from '@/components/ModelSelector'
 import { useChatStore } from '@/lib/stores/chat.store'
 import { useSession, signOut } from 'next-auth/react'
 import { useTheme } from 'next-themes'
+import { StorageManager } from '@/lib/utils/storage'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,11 +21,21 @@ import {
 export function Header() {
   const selectedModel = useChatStore((s) => s.selectedModel)
   const setModel = useChatStore((s) => s.setModel)
+  const reset = useChatStore((s) => s.reset)
   const { data: session } = useSession()
   const { theme, setTheme } = useTheme()
 
-  const handleLogout = () => {
-    signOut({ callbackUrl: '/' })
+  const handleLogout = async () => {
+    console.log('[Header] Logging out, clearing all data...')
+    
+    // 1. 清空 localStorage 中所有应用数据
+    StorageManager.clearAll()
+    
+    // 2. 重置 store 状态
+    reset()
+    
+    // 3. 执行登出
+    await signOut({ callbackUrl: '/' })
   }
 
   const cycleTheme = () => {

@@ -16,6 +16,7 @@ import { SSEParser } from '@/lib/services/sse-parser'
 import { useToast } from '@/hooks/use-toast'
 import { useAudioRecorder } from '@/lib/hooks/use-audio-recorder'
 import { ChatAPI } from '@/lib/services/chat-api'
+import { ConversationAPI } from '@/lib/services/conversation-api'
 import type { Message } from '@/lib/types/chat'
 
 /**
@@ -88,7 +89,39 @@ export function useChatInput() {
       
       try {
         // 获取当前会话ID
-        const currentConversationId = useChatStore.getState().currentConversationId
+        let currentConversationId = useChatStore.getState().currentConversationId
+        
+        // 如果没有会话，先创建一个
+        if (!currentConversationId) {
+          console.log('[ChatInput] No conversation, creating one...')
+          try {
+            const { conversation } = await ConversationAPI.create()
+            currentConversationId = conversation.id
+            
+            // 更新store
+            useChatStore.getState().setConversationId(currentConversationId)
+            
+            // 更新URL（如果在 /chat 页面）
+            if (window.location.pathname === '/chat') {
+              window.history.replaceState(null, '', `/chat/${currentConversationId}`)
+            }
+            
+            // 重新加载会话列表
+            useChatStore.getState().loadConversations()
+            
+            console.log('[ChatInput] Created conversation:', currentConversationId)
+          } catch (error) {
+            console.error('[ChatInput] Failed to create conversation:', error)
+            setLoading(false)
+            stopStreaming()
+            toast({
+              title: '创建会话失败',
+              description: '请重试',
+              variant: 'destructive',
+            })
+            return
+          }
+        }
         
         // 构建请求体
         const requestBody = {
@@ -273,7 +306,7 @@ export function useChatInput() {
   }, [audioBlob, isRecording, clearAudio, toast])
   
   /**
-   * 监听重试和编辑事件
+   * 监听重试、编辑和自动发送事件
    */
   useEffect(() => {
     const handleRetryMessage = (event: Event) => {
@@ -290,12 +323,22 @@ export function useChatInput() {
       }
     }
     
+    const handleAutoSendMessage = (event: Event) => {
+      const customEvent = event as CustomEvent<{ content: string }>
+      if (customEvent.detail?.content) {
+        console.log('[ChatInput] Auto-sending message:', customEvent.detail.content)
+        sendMessage(customEvent.detail.content)
+      }
+    }
+    
     window.addEventListener('retry-message', handleRetryMessage)
     window.addEventListener('edit-and-resend', handleEditAndResend)
+    window.addEventListener('auto-send-message', handleAutoSendMessage)
     
     return () => {
       window.removeEventListener('retry-message', handleRetryMessage)
       window.removeEventListener('edit-and-resend', handleEditAndResend)
+      window.removeEventListener('auto-send-message', handleAutoSendMessage)
     }
   }, [sendMessage])
   

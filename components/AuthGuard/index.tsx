@@ -84,50 +84,20 @@ export function AuthGuard({
     }
   }, [isLoading, isAuthenticated, redirectTo, hasRedirected, router])
 
-  // 正在加载认证状态
+  // 正在加载认证状态 - 使用简化的加载界面
   if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          {showLoader && (
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
-          )}
-          <p className="text-muted-foreground">{loadingText}</p>
-        </div>
-      </div>
-    )
+    return null // 让 Next.js 的全局 loading.tsx 处理
   }
 
   // 未登录
   if (!isAuthenticated) {
-    // 如果设置了重定向，显示重定向中的加载状态
+    // 如果设置了重定向，不显示任何内容（等待重定向）
     if (redirectTo) {
-      return (
-        <div className="flex h-screen items-center justify-center">
-          <div className="text-center">
-            {showLoader && (
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
-            )}
-            <p className="text-muted-foreground">{unauthenticatedText}</p>
-          </div>
-        </div>
-      )
+      return null
     }
 
-    // 没有设置重定向，显示登录对话框并保持当前页面
-    return (
-      <>
-        <LoginDialog open={showLoginDialog} />
-        <div className="flex h-screen items-center justify-center">
-          <div className="text-center">
-            {showLoader && (
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
-            )}
-            <p className="text-muted-foreground">{unauthenticatedText}</p>
-          </div>
-        </div>
-      </>
-    )
+    // 没有设置重定向，显示登录对话框
+    return <LoginDialog open={showLoginDialog} />
   }
 
   // 已登录，渲染子组件

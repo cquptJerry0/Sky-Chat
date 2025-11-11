@@ -1,87 +1,109 @@
 'use client'
 
 /**
- * Home Page - 首页（重定向页面）
+ * Home Page - 首页
  * 
- * 根据会话列表自动重定向：
- * - 有会话：重定向到最近的会话
- * - 无会话：创建新会话并重定向
+ * 根据登录状态显示不同内容：
+ * - 未登录：显示落地页，收集待发送消息
+ * - 已登录：
+ *   - 有待发送消息：创建会话并发送
+ *   - 无待发送消息：重定向到最近会话或 /chat
  * 
  * @module app/page
  */
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import { useChatStore } from '@/lib/stores/chat.store'
-import { AuthGuard } from '@/components/AuthGuard'
+import { LandingPage } from '@/components/LandingPage'
+import { Loading } from '@/components/Loading'
+import { useLoading } from '@/lib/hooks/use-loading'
+import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
+import { ConversationAPI } from '@/lib/services/conversation-api'
 
 /**
- * 首页内容组件 - 处理会话重定向逻辑
+ * 首页组件
+ * 手动处理认证状态，不使用 AuthGuard
  */
-function HomeContent() {
+export default function HomePage() {
+  const { status } = useSession()
   const router = useRouter()
   const loadConversations = useChatStore((s) => s.loadConversations)
-  const createNewConversation = useChatStore((s) => s.createNewConversation)
+  const { withLoading, shouldShowLoading } = useLoading()
+  const [isProcessing, setIsProcessing] = React.useState(false)
   
-  const [isRedirecting, setIsRedirecting] = React.useState(false)
-  
-  // 加载会话列表并重定向
+  // 已登录时的重定向逻辑
   React.useEffect(() => {
-    // 避免重复重定向
-    if (isRedirecting) return
-    
-    const redirectToConversation = async () => {
-      setIsRedirecting(true)
-      
-      try {
-        // 先加载会话列表
-        await loadConversations()
+    if (status !== 'authenticated' || isProcessing) return
+
+    const handleAuthenticatedRedirect = async () => {
+      setIsProcessing(true)
+
+      await withLoading(async () => {
+        try {
+          // 1. 检查是否有待发送消息
+          const pendingMessage = StorageManager.get<string>(STORAGE_KEYS.PENDING_MESSAGE)
+
+          if (pendingMessage) {
+            console.log('[HomePage] Found pending message, creating conversation...')
+            
+            // 有待发送消息：创建会话并跳转
+            try {
+              const { conversation } = await ConversationAPI.create()
+              
+              // 跳转到新会话并携带消息
+              router.push(`/chat/${conversation.id}?message=${encodeURIComponent(pendingMessage)}`)
   
-        // 获取最新的会话列表
-        const latestConversations = useChatStore.getState().conversations
-        
-        if (latestConversations.length > 0) {
-          // 有会话：重定向到最近的会话
-          router.push(`/chat/${latestConversations[0].id}`)
-        } else {
-          // 无会话：创建新会话并重定向
-          await createNewConversation()
-          const newConversation = useChatStore.getState().conversations[0]
-          if (newConversation) {
-            router.push(`/chat/${newConversation.id}`)
+              // 清除待发送消息
+              StorageManager.remove(STORAGE_KEYS.PENDING_MESSAGE)
+              return
+            } catch (error) {
+              console.error('[HomePage] Failed to create conversation:', error)
+              // 创建失败时清除待发送消息，继续正常流程
+              StorageManager.remove(STORAGE_KEYS.PENDING_MESSAGE)
+  }
           }
+
+          // 2. 无待发送消息：正常重定向（静默加载）
+          console.log('[HomePage] No pending message, loading conversations...')
+          await loadConversations()
+          const conversations = useChatStore.getState().conversations
+
+          if (conversations.length > 0) {
+            // 有会话：重定向到最近的会话
+            console.log('[HomePage] Redirecting to latest conversation')
+            router.push(`/chat/${conversations[0].id}`)
+          } else {
+            // 无会话：重定向到空白聊天页
+            console.log('[HomePage] No conversations, redirecting to /chat')
+            router.push('/chat')
+          }
+        } catch (error) {
+          console.error('[HomePage] Redirect error:', error)
+          // 出错时重定向到空白聊天页
+          router.push('/chat')
         }
-      } catch (error) {
-        console.error('Failed to redirect:', error)
-        setIsRedirecting(false)
-      }
+      }, 'visible') // 显示 loading
     }
-    
-    redirectToConversation()
-  }, [isRedirecting, router, loadConversations, createNewConversation])
-  
-  // 显示重定向中的加载状态
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
-        <p className="text-muted-foreground">正在打开会话...</p>
-        </div>
-      </div>
-    )
+
+    handleAuthenticatedRedirect()
+  }, [status, isProcessing, router, loadConversations, withLoading])
+
+  // 加载中
+  if (status === 'loading') {
+    return <Loading />
+  }
+
+  // 未登录：显示落地页
+  if (status === 'unauthenticated') {
+    return <LandingPage />
+  }
+
+  // 已登录：显示重定向中（根据 loading 状态）
+  if (shouldShowLoading) {
+    return <Loading text="正在打开会话..." />
   }
   
-/**
- * 首页组件 - 使用 AuthGuard 保护
- */
-export default function Home() {
-  return (
-    <AuthGuard
-      loadingText="加载中..."
-      unauthenticatedText="请先登录..."
-    >
-      <HomeContent />
-    </AuthGuard>
-  )
+  return <Loading text="正在打开会话..." />
 }

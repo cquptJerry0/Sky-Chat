@@ -15,7 +15,11 @@
 import { create } from 'zustand'
 import type { Message, AbortReason } from '@/lib/types/chat'
 import { getDefaultModel, getModelById } from '@/lib/constants/models'
-import { ConversationAPI, type Conversation } from '@/lib/services/conversation-api'
+import {
+  ConversationAPI,
+  type Conversation,
+} from '@/lib/services/conversation-api'
+import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
 
 /**
  * 流式传输阶段指示器
@@ -64,7 +68,7 @@ interface ChatState {
   
   /** 续传请求的AbortController */
   continueAbortController: AbortController | null
-  
+
   /** 中断原因（用于标记消息被中断的原因） */
   abortReason: AbortReason | null
   
@@ -193,9 +197,9 @@ interface ChatState {
  */
 const getInitialModel = (): string => {
   if (typeof window === 'undefined') return getDefaultModel().id
-  
+
   try {
-    const savedModel = localStorage.getItem('sky-chat-selected-model')
+    const savedModel = StorageManager.get<string>(STORAGE_KEYS.SELECTED_MODEL)
     if (savedModel) {
       // 验证模型是否仍然有效
       const model = getModelById(savedModel)
@@ -207,7 +211,7 @@ const getInitialModel = (): string => {
   } catch (error) {
     console.error('[ChatStore] Failed to load model from localStorage:', error)
   }
-  
+
   return getDefaultModel().id
 }
 
@@ -244,32 +248,28 @@ export const useChatStore = create<ChatState>()((set) => ({
   // ============ Message Actions ============
   addMessage: (message) =>
     set((state) => ({
-      messages: [...state.messages, message]
+      messages: [...state.messages, message],
     })),
   
   updateMessage: (id, updates) =>
     set((state) => ({
       messages: state.messages.map((m) =>
         m.id === id ? { ...m, ...updates } : m
-      )
+      ),
     })),
   
   appendThinking: (id, chunk) =>
     set((state) => ({
       messages: state.messages.map((m) =>
-        m.id === id
-          ? { ...m, thinking: (m.thinking || '') + chunk }
-          : m
-      )
+        m.id === id ? { ...m, thinking: (m.thinking || '') + chunk } : m
+      ),
     })),
   
   appendContent: (id, chunk) =>
     set((state) => ({
       messages: state.messages.map((m) =>
-        m.id === id
-          ? { ...m, content: (m.content || '') + chunk }
-          : m
-      )
+        m.id === id ? { ...m, content: (m.content || '') + chunk } : m
+      ),
     })),
   
   // ============ Streaming Control ============
@@ -284,7 +284,7 @@ export const useChatStore = create<ChatState>()((set) => ({
     // 中止续传请求（如果存在）
     const state = useChatStore.getState()
     state.continueAbortController?.abort()
-    
+
     // 如果提供了中断原因，标记当前streaming的消息
     if (reason && state.streamingMessageId) {
       const shouldPause = reason !== 'user_stop' // 主动停止不需要暂停标记
@@ -307,49 +307,61 @@ export const useChatStore = create<ChatState>()((set) => ({
   setModel: (modelId) => {
     // 保存到 localStorage
     try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('sky-chat-selected-model', modelId)
-        console.log('[ChatStore] Saved model to localStorage:', modelId)
-      }
+      StorageManager.set(STORAGE_KEYS.SELECTED_MODEL, modelId)
+      console.log('[ChatStore] Saved model to localStorage:', modelId)
     } catch (error) {
       console.error('[ChatStore] Failed to save model to localStorage:', error)
     }
-    
+
     set({ selectedModel: modelId })
   },
   
-  toggleThinking: (enabled) =>
-    set({ enableThinking: enabled }),
+  toggleThinking: (enabled) => set({ enableThinking: enabled }),
   
-  setLoading: (loading) =>
-    set({ isLoading: loading }),
+  setLoading: (loading) => set({ isLoading: loading }),
   
   // ============ Conversation Actions ============
-  setConversationId: (id) =>
-    set({ currentConversationId: id }),
+  setConversationId: (id) => set({ currentConversationId: id }),
   
   loadConversations: async () => {
     set({ conversationsLoading: true })
     try {
       const { conversations } = await ConversationAPI.list()
-      console.log(`[ChatStore] Loaded ${conversations.length} conversations for current user`)
-      
+      console.log(
+        `[ChatStore] Loaded ${conversations.length} conversations for current user`
+      )
+
       // 安全检查：确保所有会话都有 userId（开发环境下）
       if (process.env.NODE_ENV === 'development') {
-        const invalidConversations = conversations.filter(c => !c.userId)
+        const invalidConversations = conversations.filter((c) => !c.userId)
         if (invalidConversations.length > 0) {
-          console.warn('[ChatStore] Found conversations without userId:', invalidConversations)
+          console.warn(
+            '[ChatStore] Found conversations without userId:',
+            invalidConversations
+          )
         }
       }
-      
-      set({ conversations, filteredConversations: conversations, conversationsLoading: false })
+
+      set({
+        conversations,
+        filteredConversations: conversations,
+        conversationsLoading: false,
+      })
     } catch (error) {
       // 静默处理未登录错误（401），避免控制台报错
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      if (!errorMessage.includes('Unauthorized') && !errorMessage.includes('401')) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      if (
+        !errorMessage.includes('Unauthorized') &&
+        !errorMessage.includes('401')
+      ) {
         console.error('Failed to load conversations:', error)
       }
-      set({ conversationsLoading: false, conversations: [], filteredConversations: [] })
+      set({
+        conversationsLoading: false,
+        conversations: [],
+        filteredConversations: [],
+      })
     }
   },
   
@@ -390,9 +402,14 @@ export const useChatStore = create<ChatState>()((set) => ({
       await ConversationAPI.delete(id)
       set((state) => ({
         conversations: state.conversations.filter((c) => c.id !== id),
-        filteredConversations: state.filteredConversations.filter((c) => c.id !== id),
+        filteredConversations: state.filteredConversations.filter(
+          (c) => c.id !== id
+        ),
         // 如果删除的是当前会话，清空
-        currentConversationId: state.currentConversationId === id ? null : state.currentConversationId,
+        currentConversationId:
+          state.currentConversationId === id
+            ? null
+            : state.currentConversationId,
         messages: state.currentConversationId === id ? [] : state.messages,
       }))
     } catch (error) {
@@ -416,16 +433,14 @@ export const useChatStore = create<ChatState>()((set) => ({
     }
   },
   
-  clearMessages: () =>
-    set({ messages: [] }),
+  clearMessages: () => set({ messages: [] }),
   
-  setMessages: (messages) =>
-    set({ messages }),
+  setMessages: (messages) => set({ messages }),
   
   retryMessage: (messageId) =>
     set((state) => {
       // 找到该消息的索引
-      const messageIndex = state.messages.findIndex(m => m.id === messageId)
+      const messageIndex = state.messages.findIndex((m) => m.id === messageId)
       if (messageIndex === -1) return state
       
       // 找到该消息及其对应的用户消息
@@ -437,14 +452,18 @@ export const useChatStore = create<ChatState>()((set) => ({
         const newMessages = state.messages.slice(0, messageIndex)
         
         // 找到最后一个用户消息
-        const lastUserMessage = [...newMessages].reverse().find(m => m.role === 'user')
+        const lastUserMessage = [...newMessages]
+          .reverse()
+          .find((m) => m.role === 'user')
         
         if (lastUserMessage) {
           // 触发重新生成（通过自定义事件）
           // 注意：这个事件会在use-chat-input.ts中被监听
-          window.dispatchEvent(new CustomEvent('retry-message', {
-            detail: { content: lastUserMessage.content }
-          }))
+          window.dispatchEvent(
+            new CustomEvent('retry-message', {
+              detail: { content: lastUserMessage.content },
+            })
+          )
           
           return { messages: newMessages }
         }
@@ -456,7 +475,7 @@ export const useChatStore = create<ChatState>()((set) => ({
   editAndResend: (messageId, newContent) =>
     set((state) => {
       // 找到该消息的索引
-      const messageIndex = state.messages.findIndex(m => m.id === messageId)
+      const messageIndex = state.messages.findIndex((m) => m.id === messageId)
       if (messageIndex === -1) return state
       
       // 确保是用户消息
@@ -473,16 +492,18 @@ export const useChatStore = create<ChatState>()((set) => ({
       }
       
       // 触发重新生成（通过自定义事件）
-      window.dispatchEvent(new CustomEvent('edit-and-resend', {
-        detail: { content: newContent }
-      }))
+      window.dispatchEvent(
+        new CustomEvent('edit-and-resend', {
+          detail: { content: newContent },
+        })
+      )
       
       return { messages: newMessages }
     }),
   
   continueGeneration: async (messageId) => {
     const state = useChatStore.getState()
-    const message = state.messages.find(m => m.id === messageId)
+    const message = state.messages.find((m) => m.id === messageId)
     
     if (!message || message.role !== 'assistant') {
       return
@@ -565,8 +586,7 @@ export const useChatStore = create<ChatState>()((set) => ({
   },
   
   // ============ Utility Actions ============
-  reset: () =>
-    set(initialState),
+  reset: () => set(initialState),
 }))
 
 /**
@@ -577,11 +597,9 @@ export const selectIsStreaming = (state: ChatState) =>
   state.streamingMessageId !== null
 
 export const selectStreamingMessage = (state: ChatState) =>
-  state.messages.find(m => m.id === state.streamingMessageId)
+  state.messages.find((m) => m.id === state.streamingMessageId)
 
 export const selectLastMessage = (state: ChatState) =>
   state.messages[state.messages.length - 1]
 
-export const selectMessageCount = (state: ChatState) =>
-  state.messages.length
-
+export const selectMessageCount = (state: ChatState) => state.messages.length
