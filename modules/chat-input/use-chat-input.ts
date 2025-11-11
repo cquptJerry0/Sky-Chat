@@ -106,8 +106,15 @@ export function useChatInput() {
               window.history.replaceState(null, '', `/chat/${currentConversationId}`)
             }
             
-            // 重新加载会话列表
-            useChatStore.getState().loadConversations()
+            // 添加到会话列表
+            if (conversation) {
+              const state = useChatStore.getState()
+              useChatStore.setState({
+                conversations: [conversation, ...state.conversations],
+                filteredConversations: [conversation, ...state.filteredConversations],
+                currentConversationId: conversation.id,
+              })
+            }
             
             console.log('[ChatInput] Created conversation:', currentConversationId)
           } catch (error) {
@@ -151,8 +158,6 @@ export function useChatInput() {
         if (conversationId && !currentConversationId) {
           // 如果是新创建的会话，保存到store
           useChatStore.getState().setConversationId(conversationId)
-          // 重新加载会话列表
-          useChatStore.getState().loadConversations()
         }
         
         // 更新AI消息的ID为服务端返回的ID（用于续传）

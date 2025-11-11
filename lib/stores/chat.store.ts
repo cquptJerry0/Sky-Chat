@@ -403,7 +403,16 @@ export const useChatStore = create<ChatState>()((set) => ({
   
   deleteConversation: async (id) => {
     try {
-      await ConversationAPI.delete(id)
+      // 先调用 API 删除
+      const result = await ConversationAPI.delete(id)
+      
+      // 验证删除成功
+      if (!result.success) {
+        console.error('Delete failed: API returned unsuccessful')
+        throw new Error('Delete operation failed')
+      }
+      
+      // 只有确认删除成功才更新本地状态
       set((state) => ({
         conversations: state.conversations.filter((c) => c.id !== id),
         filteredConversations: state.filteredConversations.filter(
@@ -416,8 +425,35 @@ export const useChatStore = create<ChatState>()((set) => ({
             : state.currentConversationId,
         messages: state.currentConversationId === id ? [] : state.messages,
       }))
+      
+      console.log(`[ChatStore] Conversation deleted successfully: ${id}`)
+      
+      // 可选：验证删除（仅在开发环境）
+      if (process.env.NODE_ENV === 'development') {
+        // 延迟检查，确保数据库事务完成
+        setTimeout(async () => {
+          try {
+            const { conversations } = await ConversationAPI.list()
+            const stillExists = conversations.find((c) => c.id === id)
+            if (stillExists) {
+              console.error('[ChatStore] WARNING: Conversation still exists after delete!', id)
+              // 重新加载以保持一致性
+              const state = useChatStore.getState()
+              state.loadConversations()
+            }
+          } catch (error) {
+            // 忽略验证错误
+            console.log('[ChatStore] Could not verify deletion:', error)
+          }
+        }, 1000)
+      }
     } catch (error) {
       console.error('Failed to delete conversation:', error)
+      // 删除失败时不更新本地状态，保持数据一致性
+      
+      // 可选：重新加载会话列表以确保状态一致
+      // const state = useChatStore.getState()
+      // state.loadConversations()
     }
   },
   

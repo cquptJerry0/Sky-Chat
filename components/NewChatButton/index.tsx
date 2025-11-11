@@ -13,7 +13,6 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { PenSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ConversationAPI } from '@/lib/services/conversation-api'
 import { useChatStore } from '@/lib/stores/chat.store'
 import {
   AlertDialog,
@@ -34,6 +33,7 @@ import {
  */
 export function NewChatButton() {
   const router = useRouter()
+  const createNewConversation = useChatStore((s) => s.createNewConversation)
   const [isCreating, setIsCreating] = React.useState(false)
   
   const handleNewChat = async () => {
@@ -41,18 +41,15 @@ export function NewChatButton() {
     
     setIsCreating(true)
     try {
-      // 创建新会话
-      const { conversation } = await ConversationAPI.create()
+      // 使用 store 的 createNewConversation 方法，确保状态一致性
+      await createNewConversation()
       
-      // 更新store中的会话列表
-      const conversations = useChatStore.getState().conversations
-      useChatStore.setState({
-        conversations: [conversation, ...conversations],
-        filteredConversations: [conversation, ...conversations],
-      })
-      
-      // 导航到新会话
-      router.push(`/chat/${conversation.id}`)
+      // 获取新创建的会话（在列表第一个）
+      const newConversation = useChatStore.getState().conversations[0]
+      if (newConversation) {
+        // 导航到新会话
+        router.push(`/chat/${newConversation.id}`)
+      }
     } catch (error) {
       console.error('Failed to create conversation:', error)
     } finally {
