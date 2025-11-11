@@ -2,10 +2,17 @@
  * 分享页面头部组件
  */
 
-import { Calendar, Eye, User } from 'lucide-react'
+'use client'
+
+import { Calendar, Eye, User, Download } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { exportService } from '@/lib/services/export'
+import { useToast } from '@/hooks/use-toast'
+import { useState } from 'react'
 
 interface ShareHeaderProps {
   conversation: {
+    id: string
     title: string
     author: string
     sharedAt: string
@@ -14,11 +21,42 @@ interface ShareHeaderProps {
 }
 
 export function ShareHeader({ conversation }: ShareHeaderProps) {
+  const { toast } = useToast()
+  const [isExporting, setIsExporting] = useState(false)
+  
   const sharedDate = new Date(conversation.sharedAt).toLocaleDateString('zh-CN', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   })
+  
+  const handleExportPDF = async () => {
+    if (isExporting) return
+    
+    setIsExporting(true)
+    try {
+      await exportService.exportConversation(conversation.id, {
+        format: 'pdf',
+        includeThinking: true,
+        includeTimestamp: true,
+        includeMetadata: false
+      })
+      
+      toast({
+        title: '导出成功',
+        description: '会话已导出为 PDF 格式'
+      })
+    } catch (error) {
+      console.error('导出失败:', error)
+      toast({
+        title: '导出失败',
+        description: error instanceof Error ? error.message : '导出过程中出现错误',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
   
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -49,7 +87,18 @@ export function ShareHeader({ conversation }: ShareHeaderProps) {
             </div>
           )}
           
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              className="h-7"
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              {isExporting ? '导出中...' : '导出 PDF'}
+            </Button>
+            
             <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
               只读模式
             </span>

@@ -76,8 +76,8 @@ export function ChatInputUI({
     : '生成已中断，点击继续'
   
   return (
-    <div className="fixed bottom-0 left-64 right-0 bg-gradient-to-t from-background via-background to-background/95 h-40 pointer-events-none">
-      <div className="mx-auto max-w-4xl px-6 h-full flex flex-col justify-center pb-4 pointer-events-auto">
+    <div className="shrink-0 bg-background border-t border-border/50">
+      <div className="mx-auto max-w-4xl px-6 py-4">
         
         {/* 续传提示Banner */}
         {showContinuePrompt && onContinue && (
@@ -268,7 +268,7 @@ export function ChatInputUI({
         </div>
         
         {/* 免责声明 */}
-        <p className="text-center text-xs text-[hsl(var(--text-secondary))] mt-4 mb-2">
+        <p className="text-center text-xs text-[hsl(var(--text-secondary))] mt-3">
           Sky Chat 可能会出错。请核实重要信息。
         </p>
       </div>

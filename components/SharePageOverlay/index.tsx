@@ -6,17 +6,29 @@
  * 显示一个蒙版和引导卡片，引导用户登录后开始对话
  */
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MessageSquare, Sparkles } from 'lucide-react'
+import { LoginDialog } from '@/components/LoginDialog'
 
-export function SharePageOverlay() {
+interface SharePageOverlayProps {
+  conversationId: string
+}
+
+export function SharePageOverlay({ conversationId }: SharePageOverlayProps) {
   const router = useRouter()
+  const [showLogin, setShowLogin] = useState(false)
   
   const handleClick = () => {
-    // 跳转到新对话页面，AuthGuard 会自动处理未登录的情况
-    router.push('/chat')
+    // 显示登录对话框
+    setShowLogin(true)
+  }
+  
+  const handleLoginSuccess = () => {
+    // 登录成功后，跳转到新会话并携带当前conversation作为引用
+    router.push(`/chat?ref=${conversationId}`)
   }
   
   return (
@@ -55,6 +67,13 @@ export function SharePageOverlay() {
           </div>
         </CardContent>
       </Card>
+      
+      {/* 登录对话框 */}
+      <LoginDialog 
+        open={showLogin}
+        onOpenChange={setShowLogin}
+        onSuccess={handleLoginSuccess}
+      />
     </div>
   )
 }

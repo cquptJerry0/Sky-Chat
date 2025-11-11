@@ -79,6 +79,20 @@ export async function POST(req: Request) {
         },
       }),
     ])
+    
+    // 自动生成会话标题（如果是第一条消息且标题为"新对话"）
+    const messageCount = await prisma.message.count({
+      where: { conversationId: conversation.id }
+    })
+    
+    if (messageCount === 2 && conversation.title === '新对话') {
+      // 根据第一条消息内容生成标题（最多20个字符）
+      const autoTitle = message.trim().substring(0, 20) + (message.length > 20 ? '...' : '')
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { title: autoTitle }
+      })
+    }
 
     // 获取历史消息（用于上下文）
     const historyMessages = await MessageRepository.findByConversationId(conversation.id)

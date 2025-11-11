@@ -122,11 +122,18 @@ async function exportBatch({ conversations, config }) {
   const mergedContent = results.join('\n\n========== 会话分隔 ==========\n\n')
   const blob = new Blob([mergedContent], { type: 'text/markdown' })
 
+  // 生成更合理的文件名
+  const date = new Date().toISOString().split('T')[0]
+  const count = conversations.length
+  const filename = count === 1 
+    ? `${conversations[0].title}_${date}.md`
+    : `Sky_Chat_${count}个会话_${date}.md`
+  
   self.postMessage({
     type: 'COMPLETE',
     result: {
       blob,
-      filename: `Sky_Chat_批量导出_${new Date().toISOString().split('T')[0]}.md`
+      filename
     }
   })
 }

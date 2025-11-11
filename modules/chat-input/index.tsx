@@ -37,7 +37,8 @@ export function ChatInput() {
   const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant')
   const showContinuePrompt = lastAssistantMessage?.isPaused && 
                              lastAssistantMessage?.pauseReason !== 'user_stop' &&
-                             lastAssistantMessage?.canContinue
+                             lastAssistantMessage?.canContinue &&
+                             (lastAssistantMessage?.thinking || lastAssistantMessage?.content)
   
   // 使用自定义 hook 处理所有输入逻辑
   const {

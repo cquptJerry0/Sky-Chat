@@ -24,9 +24,11 @@ import { signIn } from 'next-auth/react'
 
 interface LoginDialogProps {
   open: boolean
+  onOpenChange?: (open: boolean) => void
+  onSuccess?: () => void
 }
 
-export function LoginDialog({ open }: LoginDialogProps) {
+export function LoginDialog({ open, onOpenChange, onSuccess }: LoginDialogProps) {
   const [showEmailLogin, setShowEmailLogin] = React.useState(false)
   const [isRegisterMode, setIsRegisterMode] = React.useState(false)
   const [email, setEmail] = React.useState('')
@@ -96,7 +98,12 @@ export function LoginDialog({ open }: LoginDialogProps) {
         throw new Error('登录失败，请手动登录')
       }
 
-      window.location.reload()
+      // 调用成功回调或刷新页面
+      if (onSuccess) {
+        onSuccess()
+      } else {
+        window.location.reload()
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '注册失败'
       toast({
@@ -138,8 +145,12 @@ export function LoginDialog({ open }: LoginDialogProps) {
         description: '欢迎回来！',
       })
       
-      // 刷新页面以更新session
-      window.location.reload()
+      // 调用成功回调或刷新页面
+      if (onSuccess) {
+        onSuccess()
+      } else {
+        window.location.reload()
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '登录失败'
       toast({
@@ -153,11 +164,11 @@ export function LoginDialog({ open }: LoginDialogProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog open={open} onOpenChange={onOpenChange || (() => {})}>
       <DialogContent 
         className="sm:max-w-md"
-        onPointerDownOutside={(e: Event) => e.preventDefault()}
-        onEscapeKeyDown={(e: KeyboardEvent) => e.preventDefault()}
+        onPointerDownOutside={(e: Event) => onOpenChange ? undefined : e.preventDefault()}
+        onEscapeKeyDown={(e: KeyboardEvent) => onOpenChange ? undefined : e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle className="text-center text-2xl">Sky Chat</DialogTitle>

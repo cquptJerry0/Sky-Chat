@@ -121,13 +121,6 @@ export function Header() {
               className="cursor-pointer"
             >
               <Archive className="mr-2 h-4 w-4" />
-              <span>批量导出</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => setExportManagerOpen(true)}
-              className="cursor-pointer"
-            >
-              <Archive className="mr-2 h-4 w-4" />
               <span>导出管理</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />

@@ -34,7 +34,13 @@ export function SharePageContent({ conversation }: SharePageContentProps) {
   return (
     <div className="flex min-h-screen flex-col bg-background relative">
       {/* 页头 */}
-      <ShareHeader conversation={conversation} />
+      <ShareHeader conversation={{
+        id: conversation.id,
+        title: conversation.title,
+        author: conversation.author,
+        sharedAt: conversation.sharedAt,
+        viewCount: conversation.viewCount
+      }} />
       
       {/* 消息内容 */}
       <main className="flex-1 overflow-y-auto">
@@ -57,7 +63,7 @@ export function SharePageContent({ conversation }: SharePageContentProps) {
       <ShareFooter />
       
       {/* 蒙版 - 引导用户登录并开始对话 */}
-      <SharePageOverlay />
+      <SharePageOverlay conversationId={conversation.id} />
     </div>
   )
 }

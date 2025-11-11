@@ -14,7 +14,7 @@
  * @module components/ThinkingPanel
  */
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Brain } from 'lucide-react'
 import { MessageContent } from '@/components/MessageContent'
 
@@ -41,6 +41,14 @@ export function ThinkingPanel({
   defaultExpanded = true,
 }: ThinkingPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+  const contentRef = useRef<HTMLDivElement>(null)
+  
+  // 自动滚动到底部 - 当内容更新且正在流式传输时
+  useEffect(() => {
+    if (isStreaming && isExpanded && contentRef.current) {
+      contentRef.current.scrollTop = contentRef.current.scrollHeight
+    }
+  }, [content, isStreaming, isExpanded])
   
   // 如果没有内容，不渲染
   if (!content) return null
@@ -77,12 +85,15 @@ export function ThinkingPanel({
           isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
-        <div className={`px-4 py-3 overflow-y-auto ${isExpanded ? 'max-h-[500px]' : 'h-0'}`}>
+        <div 
+          ref={contentRef}
+          className={`px-4 py-3 overflow-y-auto ${isExpanded ? 'max-h-[500px]' : 'h-0'}`}
+        >
       {isExpanded && (
           <MessageContent
             content={content}
             isStreaming={isStreaming}
-            showCursor={false}
+            showCursor={true}
           />
           )}
         </div>

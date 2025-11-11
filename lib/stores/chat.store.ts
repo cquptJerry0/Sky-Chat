@@ -414,17 +414,20 @@ export const useChatStore = create<ChatState>()((set) => ({
   },
   
   switchConversation: async (id) => {
-    set({ isLoading: true, messages: [] })
+    set({ isLoading: true })
     try {
       const { messages } = await ConversationAPI.getMessages(id)
       set({
         currentConversationId: id,
         messages: messages as Message[],
         isLoading: false,
+        hasOlderMessages: true,
+        oldestMessageId: messages[0]?.id || null,
+        newestMessageId: messages[messages.length - 1]?.id || null,
       })
     } catch (error) {
       console.error('Failed to switch conversation:', error)
-      set({ isLoading: false })
+      set({ isLoading: false, messages: [] })
     }
   },
   

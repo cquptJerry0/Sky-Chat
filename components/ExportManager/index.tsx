@@ -8,7 +8,6 @@
 import * as React from 'react'
 import {
   Download,
-  Archive,
   Calendar,
   CheckSquare,
   Square,
@@ -39,7 +38,7 @@ export function ExportManagerDialog({ open, onOpenChange }: ExportManagerProps) 
   const conversations = useChatStore(s => s.conversations)
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [exportConfig, setExportConfig] = React.useState<BatchExportConfig>({
-    format: 'json',
+    format: 'markdown',
     includeThinking: false,
     includeMetadata: true,
   })
@@ -173,8 +172,8 @@ export function ExportManagerDialog({ open, onOpenChange }: ExportManagerProps) 
             
             <div>
               <h4 className="text-sm font-medium mb-2">导出格式</h4>
-              <div className="grid grid-cols-3 gap-2">
-                {['json', 'markdown', 'txt', 'html'].map(format => (
+              <div className="grid grid-cols-2 gap-2">
+                {['markdown', 'pdf'].map(format => (
                   <Button
                     key={format}
                     variant={exportConfig.format === format ? 'default' : 'outline'}
@@ -184,7 +183,7 @@ export function ExportManagerDialog({ open, onOpenChange }: ExportManagerProps) 
                       format: format as BatchExportConfig['format']
                     }))}
                   >
-                    {format.toUpperCase()}
+                    {format === 'markdown' ? 'Markdown' : 'PDF'}
                   </Button>
                 ))}
               </div>
@@ -201,21 +200,21 @@ export function ExportManagerDialog({ open, onOpenChange }: ExportManagerProps) 
             取消
           </Button>
           <Button
-            variant="outline"
-            onClick={() => handleExport(true)}
+            onClick={() => {
+              // 如果没有选中任何会话，导出全部；否则导出选中的
+              const exportAll = selectedIds.length === 0
+              handleExport(exportAll)
+            }}
             disabled={isExporting}
             className="gap-2"
           >
-            <Archive className="h-4 w-4" />
-            导出全部
-          </Button>
-          <Button
-            onClick={() => handleExport(false)}
-            disabled={isExporting || selectedIds.length === 0}
-            className="gap-2"
-          >
             <Download className="h-4 w-4" />
-            {isExporting ? '导出中...' : `导出选中 (${selectedIds.length})`}
+            {isExporting 
+              ? '导出中...' 
+              : selectedIds.length === 0 
+                ? '导出全部' 
+                : `导出选中 (${selectedIds.length})`
+            }
           </Button>
         </DialogFooter>
       </DialogContent>
