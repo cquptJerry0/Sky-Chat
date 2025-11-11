@@ -19,7 +19,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useChatStore } from '@/lib/stores/chat.store'
 import { Sidebar } from '@/components/Sidebar'
 import { Header } from '@/components/Header'
-import { ChatMessage } from '@/modules/chat-message'
+import { MessageList } from '@/modules/message-list'
 import { ChatInput } from '@/modules/chat-input'
 import { ConversationList } from '@/modules/conversation-list'
 import { NewChatButton } from '@/components/NewChatButton'
@@ -41,16 +41,9 @@ function ConversationContent() {
   const conversationId = params.conversationId as string
   const messageToSend = searchParams.get('message')
   
-  // 获取消息列表和当前会话ID
-  const messages = useChatStore((s) => s.messages)
+  // 获取当前会话ID
   const currentConversationId = useChatStore((s) => s.currentConversationId)
   const switchConversation = useChatStore((s) => s.switchConversation)
-  
-  // 获取流式传输状态
-  const streamingMessageId = useChatStore((s) => s.streamingMessageId)
-  
-  // 消息容器引用
-  const messagesContainerRef = React.useRef<HTMLDivElement>(null)
   
   // 使用 loading hook
   const { withLoading, shouldShowLoading } = useLoading()
@@ -79,31 +72,6 @@ function ConversationContent() {
     
     loadConversation()
   }, [conversationId, currentConversationId, switchConversation, router, withLoading])
-  
-  // 自动滚动到底部
-  const scrollToBottom = React.useCallback(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop =
-        messagesContainerRef.current.scrollHeight
-    }
-  }, [])
-  
-  // 监听消息数量变化，自动滚动
-  React.useEffect(() => {
-    scrollToBottom()
-  }, [messages.length, scrollToBottom])
-  
-  // 监听流式传输时的内容变化，自动滚动
-  React.useEffect(() => {
-    if (streamingMessageId) {
-      const streamingMessage = messages.find(m => m.id === streamingMessageId)
-      if (streamingMessage) {
-        // 使用节流避免过于频繁的滚动
-        const timeoutId = setTimeout(scrollToBottom, 100)
-        return () => clearTimeout(timeoutId)
-      }
-    }
-  }, [messages, streamingMessageId, scrollToBottom])
   
   // 自动发送待发送消息（仅一次）
   React.useEffect(() => {
@@ -153,29 +121,8 @@ function ConversationContent() {
           <Loading text="加载会话中..." />
         ) : (
           <>
-            {/* 消息列表 */}
-            <main 
-              ref={messagesContainerRef} 
-              className="flex-1 overflow-y-auto pb-40"
-            >
-              {messages.length === 0 ? (
-                // 空状态
-                <div className="flex h-full items-center justify-center">
-                  <div className="text-center">
-                    <h1 className="text-[32px] font-normal text-[hsl(var(--text-primary))] mb-8">
-                      我能帮你什么？
-                    </h1>
-                  </div>
-                </div>
-              ) : (
-                // 消息列表
-                <div className="mx-auto max-w-3xl px-6 pt-4">
-                  {messages.map((message) => (
-                    <ChatMessage key={message.id} messageId={message.id} />
-                  ))}
-                </div>
-              )}
-            </main>
+            {/* 虚拟滚动消息列表 */}
+            <MessageList />
             
             {/* 输入框（固定在底部）- 零 props */}
             <ChatInput />

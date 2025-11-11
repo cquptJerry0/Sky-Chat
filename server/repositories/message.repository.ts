@@ -18,13 +18,61 @@ export const MessageRepository = {
   },
 
   /**
-   * 获取会话所有消息
+   * 获取会话所有消息（支持限制数量）
    */
-  async findByConversationId(conversationId: string) {
+  async findByConversationId(conversationId: string, limit?: number) {
     return prisma.message.findMany({
       where: { conversationId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
     })
+  },
+
+  /**
+   * 分页获取消息（游标分页）
+   */
+  async findPaginated(
+    conversationId: string,
+    options: {
+      cursor: string
+      direction: 'before' | 'after'
+      limit: number
+    }
+  ) {
+    const { cursor, direction, limit } = options
+
+    // 先找到游标消息
+    const cursorMessage = await prisma.message.findUnique({
+      where: { id: cursor },
+    })
+
+    if (!cursorMessage) {
+      return []
+    }
+
+    // 根据方向查询
+    if (direction === 'before') {
+      // 查询更早的消息
+      const messages = await prisma.message.findMany({
+        where: {
+          conversationId,
+          createdAt: { lt: cursorMessage.createdAt },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      })
+      return messages.reverse() // 返回时按时间正序
+    } else {
+      // 查询更新的消息
+      return prisma.message.findMany({
+        where: {
+          conversationId,
+          createdAt: { gt: cursorMessage.createdAt },
+        },
+        orderBy: { createdAt: 'asc' },
+        take: limit,
+      })
+    }
   },
 
   /**

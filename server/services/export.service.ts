@@ -194,7 +194,7 @@ class ExportService {
     content += `---\n\n`
 
     for (const msg of data.messages) {
-      const role = msg.role === 'user' ? '👤 用户' : '🤖 助手'
+      const role = msg.role === 'user' ? '👤     用户' : '🤖 助手'
       content += `### ${role}\n`
       content += `*${new Date(msg.createdAt).toLocaleString()}*\n\n`
       

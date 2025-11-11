@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { exportService, type ExportConfig as FrontendExportConfig } from '@/lib/services/export'
+import { exportManager, type ExportProgress } from '@/lib/services/export-manager'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 
@@ -73,6 +73,7 @@ export function ExportButton({
   const { toast } = useToast()
   const [isLoading, setIsLoading] = React.useState(false)
   const [showAdvanced, setShowAdvanced] = React.useState(false)
+  const [progress, setProgress] = React.useState<ExportProgress | null>(null)
   const [exportConfig, setExportConfig] = React.useState<{
     format: 'markdown' | 'json' | 'txt' | 'html' | 'pdf'
     includeThinking: boolean
@@ -88,62 +89,34 @@ export function ExportButton({
 
   const handleExport = async (format?: 'markdown' | 'json' | 'txt' | 'html' | 'pdf') => {
     setIsLoading(true)
+    setProgress(null)
     
     const config = format ? { ...exportConfig, format } : exportConfig
     
     try {
       if (conversationId) {
-        // 单个导出 - 使用前端exportService（支持markdown和pdf）
-        if (config.format === 'markdown' || config.format === 'pdf') {
-          await exportService.exportConversation(conversationId, {
-            format: config.format,
-            includeThinking: config.includeThinking,
-            includeMetadata: config.includeMetadata
-          } as FrontendExportConfig)
-        } else {
-          // 其他格式使用后端API
-          const params = new URLSearchParams({
-            format: config.format,
-            includeThinking: String(config.includeThinking),
-            includeMetadata: String(config.includeMetadata)
-          })
-          const response = await fetch(`/api/conversations/${conversationId}/export?${params}`)
-          if (!response.ok) throw new Error('导出失败')
-          
-          const blob = await response.blob()
-          const url = URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = url
-          link.download = response.headers.get('Content-Disposition')?.split('filename="')[1]?.split('"')[0] || 'export'
-          link.click()
-          URL.revokeObjectURL(url)
-        }
+        // 单个导出 - 使用前端exportManager（带缓存和进度）
+        await exportManager.exportConversation(conversationId, {
+          ...config,
+          useCache: true,
+          onProgress: (p) => setProgress(p)
+        })
+        
         toast({
           title: '导出成功',
           description: `会话已导出为 ${config.format.toUpperCase()} 格式`,
         })
       } else {
-        // 批量导出或导出全部 - 使用后端API
-        const response = await fetch('/api/conversations/batch-export', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        // 批量导出 - 使用exportManager（流式下载 + 进度条）
+        await exportManager.exportBatch(
+          {
             conversationIds: isBatch ? conversationIds : undefined,
             format: config.format,
             includeThinking: config.includeThinking,
             includeMetadata: config.includeMetadata
-          })
-        })
-        
-        if (!response.ok) throw new Error('导出失败')
-        
-        const blob = await response.blob()
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = response.headers.get('Content-Disposition')?.split('filename="')[1]?.split('"')[0] || 'export'
-        link.click()
-        URL.revokeObjectURL(url)
+          },
+          (p) => setProgress(p)
+        )
         
         toast({
           title: isBatch ? '批量导出成功' : '导出成功',
@@ -162,6 +135,7 @@ export function ExportButton({
     } finally {
       setIsLoading(false)
       setShowAdvanced(false)
+      setProgress(null)
     }
   }
 

@@ -28,6 +28,19 @@ export interface Message {
   createdAt: string
 }
 
+export interface PaginationParams {
+  limit?: number
+  cursor?: string
+  direction?: 'before' | 'after'
+}
+
+export interface PaginatedMessages {
+  messages: Message[]
+  hasMore: boolean
+  nextCursor: string | null
+  prevCursor: string | null
+}
+
 export const ConversationAPI = {
   /**
    * 获取会话列表
@@ -122,6 +135,33 @@ export const ConversationAPI = {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     })
+    
+    if (!res.ok) {
+      throw new Error('Failed to fetch messages')
+    }
+    
+    return res.json()
+  },
+  
+  /**
+   * 分页获取会话消息
+   */
+  async getMessagesPaginated(
+    id: string, 
+    params?: PaginationParams
+  ): Promise<PaginatedMessages> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.set('limit', String(params.limit))
+    if (params?.cursor) queryParams.set('cursor', params.cursor)
+    if (params?.direction) queryParams.set('direction', params.direction)
+    
+    const res = await fetch(
+      `/api/conversations/${id}/messages?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      }
+    )
     
     if (!res.ok) {
       throw new Error('Failed to fetch messages')

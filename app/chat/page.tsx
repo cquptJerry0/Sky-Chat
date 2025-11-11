@@ -11,11 +11,9 @@
  * @module app/chat/page
  */
 
-import * as React from 'react'
-import { useChatStore } from '@/lib/stores/chat.store'
 import { Sidebar } from '@/components/Sidebar'
 import { Header } from '@/components/Header'
-import { ChatMessage } from '@/modules/chat-message'
+import { MessageList } from '@/modules/message-list'
 import { ChatInput } from '@/modules/chat-input'
 import { ConversationList } from '@/modules/conversation-list'
 import { NewChatButton } from '@/components/NewChatButton'
@@ -27,35 +25,6 @@ import { AuthGuard } from '@/components/AuthGuard'
  * 新建聊天内容组件
  */
 function NewChatContent() {
-  const messages = useChatStore((s) => s.messages)
-  const streamingMessageId = useChatStore((s) => s.streamingMessageId)
-  
-  const messagesContainerRef = React.useRef<HTMLDivElement>(null)
-  
-  // 自动滚动到底部
-  const scrollToBottom = React.useCallback(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop =
-        messagesContainerRef.current.scrollHeight
-    }
-  }, [])
-  
-  // 监听消息数量变化，自动滚动
-  React.useEffect(() => {
-    scrollToBottom()
-  }, [messages.length, scrollToBottom])
-  
-  // 监听流式传输时的内容变化，自动滚动
-  React.useEffect(() => {
-    if (streamingMessageId) {
-      const streamingMessage = messages.find(m => m.id === streamingMessageId)
-      if (streamingMessage) {
-        const timeoutId = setTimeout(scrollToBottom, 100)
-        return () => clearTimeout(timeoutId)
-      }
-    }
-  }, [messages, streamingMessageId, scrollToBottom])
-  
   return (
     <MainLayout
       sidebar={
@@ -76,28 +45,8 @@ function NewChatContent() {
       {/* Header（顶部固定） */}
       <Header />
       
-      {messages.length === 0 ? (
-        // 空状态 - 欢迎界面
-        <div className="flex h-full items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-[32px] font-normal text-[hsl(var(--text-primary))] mb-8">
-              我能帮你什么？
-            </h1>
-          </div>
-        </div>
-      ) : (
-        // 消息列表
-        <main 
-          ref={messagesContainerRef} 
-          className="flex-1 overflow-y-auto pb-40"
-        >
-          <div className="mx-auto max-w-3xl px-6 pt-4">
-            {messages.map((message) => (
-              <ChatMessage key={message.id} messageId={message.id} />
-            ))}
-          </div>
-        </main>
-      )}
+      {/* 虚拟滚动消息列表（包含空状态） */}
+      <MessageList />
       
       {/* 输入框（固定在底部） */}
       <ChatInput />

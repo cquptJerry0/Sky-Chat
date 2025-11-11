@@ -72,6 +72,19 @@ interface ChatState {
   /** 中断原因（用于标记消息被中断的原因） */
   abortReason: AbortReason | null
   
+  // ============ 分页加载状态 ============
+  /** 是否还有更早的消息 */
+  hasOlderMessages: boolean
+  
+  /** 是否正在加载历史消息 */
+  isLoadingOlder: boolean
+  
+  /** 最早消息的 ID（用作游标） */
+  oldestMessageId: string | null
+  
+  /** 最新消息的 ID（用作游标） */
+  newestMessageId: string | null
+  
   // ============ 消息操作 ============
   /**
    * 添加新消息到历史记录
@@ -185,6 +198,16 @@ interface ChatState {
    */
   continueGeneration: (messageId: string) => Promise<void>
   
+  /**
+   * 加载更早的消息（向上滚动加载历史）
+   */
+  loadOlderMessages: () => Promise<void>
+  
+  /**
+   * 前置添加消息（用于分页加载）
+   */
+  prependMessages: (messages: Message[]) => void
+  
   // ============ 工具方法 ============
   /**
    * 重置到初始状态（新对话）
@@ -231,6 +254,10 @@ const initialState = {
   streamingPhase: null as StreamingPhase,
   continueAbortController: null,
   abortReason: null as AbortReason | null,
+  hasOlderMessages: true,
+  isLoadingOlder: false,
+  oldestMessageId: null,
+  newestMessageId: null,
 }
 
 /**
@@ -473,9 +500,55 @@ export const useChatStore = create<ChatState>()((set) => ({
     }
   },
   
-  clearMessages: () => set({ messages: [] }),
+  clearMessages: () => set({ messages: [], hasOlderMessages: true, oldestMessageId: null, newestMessageId: null }),
   
-  setMessages: (messages) => set({ messages }),
+  setMessages: (messages) => set({ 
+    messages,
+    oldestMessageId: messages[0]?.id || null,
+    newestMessageId: messages[messages.length - 1]?.id || null,
+  }),
+  
+  prependMessages: (newMessages) => set((state) => {
+    if (newMessages.length === 0) return state
+    
+    return {
+      messages: [...newMessages, ...state.messages],
+      oldestMessageId: newMessages[0]?.id || state.oldestMessageId,
+      hasOlderMessages: newMessages.length >= 30, // 如果加载的消息数 < 30，说明没有更多了
+    }
+  }),
+  
+  loadOlderMessages: async () => {
+    const state = useChatStore.getState()
+    
+    // 防止重复加载
+    if (!state.hasOlderMessages || state.isLoadingOlder || !state.currentConversationId) {
+      return
+    }
+    
+    set({ isLoadingOlder: true })
+    
+    try {
+      const result = await ConversationAPI.getMessagesPaginated(
+        state.currentConversationId,
+        {
+          cursor: state.oldestMessageId || undefined,
+          direction: 'before',
+          limit: 30,
+        }
+      )
+      
+      useChatStore.getState().prependMessages(result.messages as Message[])
+      
+      set({
+        hasOlderMessages: result.hasMore,
+        isLoadingOlder: false,
+      })
+    } catch (error) {
+      console.error('Failed to load older messages:', error)
+      set({ isLoadingOlder: false })
+    }
+  },
   
   retryMessage: (messageId) =>
     set((state) => {
