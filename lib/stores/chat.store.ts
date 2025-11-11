@@ -283,7 +283,11 @@ export const useChatStore = create<ChatState>()((set) => ({
   stopStreaming: (reason) => {
     // 中止续传请求（如果存在）
     const state = useChatStore.getState()
-    state.continueAbortController?.abort()
+    if (state.continueAbortController) {
+      state.continueAbortController.abort(
+        new DOMException('Generation stopped', 'AbortError')
+      )
+    }
 
     // 如果提供了中断原因，标记当前streaming的消息
     if (reason && state.streamingMessageId) {
@@ -298,7 +302,7 @@ export const useChatStore = create<ChatState>()((set) => ({
     set({ 
       streamingMessageId: null, 
       streamingPhase: null,
-      continueAbortController: null,
+      continueAbortController: null, // 清理引用
       abortReason: reason || null,
     })
   },
@@ -561,8 +565,10 @@ export const useChatStore = create<ChatState>()((set) => ({
           }
         },
         error: (error) => {
-          // 忽略AbortError（用户主动中止）
-          if (error.name !== 'AbortError') {
+          // AbortError 是正常中断，不需要特殊处理
+          if (error.name === 'AbortError') {
+            console.log('[Continue] Stream aborted by user')
+          } else {
             console.error('Continue generation error:', error)
             state.updateMessage(messageId, { hasError: true })
           }

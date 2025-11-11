@@ -69,6 +69,12 @@ export class SSEParser {
           
           readChunk()
         } catch (error) {
+          // AbortError 是正常的中断，静默完成而不是报错
+          if (error instanceof Error && error.name === 'AbortError') {
+            console.log('[SSEParser] Stream aborted by user')
+            subscriber.complete()
+            return
+          }
           subscriber.error(error)
         }
       }

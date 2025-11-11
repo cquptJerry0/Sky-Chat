@@ -2,13 +2,15 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { Settings, MoreVertical, UserCircle2, LogOut, Palette } from 'lucide-react'
+import { Settings, MoreVertical, UserCircle2, LogOut, Palette, Archive } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ModelSelector } from '@/components/ModelSelector'
 import { useChatStore } from '@/lib/stores/chat.store'
 import { useSession, signOut } from 'next-auth/react'
 import { useTheme } from 'next-themes'
 import { StorageManager } from '@/lib/utils/storage'
+import { ExportButton } from '@/components/ExportButton'
+import { ExportManagerDialog } from '@/components/ExportManager'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,13 +19,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
+import { useToast } from '@/hooks/use-toast'
 
 export function Header() {
   const selectedModel = useChatStore((s) => s.selectedModel)
   const setModel = useChatStore((s) => s.setModel)
   const reset = useChatStore((s) => s.reset)
+  const currentConversationId = useChatStore((s) => s.currentConversationId)
+  const clearMessages = useChatStore((s) => s.clearMessages)
   const { data: session } = useSession()
   const { theme, setTheme } = useTheme()
+  const { toast } = useToast()
+  const [showExportManager, setShowExportManager] = React.useState(false)
 
   const handleLogout = async () => {
     console.log('[Header] Logging out, clearing all data...')
@@ -43,6 +50,14 @@ export function Header() {
     else if (theme === 'dark') setTheme('system')
     else setTheme('light')
   }
+  
+  const handleClearHistory = () => {
+    clearMessages()
+    toast({
+      title: '历史已清空',
+      description: '当前会话的所有消息已清空',
+    })
+  }
 
   return (
     <header className="sticky top-0 z-10 h-[60px] flex items-center justify-between px-6 bg-background border-none">
@@ -53,6 +68,15 @@ export function Header() {
 
       {/* 右侧：操作按钮 */}
       <div className="flex items-center gap-2">
+        {/* 当前会话导出按钮 - 仅当有会话时显示 */}
+        {currentConversationId && (
+          <ExportButton 
+            conversationId={currentConversationId}
+            variant="icon"
+            className="h-9 w-9 rounded-lg"
+          />
+        )}
+
         {/* 设置按钮 */}
         <Button
           variant="ghost"
@@ -74,9 +98,27 @@ export function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>导出对话</DropdownMenuItem>
-            <DropdownMenuItem>清空历史</DropdownMenuItem>
-            <DropdownMenuItem>关于</DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => setShowExportManager(true)}
+              className="cursor-pointer"
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              <span>数据导出管理</span>
+            </DropdownMenuItem>
+            {currentConversationId && (
+              <>
+                <DropdownMenuItem 
+                  onClick={handleClearHistory}
+                  className="cursor-pointer"
+                >
+                  <span>清空当前会话</span>
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer">
+              <span>关于</span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -139,6 +181,12 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      
+      {/* 数据导出管理对话框 */}
+      <ExportManagerDialog 
+        open={showExportManager}
+        onOpenChange={setShowExportManager}
+      />
     </header>
   )
 }

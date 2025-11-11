@@ -45,7 +45,7 @@ export const StorageManager = {
    * @param key - 存储键（不带前缀）
    * @param value - 要保存的值（会自动序列化）
    */
-  set(key: string, value: any): void {
+  set(key: string, value: unknown): void {
     if (typeof window === 'undefined') return
 
     try {
@@ -61,7 +61,7 @@ export const StorageManager = {
    * @param key - 存储键（不带前缀）
    * @returns 解析后的值，如果不存在或解析失败则返回 null
    */
-  get<T = any>(key: string): T | null {
+  get<T>(key: string): T | null {
     if (typeof window === 'undefined') return null
 
     try {

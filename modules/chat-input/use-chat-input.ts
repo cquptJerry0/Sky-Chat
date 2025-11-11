@@ -262,8 +262,16 @@ export function useChatInput() {
    * 停止生成
    */
   const handleStop = useCallback(() => {
-    abortControllerRef.current?.abort()
-    stopStreaming()
+    // 传递原因给 abort，避免控制台警告
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort(
+        new DOMException('User stopped generation', 'AbortError')
+      )
+      abortControllerRef.current = null // 清理引用
+    }
+    
+    // 传递中断原因
+    stopStreaming('user_stop')
     setLoading(false)
   }, [stopStreaming, setLoading])
   

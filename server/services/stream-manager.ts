@@ -7,7 +7,7 @@
  * - 续传时从内存读取并模拟SSE流
  */
 
-import { Observable, interval } from 'rxjs'
+import { Observable, interval, Subscription } from 'rxjs'
 
 /**
  * 生成任务状态
@@ -304,14 +304,21 @@ class StreamManager {
       
       let currentThinkingIndex = 0
       let currentContentIndex = 0
-      let thinkingIntervalSub: any = null
-      let contentIntervalSub: any = null
+      let thinkingIntervalSub: Subscription | null = null
+      let contentIntervalSub: Subscription | null = null
+      let isAborted = false
       
       // 监听abort信号
       if (abortSignal) {
         abortSignal.addEventListener('abort', () => {
+          console.log(`[StreamManager] Stream aborted for: ${messageId}`)
+          isAborted = true
+          
+          // 清理所有 interval
           if (thinkingIntervalSub) thinkingIntervalSub.unsubscribe()
           if (contentIntervalSub) contentIntervalSub.unsubscribe()
+          
+          // 正常完成，不报错
           observer.complete()
         })
       }
@@ -326,7 +333,7 @@ class StreamManager {
         
         const contentChars = unsent.content.split('')
         contentIntervalSub = interval(20).subscribe(() => {
-          if (abortSignal?.aborted) {
+          if (isAborted || abortSignal?.aborted) {
             contentIntervalSub?.unsubscribe()
             observer.complete()
             return
@@ -343,7 +350,7 @@ class StreamManager {
             
             currentContentIndex++
           } else {
-            contentIntervalSub.unsubscribe()
+            if (contentIntervalSub) contentIntervalSub.unsubscribe()
             observer.next({ type: 'complete' })
             observer.complete()
           }
@@ -354,7 +361,7 @@ class StreamManager {
       if (unsent.thinking) {
         const thinkingChars = unsent.thinking.split('')
         thinkingIntervalSub = interval(30).subscribe(() => {
-          if (abortSignal?.aborted) {
+          if (isAborted || abortSignal?.aborted) {
             thinkingIntervalSub?.unsubscribe()
             observer.complete()
             return
@@ -371,7 +378,7 @@ class StreamManager {
             
             currentThinkingIndex++
           } else {
-            thinkingIntervalSub.unsubscribe()
+            if (thinkingIntervalSub) thinkingIntervalSub.unsubscribe()
             // thinking完成，开始发送content
             streamContent()
           }

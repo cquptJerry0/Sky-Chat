@@ -12,7 +12,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { MessageSquare, Trash2, Edit2, Check, X, MoreVertical, Eye, Pin } from 'lucide-react'
+import { MessageSquare, Trash2, Edit2, Check, X, MoreVertical, Eye, Pin, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import type { Conversation } from '@/lib/services/conversation-api'
+import { exportManager } from '@/lib/services/export-manager'
+import { useToast } from '@/hooks/use-toast'
 
 interface ConversationItemProps {
   conversation: Conversation
@@ -38,6 +40,7 @@ export function ConversationItem({
   onRename,
 }: ConversationItemProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [isEditing, setIsEditing] = React.useState(false)
   const [editTitle, setEditTitle] = React.useState(conversation.title)
   const [isHovered, setIsHovered] = React.useState(false)
@@ -46,6 +49,24 @@ export function ConversationItem({
   const handleSelect = React.useCallback(() => {
     router.push(`/chat/${conversation.id}`)
   }, [router, conversation.id])
+  
+  // 处理导出
+  const handleExport = async (format: 'markdown' | 'json' = 'markdown') => {
+    try {
+      await exportManager.exportConversation(conversation.id, { format })
+      toast({
+        title: '导出成功',
+        description: `会话已导出为 ${format.toUpperCase()} 格式`,
+      })
+    } catch (error) {
+      console.error('Export error:', error)
+      toast({
+        title: '导出失败',
+        description: '导出过程中出现错误',
+        variant: 'destructive',
+      })
+    }
+  }
 
   const handleSave = () => {
     if (editTitle.trim() && editTitle !== conversation.title) {
@@ -155,6 +176,15 @@ export function ConversationItem({
                 >
                   <Pin className="mr-2 h-4 w-4" />
                   <span>置顶</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleExport('markdown')
+                  }}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  <span>导出</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
