@@ -9,9 +9,6 @@ import * as React from 'react'
 import {
   Download,
   FileText,
-  FileJson,
-  FileCode,
-  FileType,
   ChevronDown
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -48,17 +45,11 @@ interface ExportButtonProps {
 
 const formatIcons = {
   markdown: FileText,
-  json: FileJson,
-  txt: FileType,
-  html: FileCode,
   pdf: FileText,
 }
 
 const formatLabels = {
   markdown: 'Markdown (.md)',
-  json: 'JSON (.json)',
-  txt: '纯文本 (.txt)',
-  html: 'HTML (.html)',
   pdf: 'PDF (.pdf)',
 }
 
@@ -75,7 +66,7 @@ export function ExportButton({
   const [showAdvanced, setShowAdvanced] = React.useState(false)
   const [progress, setProgress] = React.useState<ExportProgress | null>(null)
   const [exportConfig, setExportConfig] = React.useState<{
-    format: 'markdown' | 'json' | 'txt' | 'html' | 'pdf'
+    format: 'markdown' | 'pdf'
     includeThinking: boolean
     includeMetadata: boolean
   }>({
@@ -87,7 +78,7 @@ export function ExportButton({
   const isBatch = !conversationId && conversationIds && conversationIds.length > 0
   const isExportAll = !conversationId && !conversationIds
 
-  const handleExport = async (format?: 'markdown' | 'json' | 'txt' | 'html' | 'pdf') => {
+  const handleExport = async (format?: 'markdown' | 'pdf') => {
     setIsLoading(true)
     setProgress(null)
     
@@ -139,7 +130,7 @@ export function ExportButton({
     }
   }
 
-  const handleQuickExport = (format: 'markdown' | 'json' | 'txt' | 'html' | 'pdf') => {
+  const handleQuickExport = (format: 'markdown' | 'pdf') => {
     handleExport(format)
   }
 
@@ -183,7 +174,7 @@ export function ExportButton({
               return (
                 <DropdownMenuItem
                   key={format}
-                  onClick={() => handleQuickExport(format as 'markdown' | 'json' | 'txt' | 'html' | 'pdf')}
+                  onClick={() => handleQuickExport(format as 'markdown' | 'pdf')}
                 >
                   <Icon className="mr-2 h-4 w-4" />
                   {label}
@@ -220,7 +211,7 @@ export function ExportButton({
                         variant={exportConfig.format === format ? 'default' : 'outline'}
                         size="sm"
                         className="justify-start"
-                        onClick={() => setExportConfig(prev => ({ ...prev, format: format as 'markdown' | 'json' | 'txt' | 'html' | 'pdf' }))}
+                        onClick={() => setExportConfig(prev => ({ ...prev, format: format as 'markdown' | 'pdf' }))}
                       >
                         <Icon className="mr-2 h-4 w-4" />
                         {label.split(' ')[0]}

@@ -52,14 +52,6 @@ export function ConversationListUI({
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
   return (
     <>
       {/* 历史会话标题 */}

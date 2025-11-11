@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import type { Conversation } from '@/lib/services/conversation-api'
-import { exportManager } from '@/lib/services/export-manager'
+import { exportService } from '@/lib/services/export'
 import { useToast } from '@/hooks/use-toast'
 
 interface ConversationItemProps {
@@ -50,10 +50,20 @@ export function ConversationItem({
     router.push(`/chat/${conversation.id}`)
   }, [router, conversation.id])
   
-  // 处理导出
-  const handleExport = async (format: 'markdown' | 'json' = 'markdown') => {
+  // 处理导出（使用 SimpleExportButton 的逻辑）
+  const [isExporting, setIsExporting] = React.useState(false)
+  
+  const handleExport = async (format: 'markdown' | 'pdf') => {
+    if (isExporting) return
+    
+    setIsExporting(true)
     try {
-      await exportManager.exportConversation(conversation.id, { format })
+      await exportService.exportConversation(conversation.id, {
+        format,
+        includeThinking: true,
+        includeTimestamp: true,
+        includeMetadata: false,
+      })
       toast({
         title: '导出成功',
         description: `会话已导出为 ${format.toUpperCase()} 格式`,
@@ -62,9 +72,11 @@ export function ConversationItem({
       console.error('Export error:', error)
       toast({
         title: '导出失败',
-        description: '导出过程中出现错误',
+        description: error instanceof Error ? error.message : '导出过程中出现错误',
         variant: 'destructive',
       })
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -141,18 +153,20 @@ export function ConversationItem({
           </Button>
           
           {/* 三点菜单（悬停或激活时显示） */}
-          {(isHovered || isActive) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7 shrink-0 opacity-70 hover:opacity-100"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className={cn(
+                  "h-7 w-7 shrink-0 hover:opacity-100 transition-opacity",
+                  (isHovered || isActive) ? "opacity-70" : "opacity-0"
+                )}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-36 mr-2" sideOffset={8}>
                 <DropdownMenuItem onClick={handleSelect}>
                   <Eye className="mr-2 h-4 w-4" />
@@ -182,9 +196,20 @@ export function ConversationItem({
                     e.stopPropagation()
                     handleExport('markdown')
                   }}
+                  disabled={isExporting}
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  <span>导出</span>
+                  <span>导出为 Markdown</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleExport('pdf')
+                  }}
+                  disabled={isExporting}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  <span>导出为 PDF</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -199,7 +224,6 @@ export function ConversationItem({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
         </>
       )}
     </div>

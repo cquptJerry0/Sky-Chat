@@ -82,41 +82,20 @@ export const authConfig = {
   
   callbacks: {
     async signIn({ user, account }) {
-      // OAuth登录时自动创建或关联账号
-      if (account?.provider && account.provider !== 'credentials' && user.email) {
+      // ✅ 方案C：取消自动关联
+      // 每个 OAuth 提供商和邮箱密码都是独立账号
+      // Prisma Adapter 会自动处理账号创建和关联
+      // 不再通过邮箱自动合并账号
+      
+      // 仅对 Credentials 登录做邮箱验证
+      if (account?.provider === 'credentials' && user.email) {
         const existingUser = await prisma.user.findUnique({
           where: { email: user.email },
-          include: { accounts: true },
         })
         
         if (existingUser) {
-          // 邮箱已存在，检查是否已关联此OAuth账号
-          const accountExists = existingUser.accounts.some(
-            (acc) => acc.provider === account.provider && acc.providerAccountId === account.providerAccountId
-          )
-          
-          if (!accountExists) {
-            // 关联新的OAuth账号到现有用户
-            await prisma.account.create({
-              data: {
-                userId: existingUser.id,
-                type: account.type,
-                provider: account.provider,
-                providerAccountId: account.providerAccountId,
-                refresh_token: account.refresh_token,
-                access_token: account.access_token,
-                expires_at: account.expires_at,
-                token_type: account.token_type,
-                scope: account.scope,
-                id_token: account.id_token,
-              },
-            })
-          }
-          
-          // 更新用户ID，确保session使用正确的用户
+          // Credentials 登录使用已存在的邮箱用户
           user.id = existingUser.id
-        } else {
-          // 创建新用户（由 Prisma Adapter 自动处理）
         }
       }
       

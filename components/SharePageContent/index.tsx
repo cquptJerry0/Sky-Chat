@@ -6,6 +6,7 @@
 import { MessageDisplay } from './MessageDisplay'
 import { ShareHeader } from './ShareHeader'
 import { ShareFooter } from './ShareFooter'
+import { SharePageOverlay } from '@/components/SharePageOverlay'
 
 interface Message {
   id: string
@@ -31,7 +32,7 @@ interface SharePageContentProps {
 
 export function SharePageContent({ conversation }: SharePageContentProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background relative">
       {/* 页头 */}
       <ShareHeader conversation={conversation} />
       
@@ -54,6 +55,9 @@ export function SharePageContent({ conversation }: SharePageContentProps) {
       
       {/* 页脚 */}
       <ShareFooter />
+      
+      {/* 蒙版 - 引导用户登录并开始对话 */}
+      <SharePageOverlay />
     </div>
   )
 }

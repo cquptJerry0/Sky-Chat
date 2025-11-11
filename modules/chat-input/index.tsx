@@ -30,6 +30,14 @@ export function ChatInput() {
   const enableThinking = useChatStore((s) => s.enableThinking)
   const setModel = useChatStore((s) => s.setModel)
   const toggleThinking = useChatStore((s) => s.toggleThinking)
+  const messages = useChatStore((s) => s.messages)
+  const continueGeneration = useChatStore((s) => s.continueGeneration)
+  
+  // 获取最后一条助手消息的暂停状态
+  const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant')
+  const showContinuePrompt = lastAssistantMessage?.isPaused && 
+                             lastAssistantMessage?.pauseReason !== 'user_stop' &&
+                             lastAssistantMessage?.canContinue
   
   // 使用自定义 hook 处理所有输入逻辑
   const {
@@ -44,6 +52,13 @@ export function ChatInput() {
     stopRecording,
   } = useChatInput()
   
+  // 处理继续生成
+  const handleContinue = () => {
+    if (lastAssistantMessage?.id) {
+      continueGeneration(lastAssistantMessage.id)
+    }
+  }
+  
   // 将所有状态和方法传递给 UI 组件
   return (
     <ChatInputUI
@@ -54,12 +69,15 @@ export function ChatInput() {
       isLoading={isLoading}
       isRecording={isRecording}
       isTranscribing={isTranscribing}
+      showContinuePrompt={showContinuePrompt}
+      pauseReason={lastAssistantMessage?.pauseReason}
       onSubmit={handleSubmit}
       onStop={handleStop}
       onModelChange={setModel}
       onThinkingToggle={toggleThinking}
       onStartRecording={startRecording}
       onStopRecording={stopRecording}
+      onContinue={handleContinue}
     />
   )
 }

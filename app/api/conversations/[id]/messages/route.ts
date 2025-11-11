@@ -36,15 +36,15 @@ export async function GET(
       )
     }
 
-    // 如果没有游标，返回最新的消息
+    // 如果没有游标，返回最新的消息（已经是正序：旧 → 新）
     if (!cursor) {
       const messages = await MessageRepository.findByConversationId(id, limit)
       
       return NextResponse.json({
-        messages,
+        messages,  // [1, 2, 3, ..., 50] 正序
         hasMore: messages.length === limit,
-        nextCursor: messages.length > 0 ? messages[messages.length - 1].id : null,
-        prevCursor: messages.length > 0 ? messages[0].id : null,
+        nextCursor: messages.length > 0 ? messages[messages.length - 1].id : null,  // 最新消息（50）
+        prevCursor: messages.length > 0 ? messages[0].id : null,  // 最旧消息（1）用于向上加载
       })
     }
 

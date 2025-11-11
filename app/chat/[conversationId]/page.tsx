@@ -116,18 +116,11 @@ function ConversationContent() {
         {/* Header（顶部固定） */}
         <Header />
         
-        {/* 加载状态 */}
-        {shouldShowLoading ? (
-          <Loading text="加载会话中..." />
-        ) : (
-          <>
-            {/* 虚拟滚动消息列表 */}
-            <MessageList />
-            
-            {/* 输入框（固定在底部）- 零 props */}
-            <ChatInput />
-          </>
-        )}
+        {/* 虚拟滚动消息列表 */}
+        <MessageList />
+        
+        {/* 输入框（固定在底部）- 零 props */}
+        <ChatInput />
       </MainLayout>
   )
 }

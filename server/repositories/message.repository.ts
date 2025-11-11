@@ -19,13 +19,17 @@ export const MessageRepository = {
 
   /**
    * 获取会话所有消息（支持限制数量）
+   * 返回正序数组（从旧到新）
    */
   async findByConversationId(conversationId: string, limit?: number) {
-    return prisma.message.findMany({
+    const messages = await prisma.message.findMany({
       where: { conversationId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: 'desc' },  // 先倒序查询最新N条
       take: limit,
     })
+    
+    // 返回正序（旧 → 新）
+    return messages.reverse()
   },
 
   /**

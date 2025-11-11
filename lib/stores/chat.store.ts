@@ -587,20 +587,14 @@ export const useChatStore = create<ChatState>()((set) => ({
   
   editAndResend: (messageId, newContent) =>
     set((state) => {
-      // 找到该消息的索引
-      const messageIndex = state.messages.findIndex((m) => m.id === messageId)
-      if (messageIndex === -1) return state
+      // 找到该消息
+      const message = state.messages.find((m) => m.id === messageId)
+      if (!message || message.role !== 'user') return state
       
-      // 确保是用户消息
-      const message = state.messages[messageIndex]
-      if (message.role !== 'user') return state
-      
-      // 删除该消息之后的所有消息
-      const newMessages = state.messages.slice(0, messageIndex + 1)
-      
-      // 更新该消息的内容
-      newMessages[messageIndex] = {
-        ...newMessages[messageIndex],
+      // ✅ 保留所有历史消息，在末尾追加新的用户消息
+      const newUserMessage: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        role: 'user',
         content: newContent,
       }
       
@@ -611,7 +605,10 @@ export const useChatStore = create<ChatState>()((set) => ({
         })
       )
       
-      return { messages: newMessages }
+      return { 
+        messages: [...state.messages, newUserMessage],
+        newestMessageId: newUserMessage.id,
+      }
     }),
   
   continueGeneration: async (messageId) => {

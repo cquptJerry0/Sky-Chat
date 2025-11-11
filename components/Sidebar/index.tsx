@@ -31,6 +31,34 @@ interface SidebarProps {
 export function Sidebar({ children, isLeader, className }: SidebarProps) {
   const collapsed = useUIStore((s) => s.sidebarCollapsed)
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)
+  const [displayText, setDisplayText] = React.useState('')
+  
+  // 打字机效果
+  React.useEffect(() => {
+    if (!collapsed) {
+      // 展开时：延迟后开始打字机效果
+      const text = 'Sky Chat'
+      let i = 0
+      const delayTimer = setTimeout(() => {
+        const typeTimer = setInterval(() => {
+          if (i <= text.length) {
+            setDisplayText(text.slice(0, i))
+            i++
+          } else {
+            clearInterval(typeTimer)
+          }
+        }, 50)
+        return () => clearInterval(typeTimer)
+      }, 100)
+      
+      return () => {
+        clearTimeout(delayTimer)
+      }
+    } else {
+      // 折叠时：立即清空
+      setDisplayText('')
+    }
+  }, [collapsed])
   
   return (
     <aside
@@ -47,7 +75,12 @@ export function Sidebar({ children, isLeader, className }: SidebarProps) {
             {/* 展开状态：Logo + 折叠按钮 */}
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 shrink-0" />
-              <span className="font-semibold text-lg">Sky Chat</span>
+              <span className="font-semibold text-lg min-w-[80px]">
+                {displayText}
+                {displayText && displayText.length < 8 && (
+                  <span className="animate-pulse">|</span>
+                )}
+              </span>
             </div>
             <Button
               variant="ghost"

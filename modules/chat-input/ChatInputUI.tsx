@@ -12,11 +12,12 @@
  */
 
 import * as React from 'react'
-import { ArrowUp, Mic, Loader2, Brain, Square, Plus, Wrench } from 'lucide-react'
+import { ArrowUp, Mic, Loader2, Brain, Square, Plus, Wrench, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { getModelById } from '@/lib/constants/models'
 import { cn } from '@/lib/utils'
+import type { AbortReason } from '@/lib/types/chat'
 
 interface ChatInputUIProps {
   // 状态
@@ -27,6 +28,8 @@ interface ChatInputUIProps {
   isLoading: boolean
   isRecording: boolean
   isTranscribing: boolean
+  showContinuePrompt?: boolean
+  pauseReason?: AbortReason
   
   // 方法
   onSubmit: (e: React.FormEvent) => void
@@ -34,6 +37,7 @@ interface ChatInputUIProps {
   onThinkingToggle: (enabled: boolean) => void
   onStartRecording: () => void
   onStopRecording: () => void
+  onContinue?: () => void
 }
 
 /**
@@ -49,11 +53,14 @@ export function ChatInputUI({
   isLoading,
   isRecording,
   isTranscribing,
+  showContinuePrompt = false,
+  pauseReason,
   onSubmit,
   onStop,
   onThinkingToggle,
   onStartRecording,
   onStopRecording,
+  onContinue,
 }: ChatInputUIProps) {
   const currentModel = getModelById(selectedModel)
   const disabled = isLoading || isRecording || isTranscribing
@@ -61,9 +68,36 @@ export function ChatInputUI({
   // 判断是否可以发送
   const canSend = input.trim() && !disabled
   
+  // 续传提示文本
+  const continuePromptText = pauseReason === 'tab_hidden' 
+    ? '标签页切换已暂停，点击继续生成'
+    : pauseReason === 'network_error'
+    ? '网络中断已暂停，点击继续生成'
+    : '生成已中断，点击继续'
+  
   return (
     <div className="fixed bottom-0 left-64 right-0 bg-gradient-to-t from-background via-background to-background/95 h-40 pointer-events-none">
       <div className="mx-auto max-w-4xl px-6 h-full flex flex-col justify-center pb-4 pointer-events-auto">
+        
+        {/* 续传提示Banner */}
+        {showContinuePrompt && onContinue && (
+          <div className="mb-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span className="text-sm text-blue-600 dark:text-blue-400">
+                {continuePromptText}
+              </span>
+            </div>
+            <Button
+              size="sm"
+              onClick={onContinue}
+              className="h-7 bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              继续生成
+            </Button>
+          </div>
+        )}
         
         {/* 统一的输入模块容器 */}
         <div className="bg-background rounded-3xl p-3 shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.12)] transition-shadow">
@@ -88,7 +122,7 @@ export function ChatInputUI({
                   ? '正在录音...'
                   : isTranscribing
                   ? '正在转录...'
-                  : 'Ask anything'
+                  : '有什么可以帮你？'
               }
               disabled={disabled}
               className="w-full h-12 bg-white dark:bg-gray-800 rounded-3xl px-5 text-[15px] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-secondary))] outline-none"

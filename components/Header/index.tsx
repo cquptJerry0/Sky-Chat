@@ -31,7 +31,7 @@ export function Header() {
   const { data: session } = useSession()
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
-  const [showExportManager, setShowExportManager] = React.useState(false)
+  const [exportManagerOpen, setExportManagerOpen] = React.useState(false)
 
   const handleLogout = async () => {
     console.log('[Header] Logging out, clearing all data...')
@@ -105,13 +105,6 @@ export function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem 
-              onClick={() => setShowExportManager(true)}
-              className="cursor-pointer"
-            >
-              <Archive className="mr-2 h-4 w-4" />
-              <span>数据导出管理</span>
-            </DropdownMenuItem>
             {currentConversationId && (
               <>
                 <DropdownMenuItem 
@@ -120,8 +113,23 @@ export function Header() {
                 >
                   <span>清空当前会话</span>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
               </>
             )}
+            <DropdownMenuItem 
+              onClick={() => setExportManagerOpen(true)}
+              className="cursor-pointer"
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              <span>批量导出</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => setExportManagerOpen(true)}
+              className="cursor-pointer"
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              <span>导出管理</span>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer">
               <span>关于</span>
@@ -188,11 +196,11 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      
-      {/* 数据导出管理对话框 */}
+
+      {/* 批量导出管理对话框 */}
       <ExportManagerDialog 
-        open={showExportManager}
-        onOpenChange={setShowExportManager}
+        open={exportManagerOpen} 
+        onOpenChange={setExportManagerOpen} 
       />
     </header>
   )
