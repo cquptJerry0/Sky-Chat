@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { exportManager, type ExportConfig } from '@/lib/services/export-manager'
+import { exportService, type ExportConfig as FrontendExportConfig } from '@/lib/services/export'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 
@@ -73,7 +73,11 @@ export function ExportButton({
   const { toast } = useToast()
   const [isLoading, setIsLoading] = React.useState(false)
   const [showAdvanced, setShowAdvanced] = React.useState(false)
-  const [exportConfig, setExportConfig] = React.useState<ExportConfig>({
+  const [exportConfig, setExportConfig] = React.useState<{
+    format: 'markdown' | 'json' | 'txt' | 'html' | 'pdf'
+    includeThinking: boolean
+    includeMetadata: boolean
+  }>({
     format: 'markdown',
     includeThinking: false,
     includeMetadata: true,
@@ -82,35 +86,68 @@ export function ExportButton({
   const isBatch = !conversationId && conversationIds && conversationIds.length > 0
   const isExportAll = !conversationId && !conversationIds
 
-  const handleExport = async (format?: ExportConfig['format']) => {
+  const handleExport = async (format?: 'markdown' | 'json' | 'txt' | 'html' | 'pdf') => {
     setIsLoading(true)
     
     const config = format ? { ...exportConfig, format } : exportConfig
     
     try {
       if (conversationId) {
-        // 单个导出
-        await exportManager.exportConversation(conversationId, config)
+        // 单个导出 - 使用前端exportService（支持markdown和pdf）
+        if (config.format === 'markdown' || config.format === 'pdf') {
+          await exportService.exportConversation(conversationId, {
+            format: config.format,
+            includeThinking: config.includeThinking,
+            includeMetadata: config.includeMetadata
+          } as FrontendExportConfig)
+        } else {
+          // 其他格式使用后端API
+          const params = new URLSearchParams({
+            format: config.format,
+            includeThinking: String(config.includeThinking),
+            includeMetadata: String(config.includeMetadata)
+          })
+          const response = await fetch(`/api/conversations/${conversationId}/export?${params}`)
+          if (!response.ok) throw new Error('导出失败')
+          
+          const blob = await response.blob()
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = response.headers.get('Content-Disposition')?.split('filename="')[1]?.split('"')[0] || 'export'
+          link.click()
+          URL.revokeObjectURL(url)
+        }
         toast({
           title: '导出成功',
           description: `会话已导出为 ${config.format.toUpperCase()} 格式`,
         })
-      } else if (isBatch) {
-        // 批量导出
-        await exportManager.exportBatch({
-          ...config,
-          conversationIds
-        })
-        toast({
-          title: '批量导出成功',
-          description: `${conversationIds.length} 个会话已导出`,
-        })
       } else {
-        // 导出全部
-        await exportManager.exportAll(config)
+        // 批量导出或导出全部 - 使用后端API
+        const response = await fetch('/api/conversations/batch-export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversationIds: isBatch ? conversationIds : undefined,
+            format: config.format,
+            includeThinking: config.includeThinking,
+            includeMetadata: config.includeMetadata
+          })
+        })
+        
+        if (!response.ok) throw new Error('导出失败')
+        
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = response.headers.get('Content-Disposition')?.split('filename="')[1]?.split('"')[0] || 'export'
+        link.click()
+        URL.revokeObjectURL(url)
+        
         toast({
-          title: '导出成功',
-          description: '所有会话已导出',
+          title: isBatch ? '批量导出成功' : '导出成功',
+          description: isBatch ? `${conversationIds!.length} 个会话已导出` : '所有会话已导出',
         })
       }
       
@@ -128,7 +165,7 @@ export function ExportButton({
     }
   }
 
-  const handleQuickExport = (format: ExportConfig['format']) => {
+  const handleQuickExport = (format: 'markdown' | 'json' | 'txt' | 'html' | 'pdf') => {
     handleExport(format)
   }
 
@@ -172,7 +209,7 @@ export function ExportButton({
               return (
                 <DropdownMenuItem
                   key={format}
-                  onClick={() => handleQuickExport(format as ExportConfig['format'])}
+                  onClick={() => handleQuickExport(format as 'markdown' | 'json' | 'txt' | 'html' | 'pdf')}
                 >
                   <Icon className="mr-2 h-4 w-4" />
                   {label}
@@ -209,7 +246,7 @@ export function ExportButton({
                         variant={exportConfig.format === format ? 'default' : 'outline'}
                         size="sm"
                         className="justify-start"
-                        onClick={() => setExportConfig(prev => ({ ...prev, format: format as ExportConfig['format'] }))}
+                        onClick={() => setExportConfig(prev => ({ ...prev, format: format as 'markdown' | 'json' | 'txt' | 'html' | 'pdf' }))}
                       >
                         <Icon className="mr-2 h-4 w-4" />
                         {label.split(' ')[0]}

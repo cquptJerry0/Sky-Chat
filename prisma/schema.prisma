@@ -63,16 +63,18 @@ model VerificationToken {
 }
 
 model Conversation {
-  id          String    @id @default(cuid())
-  title       String    @default("新对话")
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages    Message[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  shareToken  String?   @unique
-  isShared    Boolean   @default(false)
-  sharedAt    DateTime?
+  id           String    @id @default(cuid())
+  title        String    @default("新对话")
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     Message[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  shareToken   String?   @unique
+  isShared     Boolean   @default(false)
+  sharedAt     DateTime?
+  viewCount    Int       @default(0)
+  lastViewedAt DateTime?
   
   @@index([userId, updatedAt(sort: Desc)])
   @@index([shareToken])

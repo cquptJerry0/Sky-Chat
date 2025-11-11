@@ -11,6 +11,7 @@ import { useTheme } from 'next-themes'
 import { StorageManager } from '@/lib/utils/storage'
 import { ExportButton } from '@/components/ExportButton'
 import { ExportManagerDialog } from '@/components/ExportManager'
+import { ShareButton } from '@/components/ShareButton'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,13 +69,19 @@ export function Header() {
 
       {/* 右侧：操作按钮 */}
       <div className="flex items-center gap-2">
-        {/* 当前会话导出按钮 - 仅当有会话时显示 */}
+        {/* 当前会话分享和导出按钮 - 仅当有会话时显示 */}
         {currentConversationId && (
-          <ExportButton 
-            conversationId={currentConversationId}
-            variant="icon"
-            className="h-9 w-9 rounded-lg"
-          />
+          <>
+            <ShareButton 
+              conversationId={currentConversationId}
+              className="h-9"
+            />
+            <ExportButton 
+              conversationId={currentConversationId}
+              variant="icon"
+              className="h-9 w-9 rounded-lg"
+            />
+          </>
         )}
 
         {/* 设置按钮 */}

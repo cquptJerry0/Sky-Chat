@@ -1,166 +1,191 @@
-'use client'
-
 /**
- * 公开分享页面
- * 
- * 无需登录即可访问
- * URL: /share/[token]
+ * 分享页面 SSR 版本
+ * 服务端渲染，提升 SEO 和首屏加载性能
  */
 
-import * as React from 'react'
-import { useParams } from 'next/navigation'
+import { Metadata } from 'next'
+import { notFound } from 'next/navigation'
+import { prisma } from '@/server/db/client'
+import { SharePageContent } from '@/components/SharePageContent'
 
-interface Message {
-  id: string
-  role: string
-  content: string
-  thinking?: string
-  createdAt: string
-}
-
-interface SharedConversation {
-  id: string
-  title: string
-  author: string
-  createdAt: string
-  sharedAt: string
-  messages: Message[]
-}
-
-export default function SharePage() {
-  const params = useParams()
-  const token = params.token as string
-
-  const [conversation, setConversation] = React.useState<SharedConversation | null>(null)
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    async function fetchSharedConversation() {
-      try {
-        const response = await fetch(`/api/share/${token}`)
-        
-        if (!response.ok) {
-          if (response.status === 404) {
-            setError('分享的会话不存在或已被取消')
-          } else {
-            setError('加载失败，请稍后重试')
-          }
-          return
-        }
-
-        const data = await response.json()
-        setConversation(data.conversation)
-      } catch (err) {
-        console.error('Failed to load shared conversation:', err)
-        setError('加载失败，请稍后重试')
-      } finally {
-        setLoading(false)
+/**
+ * 生成页面元数据（SEO优化）
+ */
+export async function generateMetadata({
+  params
+}: {
+  params: Promise<{ token: string }>
+}): Promise<Metadata> {
+  const { token } = await params
+  const conversation = await getSharedConversation(token)
+  
+  if (!conversation) {
+    return {
+      title: '分享不存在 - Sky Chat',
+      description: '该分享链接已失效或不存在'
+    }
+  }
+  
+  const description = `查看 ${conversation.user?.username || '用户'} 分享的对话：${conversation.title}`
+  const title = `${conversation.title} - Sky Chat 分享`
+  
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'article',
+      publishedTime: conversation.sharedAt?.toISOString(),
+      authors: [conversation.user?.username || '匿名用户'],
+      siteName: 'Sky Chat',
+      locale: 'zh_CN'
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+      creator: conversation.user?.username || undefined
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true
       }
     }
-
-    fetchSharedConversation()
-  }, [token])
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="mb-4 text-lg">加载中...</div>
-        </div>
-      </div>
-    )
   }
-
-  if (error || !conversation) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <h1 className="mb-4 text-2xl font-bold text-red-500">
-            {error || '会话不存在'}
-          </h1>
-          <p className="text-muted-foreground">
-            此分享链接可能已失效或被删除
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex min-h-screen flex-col bg-background">
-      {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <div>
-            <h1 className="text-xl font-semibold">{conversation.title}</h1>
-            <p className="text-sm text-muted-foreground">
-              由 {conversation.author} 分享 • {new Date(conversation.sharedAt).toLocaleDateString('zh-CN')}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-              只读模式
-            </span>
-          </div>
-        </div>
-      </header>
-
-      {/* Messages */}
-      <main className="flex-1 overflow-y-auto pb-20">
-        <div className="container mx-auto max-w-3xl px-4 pt-6">
-          {conversation.messages.length === 0 ? (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-muted-foreground">此会话暂无消息</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {conversation.messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`rounded-lg p-6 ${
-                    message.role === 'user'
-                      ? 'bg-blue-50 dark:bg-blue-950'
-                      : 'bg-gray-50 dark:bg-gray-900'
-                  }`}
-                >
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="font-semibold">
-                      {message.role === 'user' ? '👤 用户' : '🤖 助手'}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(message.createdAt).toLocaleString('zh-CN')}
-                    </span>
-                  </div>
-                  
-                  {message.thinking && (
-                    <div className="mb-4 rounded-md bg-yellow-50 p-4 dark:bg-yellow-950">
-                      <p className="mb-2 text-sm font-semibold text-yellow-800 dark:text-yellow-200">
-                        💭 思考过程
-                      </p>
-                      <div className="text-sm text-yellow-700 dark:text-yellow-300">
-                        {message.thinking}
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="prose dark:prose-invert max-w-none">
-                    {message.content}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t bg-background/95 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          由 Sky Chat 提供支持 • 这是一个只读分享页面
-        </div>
-      </footer>
-    </div>
-  )
 }
 
+/**
+ * 分享页面组件（服务端渲染）
+ */
+export default async function SharePageSSR({
+  params
+}: {
+  params: Promise<{ token: string }>
+}) {
+  const { token } = await params
+  const conversation = await getSharedConversation(token)
+  
+  // 如果会话不存在，显示404页面
+  if (!conversation) {
+    notFound()
+  }
+  
+  // 记录访问（异步，不阻塞渲染）- 暂时注释，等数据库迁移后启用
+  // recordView(conversation.id).catch(console.error)
+  
+  // 格式化数据
+  const formattedConversation = {
+    id: conversation.id,
+    title: conversation.title,
+    author: conversation.user?.username || '匿名用户',
+    createdAt: conversation.createdAt.toISOString(),
+    sharedAt: conversation.sharedAt?.toISOString() || conversation.createdAt.toISOString(),
+    // viewCount: conversation.viewCount || 0, // 等数据库迁移后启用
+    messages: conversation.messages.map(msg => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      thinking: msg.thinking,
+      createdAt: msg.createdAt.toISOString()
+    }))
+  }
+  
+  return <SharePageContent conversation={formattedConversation} />
+}
+
+/**
+ * 获取分享的会话数据
+ */
+async function getSharedConversation(token: string) {
+  try {
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        shareToken: token,
+        isShared: true
+      },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            role: true,
+            content: true,
+            thinking: true,
+            createdAt: true
+          }
+        },
+        user: {
+          select: {
+            username: true,
+            image: true
+          }
+        }
+      }
+    })
+    
+    return conversation
+  } catch (error) {
+    console.error('Failed to fetch shared conversation:', error)
+    return null
+  }
+}
+
+/**
+ * 记录访问次数（异步）- 等数据库迁移后启用
+ */
+// async function recordView(conversationId: string) {
+//   try {
+//     await prisma.conversation.update({
+//       where: { id: conversationId },
+//       data: { 
+//         viewCount: { increment: 1 },
+//         lastViewedAt: new Date()
+//       }
+//     })
+//   } catch (error) {
+//     console.error('Failed to record view:', error)
+//   }
+// }
+
+/**
+ * 静态参数生成（可选，用于预渲染常访问的分享）
+ */
+export async function generateStaticParams() {
+  // 获取最近7天内的分享
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  
+  try {
+    const shares = await prisma.conversation.findMany({
+      where: {
+        isShared: true,
+        sharedAt: {
+          gte: sevenDaysAgo
+        }
+        // viewCount: {
+        //   gte: 10 // 访问量大于10的
+        // }
+      },
+      select: {
+        shareToken: true
+      },
+      // orderBy: {
+      //   viewCount: 'desc'
+      // },
+      take: 20 // 预渲染前20个分享
+    })
+    
+    return shares
+      .filter(share => share.shareToken)
+      .map(share => ({
+        token: share.shareToken!
+      }))
+  } catch (error) {
+    console.error('Failed to generate static params:', error)
+    return []
+  }
+}
