@@ -31,66 +31,6 @@ interface SidebarProps {
 export function Sidebar({ children, isLeader, className }: SidebarProps) {
   const collapsed = useUIStore((s) => s.sidebarCollapsed)
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)
-  const [displayText, setDisplayText] = React.useState('')
-  const isFirstMount = React.useRef(true)
-  
-  // 打字机效果 - 只在首次加载或折叠状态变化时触发
-  React.useEffect(() => {
-    // 首次mount，如果是展开状态则显示打字机效果
-    if (isFirstMount.current) {
-      isFirstMount.current = false
-      
-      if (!collapsed) {
-        // 首屏打字机效果
-        const text = 'Sky Chat'
-        let i = 0
-        const delayTimer = setTimeout(() => {
-          const typeTimer = setInterval(() => {
-            if (i <= text.length) {
-              setDisplayText(text.slice(0, i))
-              i++
-            } else {
-              clearInterval(typeTimer)
-            }
-          }, 50)
-          return () => clearInterval(typeTimer)
-        }, 100)
-        
-        return () => {
-          clearTimeout(delayTimer)
-        }
-      } else {
-        // 首次就是折叠状态，不显示文字
-        setDisplayText('')
-      }
-      return
-    }
-    
-    // 非首次mount，处理折叠/展开切换
-    if (!collapsed) {
-      // 展开时：打字机效果
-      const text = 'Sky Chat'
-      let i = 0
-      const delayTimer = setTimeout(() => {
-        const typeTimer = setInterval(() => {
-          if (i <= text.length) {
-            setDisplayText(text.slice(0, i))
-            i++
-          } else {
-            clearInterval(typeTimer)
-          }
-        }, 50)
-        return () => clearInterval(typeTimer)
-      }, 100)
-      
-      return () => {
-        clearTimeout(delayTimer)
-      }
-    } else {
-      // 折叠时：立即清空
-      setDisplayText('')
-    }
-  }, [collapsed])
   
   return (
     <aside
@@ -107,12 +47,7 @@ export function Sidebar({ children, isLeader, className }: SidebarProps) {
             {/* 展开状态：Logo + 折叠按钮 */}
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 shrink-0" />
-              <span className="font-semibold text-lg min-w-[80px]">
-                {displayText}
-                {displayText && displayText.length < 8 && (
-                  <span className="animate-pulse">|</span>
-                )}
-              </span>
+              <span className="font-semibold text-lg">Sky Chat</span>
             </div>
             <Button
               variant="ghost"

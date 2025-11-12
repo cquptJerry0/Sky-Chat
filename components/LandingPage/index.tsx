@@ -10,7 +10,6 @@
  * @module components/LandingPage
  */
 
-import * as React from 'react'
 import { LandingHero } from './LandingHero'
 import { LandingInput } from './LandingInput'
 import { LandingTutorial } from './LandingTutorial'

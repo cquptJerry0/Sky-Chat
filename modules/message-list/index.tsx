@@ -28,10 +28,9 @@ export function MessageList() {
   // 滚动容器
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   
-  // 滚动状态管理
-  const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
-  const previousMessagesLength = useRef(messages.length)
-  const scrollAnimationFrame = useRef<number>()
+  // 滚动状态管理 - 简化！
+  const [userScrolledUp, setUserScrolledUp] = useState<boolean>(false)
+  const previousMessagesLength = useRef<number>(0)
   
   // TanStack Virtual 配置
   const virtualizer = useVirtualizer({
@@ -51,7 +50,9 @@ export function MessageList() {
   
   const virtualItems = virtualizer.getVirtualItems()
   
-  // 监听用户滚动行为，智能判断是否需要自动滚动
+  // ========== 滚动管理 - 彻底重构 ==========
+  
+  // 1. 监听用户滚动：检测是否上滑查看历史
   useEffect(() => {
     const container = scrollContainerRef.current
     if (!container) return
@@ -60,20 +61,18 @@ export function MessageList() {
       const { scrollTop, scrollHeight, clientHeight } = container
       const distanceFromBottom = scrollHeight - scrollTop - clientHeight
       
-      // 如果距离底部 < 100px，启用自动滚动
-      // 否则认为用户在浏览历史消息，禁用自动滚动
-      setShouldAutoScroll(distanceFromBottom < 100)
+      // 距离底部 < 50px 认为在底部，否则认为上滑了
+      setUserScrolledUp(distanceFromBottom > 50)
     }
     
     container.addEventListener('scroll', handleScroll, { passive: true })
     return () => container.removeEventListener('scroll', handleScroll)
   }, [])
   
-  // 监听滚动，触发加载历史消息
+  // 2. 监听滚动：触发加载历史消息
   useEffect(() => {
     const firstItem = virtualItems[0]
     
-    // 距离顶部 < 5 条，且还有历史消息，且未在加载中
     if (
       firstItem && 
       firstItem.index < 5 && 
@@ -85,41 +84,59 @@ export function MessageList() {
     }
   }, [virtualItems, hasOlderMessages, isLoadingOlder, messages.length, loadOlderMessages])
   
-  // 智能自动滚动 - 新消息或流式更新时
+  // 3. 核心滚动逻辑 - 百分百滚动到底部
   useEffect(() => {
     if (messages.length === 0) return
-    if (!shouldAutoScroll) return
     
     const container = scrollContainerRef.current
     if (!container) return
     
-    // 判断是否是新消息（消息数量增加）
+    // 判断场景
     const isNewMessage = messages.length > previousMessagesLength.current
+    const isStreamingUpdate = streamingMessageId && !isNewMessage
+    
+    // 更新计数
     previousMessagesLength.current = messages.length
     
-    // 取消之前的滚动动画
-    if (scrollAnimationFrame.current) {
-      cancelAnimationFrame(scrollAnimationFrame.current)
+    // 决定是否滚动
+    let shouldScroll = false
+    
+    if (isNewMessage) {
+      // 新消息：总是滚动（除非用户上滑）
+      shouldScroll = !userScrolledUp
+      console.log('[MessageList] New message detected, shouldScroll:', shouldScroll, 'userScrolledUp:', userScrolledUp)
+    } else if (isStreamingUpdate) {
+      // 流式更新：只有在底部时才滚动
+      shouldScroll = !userScrolledUp
     }
     
-    // 使用requestAnimationFrame确保DOM更新后再滚动
-    scrollAnimationFrame.current = requestAnimationFrame(() => {
-      // 如果是流式更新（没有新消息但有streaming），使用平滑滚动
-      // 如果是新消息，立即跳转到底部
-      const behavior = isNewMessage ? 'auto' : 'smooth'
+    if (!shouldScroll) return
+    
+    console.log('[MessageList] Scrolling to bottom, messages:', messages.length, 'scrollHeight:', container.scrollHeight)
+    
+    // 执行滚动 - 使用多重延迟确保DOM完成
+    const scrollToBottom = () => {
+      const before = container.scrollTop
+      container.scrollTop = container.scrollHeight
+      const after = container.scrollTop
       
-      virtualizer.scrollToIndex(messages.length - 1, {
-        align: 'end',
-        behavior,
-      })
-    })
-    
-    return () => {
-      if (scrollAnimationFrame.current) {
-        cancelAnimationFrame(scrollAnimationFrame.current)
-      }
+      console.log('[MessageList] Scroll attempt:', { before, after, scrollHeight: container.scrollHeight, clientHeight: container.clientHeight })
+      
+      // 再延迟一次，处理异步渲染的情况
+      setTimeout(() => {
+        container.scrollTop = container.scrollHeight
+        console.log('[MessageList] Delayed scroll:', { scrollTop: container.scrollTop, scrollHeight: container.scrollHeight })
+      }, 50)
     }
-  }, [messages.length, shouldAutoScroll, virtualizer, streamingMessageId])
+    
+    // 立即滚动一次
+    scrollToBottom()
+    
+    // RAF再滚动一次（处理虚拟列表延迟渲染）
+    requestAnimationFrame(() => {
+      scrollToBottom()
+    })
+  }, [messages.length, streamingMessageId, userScrolledUp])
   
   // 空状态 - 只有在非加载状态且真的没有消息时才显示欢迎语
   if (messages.length === 0 && !isLoading) {

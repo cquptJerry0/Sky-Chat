@@ -14,6 +14,7 @@
  */
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { useChatStore } from '@/lib/stores/chat.store'
 import { ConversationListUI } from './ConversationListUI'
 
@@ -23,6 +24,8 @@ import { ConversationListUI } from './ConversationListUI'
  * 零props设计，所有数据从store获取
  */
 export function ConversationList() {
+  const router = useRouter()
+  
   // 从store获取状态（使用filteredConversations支持搜索）
   const conversations = useChatStore((s) => s.filteredConversations)
   const currentConversationId = useChatStore((s) => s.currentConversationId)
@@ -38,6 +41,27 @@ export function ConversationList() {
     loadConversations()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  
+  // 处理删除 - 包含导航逻辑
+  const handleDelete = async (id: string) => {
+    // 如果删除的是当前会话，需要导航到其他会话
+    const isDeletingCurrent = id === currentConversationId
+    
+    await deleteConversation(id)
+    
+    if (isDeletingCurrent) {
+      // 删除当前会话后，导航到其他会话或新建页面
+      const remainingConversations = useChatStore.getState().conversations
+      
+      if (remainingConversations.length > 0) {
+        // 有其他会话，导航到第一个
+        router.push(`/chat/${remainingConversations[0].id}`)
+      } else {
+        // 没有其他会话，导航到新建页面
+        router.push('/chat')
+      }
+    }
+  }
 
   // 将所有状态和方法传递给UI组件
   return (
@@ -45,7 +69,7 @@ export function ConversationList() {
       conversations={conversations}
       currentConversationId={currentConversationId}
       loading={loading}
-      onDelete={deleteConversation}
+      onDelete={handleDelete}
       onRename={updateConversationTitle}
     />
   )

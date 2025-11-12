@@ -11,6 +11,7 @@
  * @module app/chat/page
  */
 
+import * as React from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { Header } from '@/components/Header'
 import { MessageList } from '@/modules/message-list'
@@ -21,27 +22,30 @@ import { ConversationSearch } from '@/components/ConversationSearch'
 import { MainLayout } from '@/components/MainLayout'
 import { AuthGuard } from '@/components/AuthGuard'
 
+// 提升Sidebar到外层，避免重新渲染
+const ChatSidebar = React.memo(() => (
+  <Sidebar isLeader={true}>
+    <div className="space-y-2">
+      {/* 新建对话按钮模块 */}
+      <NewChatButton />
+      
+      {/* 会话搜索模块 */}
+      <ConversationSearch />
+      
+      {/* 会话列表模块 */}
+      <ConversationList />
+    </div>
+  </Sidebar>
+))
+
+ChatSidebar.displayName = 'ChatSidebar'
+
 /**
  * 新建聊天内容组件
  */
 function NewChatContent() {
   return (
-    <MainLayout
-      sidebar={
-        <Sidebar isLeader={true}>
-          <div className="space-y-2">
-            {/* 新建对话按钮模块 */}
-            <NewChatButton />
-            
-            {/* 会话搜索模块 */}
-            <ConversationSearch />
-            
-            {/* 会话列表模块 */}
-            <ConversationList />
-          </div>
-        </Sidebar>
-      }
-    >
+    <MainLayout sidebar={<ChatSidebar />}>
       {/* Header（顶部固定） */}
       <Header />
       

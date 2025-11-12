@@ -22,6 +22,7 @@ export const authConfig = {
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      checks: ['state'], // 禁用 PKCE，只使用 state 检查（修复 NextAuth 5.0 beta PKCE bug）
       authorization: {
         params: {
           prompt: 'consent',
@@ -30,11 +31,12 @@ export const authConfig = {
         },
       },
     }),
-    
+
     // GitHub OAuth
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      checks: ['state'], // 禁用 PKCE，只使用 state 检查（修复 NextAuth 5.0 beta PKCE bug）
     }),
     
     // 邮箱密码登录（备选）
@@ -77,39 +79,88 @@ export const authConfig = {
   ],
   
   pages: {
-    signIn: '/',  // 自定义登录页（使用LoginDialog）
+    signIn: '/',
   },
   
   callbacks: {
     async signIn({ user, account }) {
-      // ✅ 方案C：取消自动关联
-      // 每个 OAuth 提供商和邮箱密码都是独立账号
-      // Prisma Adapter 会自动处理账号创建和关联
-      // 不再通过邮箱自动合并账号
-      
-      // 仅对 Credentials 登录做邮箱验证
-      if (account?.provider === 'credentials' && user.email) {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email },
-        })
-        
-        if (existingUser) {
-          // Credentials 登录使用已存在的邮箱用户
+      if (!user.email) {
+        return true
+      }
+
+      const existingUser = await prisma.user.findUnique({
+        where: { email: user.email },
+        include: { accounts: true },
+      })
+
+      if (!existingUser) {
+        return true
+      }
+
+      const accountAlreadyLinked = existingUser.accounts.some(
+        (acc) => acc.provider === account?.provider
+      )
+
+      if (accountAlreadyLinked) {
+        return true
+      }
+
+      if (account?.provider === 'credentials') {
+        user.id = existingUser.id
+        return true
+      }
+
+      // 自动关联策略: 信任 OAuth 提供商的邮箱验证，或检查用户邮箱已验证
+      // 防止账号劫持: 未验证的邮箱不允许自动关联
+      const canAutoLink =
+        existingUser.emailVerified ||
+        account?.provider === 'google' ||
+        account?.provider === 'github'
+
+      if (canAutoLink) {
+        try {
+          await prisma.account.create({
+            data: {
+              userId: existingUser.id,
+              type: account!.type,
+              provider: account!.provider,
+              providerAccountId: account!.providerAccountId,
+              access_token: account!.access_token,
+              refresh_token: account!.refresh_token,
+              expires_at: account!.expires_at,
+              token_type: account!.token_type,
+              scope: account!.scope,
+              id_token: account!.id_token,
+              session_state: account!.session_state as string | null,
+            },
+          })
+
           user.id = existingUser.id
+
+          if (!existingUser.emailVerified) {
+            await prisma.user.update({
+              where: { id: existingUser.id },
+              data: { emailVerified: new Date() },
+            })
+          }
+
+          return true
+        } catch (error) {
+          console.error('[Auth] Failed to link account:', error)
+          return false
         }
       }
-      
-      return true
+
+      return false
     },
     
     async session({ session, token }) {
-      // 添加userId到session
       if (token.sub) {
         session.user.id = token.sub
       }
       return session
     },
-    
+
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id
@@ -120,9 +171,50 @@ export const authConfig = {
   
   session: {
     strategy: 'jwt',
-    maxAge: 7 * 24 * 60 * 60, // 7天
+    maxAge: 7 * 24 * 60 * 60,
   },
-  
+
+  // Workaround: NextAuth 5.0 beta cookie parsing issue with Next.js 16
+  cookies: {
+    sessionToken: {
+      name: `authjs.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+    callbackUrl: {
+      name: `authjs.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+    csrfToken: {
+      name: `authjs.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+    state: {
+      name: `authjs.state`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 900,
+      },
+    },
+  },
+
   debug: process.env.NODE_ENV === 'development',
 } satisfies NextAuthConfig
 

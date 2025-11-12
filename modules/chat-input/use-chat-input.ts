@@ -150,14 +150,34 @@ export function useChatInput() {
           throw new Error(`API error: ${response.status}`)
         }
         
-        // 从响应header获取conversationId、messageId和canContinue
+        // 从响应header获取conversationId、messageId、canContinue和标题
         const conversationId = response.headers.get('X-Conversation-ID')
         const serverMessageId = response.headers.get('X-Message-ID')
         const canContinue = response.headers.get('X-Can-Continue') === 'true'
+        const conversationTitleEncoded = response.headers.get('X-Conversation-Title')
+        const conversationTitle = conversationTitleEncoded ? decodeURIComponent(conversationTitleEncoded) : null
         
         if (conversationId && !currentConversationId) {
           // 如果是新创建的会话，保存到store
           useChatStore.getState().setConversationId(conversationId)
+        }
+        
+        // 如果标题有更新，同步更新conversations列表
+        if (conversationId && conversationTitle) {
+          const state = useChatStore.getState()
+          const existingConversation = state.conversations.find(c => c.id === conversationId)
+          
+          if (existingConversation && existingConversation.title !== conversationTitle) {
+            console.log('[ChatInput] Updating conversation title:', conversationTitle)
+            useChatStore.setState({
+              conversations: state.conversations.map(c =>
+                c.id === conversationId ? { ...c, title: conversationTitle } : c
+              ),
+              filteredConversations: state.filteredConversations.map(c =>
+                c.id === conversationId ? { ...c, title: conversationTitle } : c
+              ),
+            })
+          }
         }
         
         // 更新AI消息的ID为服务端返回的ID（用于续传）

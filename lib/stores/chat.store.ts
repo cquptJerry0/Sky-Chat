@@ -421,13 +421,22 @@ export const useChatStore = create<ChatState>()((set) => ({
         currentConversationId: id,
         messages: messages as Message[],
         isLoading: false,
-        hasOlderMessages: true,
+        hasOlderMessages: messages.length >= 50,
         oldestMessageId: messages[0]?.id || null,
         newestMessageId: messages[messages.length - 1]?.id || null,
       })
     } catch (error) {
       console.error('Failed to switch conversation:', error)
+      
+      // 更详细的错误处理
+      if (error instanceof Error) {
+        console.error('Error details:', error.message)
+      }
+      
       set({ isLoading: false, messages: [] })
+      
+      // 抛出错误让上层处理（比如重定向）
+      throw error
     }
   },
   

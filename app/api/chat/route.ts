@@ -85,13 +85,15 @@ export async function POST(req: Request) {
       where: { conversationId: conversation.id }
     })
     
+    let updatedTitle = conversation.title
     if (messageCount === 2 && conversation.title === '新对话') {
       // 根据第一条消息内容生成标题（最多20个字符）
-      const autoTitle = message.trim().substring(0, 20) + (message.length > 20 ? '...' : '')
+      updatedTitle = message.trim().substring(0, 20) + (message.length > 20 ? '...' : '')
       await prisma.conversation.update({
         where: { id: conversation.id },
-        data: { title: autoTitle }
+        data: { title: updatedTitle }
       })
+      console.log('[Chat API] Auto-generated title:', updatedTitle)
     }
 
     // 获取历史消息（用于上下文）
@@ -345,6 +347,7 @@ export async function POST(req: Request) {
         'X-Session-ID': sessionId,
         'X-Message-ID': messageId,
         'X-Conversation-ID': conversation.id,
+        'X-Conversation-Title': encodeURIComponent(updatedTitle),
         'X-Can-Continue': 'true', // 后端会持续收集内容，支持续传
       },
     })

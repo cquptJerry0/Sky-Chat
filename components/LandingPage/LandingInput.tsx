@@ -84,7 +84,7 @@ export function LandingInput() {
       </p>
 
       {/* 登录对话框 */}
-      <LoginDialog open={showLogin} />
+      <LoginDialog open={showLogin} onOpenChange={setShowLogin} />
     </>
   )
 }
