@@ -31,14 +31,12 @@ export function LandingInput() {
    */
   const handleSend = React.useCallback(() => {
     const trimmedMessage = message.trim()
-    
+
     if (!trimmedMessage) return
 
-    // 保存待发送消息到 localStorage
-    StorageManager.set(STORAGE_KEYS.PENDING_MESSAGE, trimmedMessage)
+    StorageManager.set(STORAGE_KEYS.USER.PENDING_MESSAGE, trimmedMessage)
     console.log('[LandingInput] Saved pending message:', trimmedMessage)
 
-    // 触发登录对话框
     setShowLogin(true)
   }, [message])
 

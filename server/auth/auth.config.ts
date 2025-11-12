@@ -36,7 +36,12 @@ export const authConfig = {
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      checks: ['state'], // 禁用 PKCE，只使用 state 检查（修复 NextAuth 5.0 beta PKCE bug）
+      checks: ['state'],
+      authorization: {
+        params: {
+          prompt: 'select_account',
+        },
+      },
     }),
     
     // 邮箱密码登录（备选）
@@ -110,28 +115,26 @@ export const authConfig = {
         return true
       }
 
-      // 自动关联策略: 信任 OAuth 提供商的邮箱验证，或检查用户邮箱已验证
-      // 防止账号劫持: 未验证的邮箱不允许自动关联
       const canAutoLink =
         existingUser.emailVerified ||
         account?.provider === 'google' ||
         account?.provider === 'github'
 
-      if (canAutoLink) {
+      if (canAutoLink && account) {
         try {
           await prisma.account.create({
             data: {
               userId: existingUser.id,
-              type: account!.type,
-              provider: account!.provider,
-              providerAccountId: account!.providerAccountId,
-              access_token: account!.access_token,
-              refresh_token: account!.refresh_token,
-              expires_at: account!.expires_at,
-              token_type: account!.token_type,
-              scope: account!.scope,
-              id_token: account!.id_token,
-              session_state: account!.session_state as string | null,
+              type: account.type,
+              provider: account.provider,
+              providerAccountId: account.providerAccountId,
+              access_token: account.access_token,
+              refresh_token: account.refresh_token,
+              expires_at: account.expires_at,
+              token_type: account.token_type,
+              scope: account.scope,
+              id_token: account.id_token,
+              session_state: account.session_state as string | null,
             },
           })
 

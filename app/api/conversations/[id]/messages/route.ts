@@ -12,6 +12,7 @@ import { NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/server/auth/utils'
 import { ConversationRepository } from '@/server/repositories/conversation.repository'
 import { MessageRepository } from '@/server/repositories/message.repository'
+import { audit } from '@/server/middleware/audit'
 
 export async function GET(
   req: Request,
@@ -36,15 +37,21 @@ export async function GET(
       )
     }
 
-    // 如果没有游标，返回最新的消息（已经是正序：旧 → 新）
+    await audit({
+      userId,
+      action: 'message.view',
+      resourceId: id,
+      request: req,
+    })
+
     if (!cursor) {
       const messages = await MessageRepository.findByConversationId(id, limit)
-      
+
       return NextResponse.json({
-        messages,  // [1, 2, 3, ..., 50] 正序
+        messages,
         hasMore: messages.length === limit,
-        nextCursor: messages.length > 0 ? messages[messages.length - 1].id : null,  // 最新消息（50）
-        prevCursor: messages.length > 0 ? messages[0].id : null,  // 最旧消息（1）用于向上加载
+        nextCursor: messages.length > 0 ? messages[messages.length - 1].id : null,
+        prevCursor: messages.length > 0 ? messages[0].id : null,
       })
     }
 

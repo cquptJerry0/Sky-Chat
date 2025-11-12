@@ -222,9 +222,8 @@ const getInitialModel = (): string => {
   if (typeof window === 'undefined') return getDefaultModel().id
 
   try {
-    const savedModel = StorageManager.get<string>(STORAGE_KEYS.SELECTED_MODEL)
+    const savedModel = StorageManager.get<string>(STORAGE_KEYS.USER.SELECTED_MODEL)
     if (savedModel) {
-      // 验证模型是否仍然有效
       const model = getModelById(savedModel)
       if (model) {
         console.log('[ChatStore] Restored model from localStorage:', savedModel)
@@ -336,9 +335,8 @@ export const useChatStore = create<ChatState>()((set) => ({
   
   // ============ Configuration Actions ============
   setModel: (modelId) => {
-    // 保存到 localStorage
     try {
-      StorageManager.set(STORAGE_KEYS.SELECTED_MODEL, modelId)
+      StorageManager.set(STORAGE_KEYS.USER.SELECTED_MODEL, modelId)
       console.log('[ChatStore] Saved model to localStorage:', modelId)
     } catch (error) {
       console.error('[ChatStore] Failed to save model to localStorage:', error)

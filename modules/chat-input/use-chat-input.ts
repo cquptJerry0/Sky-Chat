@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useAudioRecorder } from '@/lib/hooks/use-audio-recorder'
 import { ChatAPI } from '@/lib/services/chat-api'
 import { ConversationAPI } from '@/lib/services/conversation-api'
+import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
 import type { Message } from '@/lib/types/chat'
 
 /**
@@ -339,7 +340,22 @@ export function useChatInput() {
   }, [audioBlob, isRecording, clearAudio, toast])
   
   /**
-   * 监听重试、编辑和自动发送事件
+   * 从 localStorage 读取待发送消息并填充到输入框（仅一次）
+   */
+  useEffect(() => {
+    const pendingMessage = StorageManager.get<string>(STORAGE_KEYS.USER.PENDING_MESSAGE)
+
+    if (pendingMessage) {
+      console.log('[ChatInput] Found pending message, filling input:', pendingMessage)
+      setInput(pendingMessage)
+
+      // 清除 localStorage 中的待发送消息
+      StorageManager.remove(STORAGE_KEYS.USER.PENDING_MESSAGE)
+    }
+  }, []) // 空依赖数组，仅在组件挂载时执行一次
+
+  /**
+   * 监听重试和编辑事件
    */
   useEffect(() => {
     const handleRetryMessage = (event: Event) => {
@@ -348,30 +364,20 @@ export function useChatInput() {
         sendMessage(customEvent.detail.content)
       }
     }
-    
+
     const handleEditAndResend = (event: Event) => {
       const customEvent = event as CustomEvent<{ content: string }>
       if (customEvent.detail?.content) {
         sendMessage(customEvent.detail.content)
       }
     }
-    
-    const handleAutoSendMessage = (event: Event) => {
-      const customEvent = event as CustomEvent<{ content: string }>
-      if (customEvent.detail?.content) {
-        console.log('[ChatInput] Auto-sending message:', customEvent.detail.content)
-        sendMessage(customEvent.detail.content)
-      }
-    }
-    
+
     window.addEventListener('retry-message', handleRetryMessage)
     window.addEventListener('edit-and-resend', handleEditAndResend)
-    window.addEventListener('auto-send-message', handleAutoSendMessage)
-    
+
     return () => {
       window.removeEventListener('retry-message', handleRetryMessage)
       window.removeEventListener('edit-and-resend', handleEditAndResend)
-      window.removeEventListener('auto-send-message', handleAutoSendMessage)
     }
   }, [sendMessage])
   

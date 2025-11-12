@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/server/auth/utils'
 import { ConversationRepository } from '@/server/repositories/conversation.repository'
+import { audit } from '@/server/middleware/audit'
 import { z } from 'zod'
 
 const updateConversationSchema = z.object({
@@ -30,6 +31,13 @@ export async function GET(
         { status: 404 }
       )
     }
+
+    await audit({
+      userId,
+      action: 'conversation.view',
+      resourceId: id,
+      request: req,
+    })
 
     return NextResponse.json({ conversation })
   } catch (error) {
@@ -56,6 +64,14 @@ export async function PATCH(
         { status: 404 }
       )
     }
+
+    await audit({
+      userId,
+      action: 'conversation.update',
+      resourceId: id,
+      metadata: { title },
+      request: req,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -90,6 +106,13 @@ export async function DELETE(
         { status: 404 }
       )
     }
+
+    await audit({
+      userId,
+      action: 'conversation.delete',
+      resourceId: id,
+      request: req,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

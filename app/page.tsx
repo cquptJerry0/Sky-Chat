@@ -43,25 +43,22 @@ export default function HomePage() {
       await withLoading(async () => {
         try {
           // 1. 检查是否有待发送消息
-          const pendingMessage = StorageManager.get<string>(STORAGE_KEYS.PENDING_MESSAGE)
+          const pendingMessage = StorageManager.get<string>(STORAGE_KEYS.USER.PENDING_MESSAGE)
 
           if (pendingMessage) {
             console.log('[HomePage] Found pending message, creating conversation...')
-            
-            // 有待发送消息：创建会话并跳转
+
+            // 有待发送消息：创建会话并跳转（不清除 pendingMessage，让输入框读取）
             try {
               const { conversation } = await ConversationAPI.create()
-              
-              // 跳转到新会话并携带消息
-              router.push(`/chat/${conversation.id}?message=${encodeURIComponent(pendingMessage)}`)
-  
-              // 清除待发送消息
-              StorageManager.remove(STORAGE_KEYS.PENDING_MESSAGE)
+
+              // 跳转到新会话（不携带消息参数，让输入框从 localStorage 读取）
+              router.push(`/chat/${conversation.id}`)
               return
             } catch (error) {
               console.error('[HomePage] Failed to create conversation:', error)
               // 创建失败时清除待发送消息，继续正常流程
-              StorageManager.remove(STORAGE_KEYS.PENDING_MESSAGE)
+              StorageManager.remove(STORAGE_KEYS.USER.PENDING_MESSAGE)
   }
           }
 

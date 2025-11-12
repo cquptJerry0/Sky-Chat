@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/server/auth/utils'
 import { ConversationRepository } from '@/server/repositories/conversation.repository'
+import { audit } from '@/server/middleware/audit'
 import { z } from 'zod'
 
 const createConversationSchema = z.object({
@@ -35,6 +36,13 @@ export async function POST(req: Request) {
       userId,
       title || '新对话'
     )
+
+    await audit({
+      userId,
+      action: 'conversation.create',
+      resourceId: conversation.id,
+      request: req,
+    })
 
     return NextResponse.json({ conversation })
   } catch (error) {

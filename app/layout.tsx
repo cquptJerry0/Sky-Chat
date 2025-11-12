@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from '@/components/Providers'
 import { Toaster } from '@/components/ui/toaster'
+import { AccountLinkNotification } from '@/components/AccountLinkNotification'
 
 export const metadata: Metadata = {
   title: 'Sky Chat',
@@ -19,6 +20,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <Toaster />
+          <AccountLinkNotification />
         </Providers>
       </body>
     </html>

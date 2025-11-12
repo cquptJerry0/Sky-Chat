@@ -62,6 +62,35 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model PendingAccountLink {
+  id                String   @id @default(cuid())
+  email             String
+  provider          String
+  providerAccountId String
+  token             String   @unique
+  expires           DateTime
+  createdAt         DateTime @default(now())
+
+  @@unique([email, provider])
+  @@index([token])
+  @@index([expires])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  resourceId String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([resourceId])
+}
+
 model Conversation {
   id           String    @id @default(cuid())
   title        String    @default("新对话")
