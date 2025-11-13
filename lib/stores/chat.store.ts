@@ -424,15 +424,17 @@ export const useChatStore = create<ChatState>()((set) => ({
         newestMessageId: messages[messages.length - 1]?.id || null,
       })
     } catch (error) {
-      console.error('Failed to switch conversation:', error)
-      
-      // 更详细的错误处理
-      if (error instanceof Error) {
-        console.error('Error details:', error.message)
+      console.error('[ChatStore] Failed to switch conversation:', error)
+
+      // 检查是否是 404 错误（会话不存在）
+      const is404 = error instanceof Error && (error as any).status === 404
+
+      if (is404) {
+        console.warn('[ChatStore] Conversation not found, may have been deleted')
       }
-      
+
       set({ isLoading: false, messages: [] })
-      
+
       // 抛出错误让上层处理（比如重定向）
       throw error
     }

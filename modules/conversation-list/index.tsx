@@ -44,23 +44,28 @@ export function ConversationList() {
   
   // 处理删除 - 包含导航逻辑
   const handleDelete = async (id: string) => {
-    // 如果删除的是当前会话，需要导航到其他会话
+    // 如果删除的是当前会话，需要先导航到其他会话
     const isDeletingCurrent = id === currentConversationId
-    
-    await deleteConversation(id)
-    
+
     if (isDeletingCurrent) {
-      // 删除当前会话后，导航到其他会话或新建页面
-      const remainingConversations = useChatStore.getState().conversations
-      
-      if (remainingConversations.length > 0) {
-        // 有其他会话，导航到第一个
-        router.push(`/chat/${remainingConversations[0].id}`)
+      // 先找到下一个会话
+      const allConversations = useChatStore.getState().conversations
+      const nextConversation = allConversations.find((c) => c.id !== id)
+
+      if (nextConversation) {
+        // 有其他会话，先导航过去（这样 currentConversationId 会被更新）
+        router.push(`/chat/${nextConversation.id}`)
+
+        // 等待导航完成后再删除（避免 useEffect 重复触发）
+        await new Promise((resolve) => setTimeout(resolve, 100))
       } else {
-        // 没有其他会话，导航到新建页面
+        // 没有其他会话，先导航到新建页面
         router.push('/chat')
       }
     }
+
+    // 执行删除
+    await deleteConversation(id)
   }
 
   // 将所有状态和方法传递给UI组件

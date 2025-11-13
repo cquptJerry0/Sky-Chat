@@ -135,11 +135,19 @@ export const ConversationAPI = {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     })
-    
+
     if (!res.ok) {
+      // 会话不存在或无权限
+      if (res.status === 404) {
+        const error = new Error('Conversation not found')
+        ;(error as any).status = 404
+        throw error
+      }
+
+      // 其他错误
       throw new Error('Failed to fetch messages')
     }
-    
+
     return res.json()
   },
   

@@ -3,6 +3,7 @@ import './globals.css'
 import { Providers } from '@/components/Providers'
 import { Toaster } from '@/components/ui/toaster'
 import { AccountLinkNotification } from '@/components/AccountLinkNotification'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export const metadata: Metadata = {
   title: 'Sky Chat',
@@ -17,11 +18,13 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body className="antialiased">
-        <Providers>
-          {children}
-          <Toaster />
-          <AccountLinkNotification />
-        </Providers>
+        <ErrorBoundary>
+          <Providers>
+            {children}
+            <Toaster />
+            <AccountLinkNotification />
+          </Providers>
+        </ErrorBoundary>
       </body>
     </html>
   )
