@@ -149,6 +149,34 @@ export interface SSEData {
 export type AbortReason = 'user_stop' | 'tab_hidden' | 'network_error'
 
 /**
+ * 消息显示状态
+ * @description 描述消息的当前显示状态，用于控制 UI 渲染
+ * - idle: 正常显示（已完成）
+ * - streaming: 正在流式生成
+ * - waiting: 等待响应（用户消息发送后，等待 AI 响应）
+ * - error: 错误（可重试）
+ * - regenerating: 重新生成中
+ */
+export type MessageDisplayState =
+  | 'idle'
+  | 'streaming'
+  | 'waiting'
+  | 'error'
+  | 'regenerating'
+
+/**
+ * 文件附件类型
+ */
+export interface FileAttachment {
+  /** 文件名 */
+  name: string
+  /** 文件类型 */
+  type: 'txt' | 'md'
+  /** 文件大小（字节） */
+  size: number
+}
+
+/**
  * Message 类型补充字段
  */
 export interface Message {
@@ -172,14 +200,14 @@ export interface Message {
   isStreaming?: boolean
   /** 时间戳 */
   timestamp?: number
-  
-  // ===== 新增：暂停与续传相关字段 =====
-  /** 是否被暂停（等待续传） */
-  isPaused?: boolean
-  /** 暂停原因 */
-  pauseReason?: AbortReason
-  /** 后端是否还在收集内容（可以续传） */
-  canContinue?: boolean
+  /** 文件附件列表（仅用户消息） */
+  attachments?: FileAttachment[]
+
+
+
+  // ===== 新增：消息显示状态 =====
+  /** 消息显示状态（用于控制 UI 渲染） */
+  displayState?: MessageDisplayState
 }
 
 /**

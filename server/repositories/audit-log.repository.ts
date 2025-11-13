@@ -67,9 +67,13 @@ export const AuditLogRepository = {
       orderBy: { createdAt: 'desc' },
     })
 
-    const suspiciousPatterns = []
+    const suspiciousPatterns: Array<{
+      type: string
+      count: number
+      message: string
+    }> = []
 
-    const viewActions = recentLogs.filter(log => log.action === 'conversation.view')
+    const viewActions = recentLogs.filter((log: { action: string }) => log.action === 'conversation.view')
     if (viewActions.length > 50) {
       suspiciousPatterns.push({
         type: 'excessive_views',
@@ -78,7 +82,7 @@ export const AuditLogRepository = {
       })
     }
 
-    const deleteActions = recentLogs.filter(log => log.action === 'conversation.delete')
+    const deleteActions = recentLogs.filter((log: { action: string }) => log.action === 'conversation.delete')
     if (deleteActions.length > 10) {
       suspiciousPatterns.push({
         type: 'excessive_deletes',

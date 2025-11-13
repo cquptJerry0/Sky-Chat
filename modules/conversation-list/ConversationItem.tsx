@@ -31,6 +31,7 @@ interface ConversationItemProps {
   isActive: boolean
   onDelete: () => void
   onRename: (newTitle: string) => void
+  onTogglePin?: (isPinned: boolean) => void
 }
 
 export function ConversationItem({
@@ -38,6 +39,7 @@ export function ConversationItem({
   isActive,
   onDelete,
   onRename,
+  onTogglePin,
 }: ConversationItemProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -184,22 +186,14 @@ export function ConversationItem({
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation()
-                    // TODO: 实现置顶功能
-                    console.log('置顶会话:', conversation.id)
+                    onTogglePin?.(!conversation.isPinned)
                   }}
                 >
-                  <Pin className="mr-2 h-4 w-4" />
-                  <span>置顶</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleExport('markdown')
-                  }}
-                  disabled={isExporting}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  <span>导出为 Markdown</span>
+                  <Pin className={cn(
+                    "mr-2 h-4 w-4",
+                    conversation.isPinned && "fill-current"
+                  )} />
+                  <span>{conversation.isPinned ? '取消置顶' : '置顶'}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={(e) => {

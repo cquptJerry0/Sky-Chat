@@ -85,7 +85,13 @@ export default async function SharePageSSR({
     createdAt: conversation.createdAt.toISOString(),
     sharedAt: conversation.sharedAt?.toISOString() || conversation.createdAt.toISOString(),
     // viewCount: conversation.viewCount || 0, // 等数据库迁移后启用
-    messages: conversation.messages.map(msg => ({
+    messages: conversation.messages.map((msg: {
+      id: string
+      role: string
+      content: string
+      thinking: string | null
+      createdAt: Date
+    }) => ({
       id: msg.id,
       role: msg.role,
       content: msg.content,
@@ -180,8 +186,8 @@ export async function generateStaticParams() {
     })
     
     return shares
-      .filter(share => share.shareToken)
-      .map(share => ({
+      .filter((share: { shareToken: string | null }) => share.shareToken)
+      .map((share: { shareToken: string | null }) => ({
         token: share.shareToken!
       }))
   } catch (error) {

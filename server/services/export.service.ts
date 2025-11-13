@@ -91,7 +91,7 @@ class ExportService {
    */
   async exportAll(userId: string, options: ExportOptions) {
     const conversations = await ConversationRepository.findByUserId(userId)
-    const conversationIds = conversations.map(c => c.id)
+    const conversationIds = conversations.map((c: { id: string }) => c.id)
     return this.exportBatch(conversationIds, userId, options)
   }
 

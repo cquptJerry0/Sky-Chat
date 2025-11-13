@@ -12,9 +12,11 @@
  */
 
 import * as React from 'react'
-import { ArrowUp, Mic, Loader2, Brain, Square, Plus, Wrench, AlertCircle } from 'lucide-react'
+import { ArrowUp, Mic, Loader2, Brain, Square, X, FileUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { MarkdownIcon } from '@/components/icons/MarkdownIcon'
+import { TextFileIcon } from '@/components/icons/TextFileIcon'
 import { getModelById } from '@/lib/constants/models'
 import { cn } from '@/lib/utils'
 import type { AbortReason } from '@/lib/types/chat'
@@ -28,16 +30,17 @@ interface ChatInputUIProps {
   isLoading: boolean
   isRecording: boolean
   isTranscribing: boolean
-  showContinuePrompt?: boolean
-  pauseReason?: AbortReason
-  
+  uploadedFiles: Array<{ name: string; content: string; size: number; type: 'txt' | 'md' }>
+
   // 方法
   onSubmit: (e: React.FormEvent) => void
   onStop: () => void
+  onModelChange: (model: string) => void
   onThinkingToggle: (enabled: boolean) => void
   onStartRecording: () => void
   onStopRecording: () => void
-  onContinue?: () => void
+  onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onRemoveFile: (index: number) => void
 }
 
 /**
@@ -53,52 +56,92 @@ export function ChatInputUI({
   isLoading,
   isRecording,
   isTranscribing,
-  showContinuePrompt = false,
-  pauseReason,
+  uploadedFiles,
   onSubmit,
   onStop,
+  onModelChange,
   onThinkingToggle,
   onStartRecording,
   onStopRecording,
-  onContinue,
+  onFileUpload,
+  onRemoveFile,
 }: ChatInputUIProps) {
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [isDragging, setIsDragging] = React.useState(false)
   const currentModel = getModelById(selectedModel)
   const disabled = isLoading || isRecording || isTranscribing
+
+  // 处理拖拽上传
+  const handleDragOver = React.useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = React.useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = React.useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const files = e.dataTransfer.files
+    if (files.length > 0) {
+      // 模拟 input change 事件
+      const input = fileInputRef.current
+      if (input) {
+        const dataTransfer = new DataTransfer()
+        dataTransfer.items.add(files[0])
+        input.files = dataTransfer.files
+
+        // 触发 change 事件
+        const event = new Event('change', { bubbles: true })
+        input.dispatchEvent(event)
+      }
+    }
+  }, [])
+
+  // 获取文件图标和颜色
+  const getFileIcon = (type: 'txt' | 'md') => {
+    if (type === 'md') {
+      return <MarkdownIcon className="h-3.5 w-3.5 text-orange-500" />
+    }
+    return <TextFileIcon className="h-3.5 w-3.5 text-blue-500" />
+  }
   
   // 判断是否可以发送
   const canSend = input.trim() && !disabled
-  
-  // 续传提示文本
-  const continuePromptText = pauseReason === 'tab_hidden' 
-    ? '标签页切换已暂停，点击继续生成'
-    : pauseReason === 'network_error'
-    ? '网络中断已暂停，点击继续生成'
-    : '生成已中断，点击继续'
-  
+
   return (
-    <div className="shrink-0 bg-background border-t border-border/50">
-      <div className="mx-auto max-w-4xl px-6 py-4">
-        
-        {/* 续传提示Banner */}
-        {showContinuePrompt && onContinue && (
-          <div className="mb-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-              <span className="text-sm text-blue-600 dark:text-blue-400">
-                {continuePromptText}
-              </span>
-            </div>
-            <Button
-              size="sm"
-              onClick={onContinue}
-              className="h-7 bg-blue-600 hover:bg-blue-700 text-white shrink-0"
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              继续生成
-            </Button>
+    <div
+      className={cn(
+        "shrink-0 bg-background border-t border-border/50 transition-colors relative",
+        isDragging && "bg-blue-50 dark:bg-blue-900/10"
+      )}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* 拖拽提示 */}
+      {isDragging && (
+        <div className="absolute inset-0 flex items-center justify-center bg-blue-50/90 dark:bg-blue-900/20 backdrop-blur-sm z-10 pointer-events-none">
+          <div className="text-center">
+            <FileUp className="h-12 w-12 text-blue-500 mx-auto mb-2" />
+            <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+              拖放文件到这里上传
+            </p>
+            <p className="text-xs text-blue-500 dark:text-blue-500 mt-1">
+              支持 .txt 和 .md 文件
+            </p>
           </div>
-        )}
-        
+        </div>
+      )}
+
+      <div className="mx-auto max-w-4xl px-6 py-4">
         {/* 统一的输入模块容器 */}
         <div className="bg-background rounded-3xl p-3 shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.12)] transition-shadow">
           {/* 第一层：纯输入框 */}
@@ -130,11 +173,65 @@ export function ChatInputUI({
             />
           </form>
           
+          {/* 已上传文件列表 */}
+          {uploadedFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2 px-2">
+              {uploadedFiles.map((file, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors",
+                    file.type === 'md'
+                      ? "bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800"
+                      : "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                  )}
+                >
+                  {getFileIcon(file.type)}
+                  <span className={cn(
+                    "max-w-[150px] truncate font-medium",
+                    file.type === 'md'
+                      ? "text-orange-700 dark:text-orange-300"
+                      : "text-blue-700 dark:text-blue-300"
+                  )}>
+                    {file.name}
+                  </span>
+                  <span className={cn(
+                    "text-xs",
+                    file.type === 'md'
+                      ? "text-orange-500 dark:text-orange-400"
+                      : "text-blue-500 dark:text-blue-400"
+                  )}>
+                    {(file.size / 1024).toFixed(1)}KB
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveFile(index)}
+                    className={cn(
+                      "ml-1 hover:opacity-70 transition-opacity",
+                      file.type === 'md'
+                        ? "text-orange-600 dark:text-orange-400"
+                        : "text-blue-600 dark:text-blue-400"
+                    )}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* 第二层：Action工具栏 */}
           <div className="flex items-center justify-between px-2">
           {/* 左侧工具 */}
           <div className="flex items-center gap-1">
             {/* 附加文件按钮 */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.md"
+              onChange={onFileUpload}
+              className="hidden"
+            />
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -142,13 +239,15 @@ export function ChatInputUI({
                     type="button"
                     size="icon"
                     variant="ghost"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={disabled}
                     className="h-8 w-8 rounded-lg hover:bg-[hsl(var(--input-hover))]"
                   >
-                    <Plus className="h-4 w-4" />
+                    <FileUp className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>附加文件</p>
+                  <p>附加文件 (.txt, .md)</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -179,26 +278,6 @@ export function ChatInputUI({
                 </Tooltip>
               </TooltipProvider>
             )}
-            
-            {/* Tools按钮 */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 rounded-lg hover:bg-[hsl(var(--input-hover))] gap-1.5"
-                  >
-                    <Wrench className="h-3.5 w-3.5" />
-                    <span className="text-sm">Tools</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>使用工具</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           </div>
           
           {/* 右侧操作 */}

@@ -38,20 +38,18 @@ export function NewChatButton() {
   
   const handleNewChat = async () => {
     if (isCreating) return
-    
+
     setIsCreating(true)
     try {
-      // 使用 store 的 createNewConversation 方法，确保状态一致性
-      await createNewConversation()
-      
-      // 获取新创建的会话（在列表第一个）
-      const newConversation = useChatStore.getState().conversations[0]
-      if (newConversation) {
-        // 导航到新会话
-        router.push(`/chat/${newConversation.id}`)
+      // 创建新会话（会自动清空消息并设置状态）
+      const conversationId = await createNewConversation()
+
+      // 直接导航到新会话
+      if (conversationId !== null && conversationId !== undefined) {
+        router.push(`/chat/${conversationId}`)
       }
     } catch (error) {
-      console.error('Failed to create conversation:', error)
+      console.error('[NewChatButton] Failed to create conversation:', error)
     } finally {
       setIsCreating(false)
     }

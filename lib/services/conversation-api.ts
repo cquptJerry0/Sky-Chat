@@ -1,8 +1,21 @@
 /**
  * Conversation API Service
- * 
+ *
  * 会话相关的API调用封装
  */
+
+/**
+ * HTTP 错误类
+ */
+class HTTPError extends Error {
+  constructor(
+    message: string,
+    public status: number
+  ) {
+    super(message)
+    this.name = 'HTTPError'
+  }
+}
 
 export interface Conversation {
   id: string
@@ -13,6 +26,8 @@ export interface Conversation {
   isShared: boolean
   shareToken?: string
   sharedAt?: string
+  isPinned?: boolean
+  pinnedAt?: string
   _count?: {
     messages: number
   }
@@ -119,11 +134,28 @@ export const ConversationAPI = {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
     })
-    
+
     if (!res.ok) {
       throw new Error('Failed to delete conversation')
     }
-    
+
+    return res.json()
+  },
+
+  /**
+   * 置顶/取消置顶会话
+   */
+  async togglePin(id: string, isPinned: boolean): Promise<{ success: boolean; conversation: Conversation }> {
+    const res = await fetch(`/api/conversations/${id}/pin`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isPinned }),
+    })
+
+    if (!res.ok) {
+      throw new Error('Failed to toggle pin conversation')
+    }
+
     return res.json()
   },
   
@@ -139,9 +171,7 @@ export const ConversationAPI = {
     if (!res.ok) {
       // 会话不存在或无权限
       if (res.status === 404) {
-        const error = new Error('Conversation not found')
-        ;(error as any).status = 404
-        throw error
+        throw new HTTPError('Conversation not found', 404)
       }
 
       // 其他错误

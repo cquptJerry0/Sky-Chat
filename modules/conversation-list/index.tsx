@@ -34,6 +34,7 @@ export function ConversationList() {
   // 从store获取方法
   const deleteConversation = useChatStore((s) => s.deleteConversation)
   const updateConversationTitle = useChatStore((s) => s.updateConversationTitle)
+  const toggleConversationPin = useChatStore((s) => s.toggleConversationPin)
   const loadConversations = useChatStore((s) => s.loadConversations)
 
   // 初始化：加载会话列表（只执行一次）
@@ -76,6 +77,7 @@ export function ConversationList() {
       loading={loading}
       onDelete={handleDelete}
       onRename={updateConversationTitle}
+      onTogglePin={toggleConversationPin}
     />
   )
 }

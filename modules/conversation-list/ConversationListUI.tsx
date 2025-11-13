@@ -27,6 +27,7 @@ interface ConversationListUIProps {
   loading: boolean
   onDelete: (id: string) => void
   onRename: (id: string, newTitle: string) => void
+  onTogglePin: (id: string, isPinned: boolean) => void
 }
 
 export function ConversationListUI({
@@ -35,6 +36,7 @@ export function ConversationListUI({
   loading,
   onDelete,
   onRename,
+  onTogglePin,
 }: ConversationListUIProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [conversationToDelete, setConversationToDelete] = React.useState<string | null>(null)
@@ -75,6 +77,7 @@ export function ConversationListUI({
               isActive={conversation.id === currentConversationId}
               onDelete={() => handleDeleteClick(conversation.id)}
               onRename={(newTitle) => onRename(conversation.id, newTitle)}
+              onTogglePin={(isPinned) => onTogglePin(conversation.id, isPinned)}
             />
           ))}
         </div>

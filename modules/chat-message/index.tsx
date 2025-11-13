@@ -39,10 +39,9 @@ export function ChatMessage({ messageId }: ChatMessageProps) {
   const isLoading = useChatStore((s) => s.isLoading)
   const messages = useChatStore((s) => s.messages)
   
-  // 获取重试、编辑和继续生成方法
+  // 获取重试和编辑方法
   const retryMessage = useChatStore((s) => s.retryMessage)
   const editAndResend = useChatStore((s) => s.editAndResend)
-  const continueGeneration = useChatStore((s) => s.continueGeneration)
   
   // 如果消息不存在，不渲染
   if (!message) {
@@ -62,33 +61,19 @@ export function ChatMessage({ messageId }: ChatMessageProps) {
   // 判断是否是最后一条助手消息（用于智能续传按钮）
   const isLastAssistantMessage = isAIMessage && isLastMessage
   
-  // 重试逻辑
-  const handleRetry = message.hasError ? () => {
-    // 删除错误消息
+  // 重试逻辑 - 所有 assistant 消息都可以重试
+  const handleRetry = isAIMessage ? () => {
+
+    // 调用 store 的 retryMessage 方法
+    // 这个方法会找到对应的用户消息并重新发送
     retryMessage(messageId)
-    
-    // 获取最后一个用户消息并重新发送
-    const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')
-    if (lastUserMessage?.content) {
-      // 触发重新发送（通过创建一个自定义事件）
-      window.dispatchEvent(new CustomEvent('retry-message', {
-        detail: { content: lastUserMessage.content }
-      }))
-    }
   } : undefined
   
   // 编辑逻辑（仅用户消息）
   const handleEdit = message.role === 'user' ? (newContent: string) => {
     editAndResend(messageId, newContent)
   } : undefined
-  
-  // 继续生成逻辑（仅AI消息且非流式状态且未loading）
-  const handleContinue = (message.role === 'assistant' && !isStreamingThinking && !isStreamingAnswer && !isLoading) 
-    ? () => {
-        continueGeneration(messageId)
-      } 
-    : undefined
-  
+
   return (
     <ChatMessageUI
       message={message}
@@ -98,7 +83,6 @@ export function ChatMessage({ messageId }: ChatMessageProps) {
       isLastAssistantMessage={isLastAssistantMessage}
       onRetry={handleRetry}
       onEdit={handleEdit}
-      onContinue={handleContinue}
     />
   )
 }

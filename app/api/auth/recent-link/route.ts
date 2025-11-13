@@ -25,7 +25,7 @@ export async function GET() {
       return NextResponse.json({ recentLink: null })
     }
 
-    const accountCreatedAt = new Date(recentAccount.id.substring(0, 8), 16)
+    const accountCreatedAt = new Date(parseInt(recentAccount.id.substring(0, 8), 16))
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
 
     if (accountCreatedAt > fiveMinutesAgo) {

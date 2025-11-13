@@ -78,7 +78,6 @@ export function AuthGuard({
 
     // 未登录且需要重定向
     if (!isAuthenticated && redirectTo && !hasRedirected) {
-      console.log(`[AuthGuard] User not authenticated, redirecting to ${redirectTo}`)
       setHasRedirected(true)
       router.push(redirectTo)
     }

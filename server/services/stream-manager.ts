@@ -79,9 +79,7 @@ class StreamManager {
     }
     
     this.tasks.set(messageId, task)
-    
-    console.log(`[StreamManager] Task created: ${messageId} for user: ${userId}`)
-    
+
     return task
   }
   
@@ -114,11 +112,6 @@ class StreamManager {
     task.fullThinking = thinking || ''
     task.fullContent = content || ''
     task.updatedAt = new Date()
-    
-    console.log(`[StreamManager] Updated fullContent for: ${messageId}`, {
-      thinkingLength: task.fullThinking.length,
-      contentLength: task.fullContent.length
-    })
   }
   
   /**
@@ -163,11 +156,6 @@ class StreamManager {
     if (task.status === 'running') {
       task.status = 'paused'
       task.updatedAt = new Date()
-      console.log(`[StreamManager] Task paused: ${messageId}`, {
-        sentContent: task.sentContent.length,
-        fullContent: task.fullContent.length,
-        notSent: task.fullContent.length - task.sentContent.length
-      })
     } else {
       console.warn(`[StreamManager] Task ${messageId} is in ${task.status} state, cannot pause`)
     }
@@ -191,7 +179,6 @@ class StreamManager {
     if (task.status === 'paused') {
       task.status = 'running'
       task.updatedAt = new Date()
-      console.log(`[StreamManager] Task resumed: ${messageId}`)
     } else {
       console.warn(`[StreamManager] Task ${messageId} is in ${task.status} state, cannot resume`)
     }
@@ -214,9 +201,6 @@ class StreamManager {
     
     task.status = 'completed'
     task.updatedAt = new Date()
-    console.log(`[StreamManager] Task completed: ${messageId}`, {
-      fullContent: task.fullContent.length
-    })
   }
   
   /**
@@ -236,7 +220,6 @@ class StreamManager {
     
     task.status = 'error'
     task.updatedAt = new Date()
-    console.log(`[StreamManager] Task error: ${messageId}`)
   }
   
   /**
@@ -248,12 +231,7 @@ class StreamManager {
       return
     }
     
-    const existed = this.tasks.has(messageId)
     this.tasks.delete(messageId)
-    
-    if (existed) {
-      console.log(`[StreamManager] Task deleted: ${messageId}`)
-    }
   }
   
   /**
@@ -296,7 +274,6 @@ class StreamManager {
       
       // 如果没有未发送的内容，直接完成
       if (!unsent.thinking && !unsent.content) {
-        console.log(`[StreamManager] All content has been sent for: ${messageId}`)
         observer.next({ type: 'complete' })
         observer.complete()
         return
@@ -311,13 +288,12 @@ class StreamManager {
       // 监听abort信号
       if (abortSignal) {
         abortSignal.addEventListener('abort', () => {
-          console.log(`[StreamManager] Stream aborted for: ${messageId}`)
           isAborted = true
-          
+
           // 清理所有 interval
           if (thinkingIntervalSub) thinkingIntervalSub.unsubscribe()
           if (contentIntervalSub) contentIntervalSub.unsubscribe()
-          
+
           // 正常完成，不报错
           observer.complete()
         })
@@ -429,9 +405,7 @@ class StreamManager {
       }
     }
     
-    if (cleanedCount > 0) {
-      console.log(`[StreamManager] Cleaned up ${cleanedCount} old tasks. Remaining: ${this.tasks.size}`)
-    }
+
   }
 }
 
@@ -446,13 +420,11 @@ export const cleanupInterval = setInterval(() => {
 
 // 进程退出时清理资源
 process.on('SIGTERM', () => {
-  console.log('[StreamManager] Cleaning up on SIGTERM...')
   clearInterval(cleanupInterval)
   streamManager.cleanupOldTasks()
 })
 
 process.on('SIGINT', () => {
-  console.log('[StreamManager] Cleaning up on SIGINT...')
   clearInterval(cleanupInterval)
   streamManager.cleanupOldTasks()
   process.exit(0)

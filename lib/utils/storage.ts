@@ -119,7 +119,6 @@ export const StorageManager = {
         }
       })
 
-      console.log(`[StorageManager] Cleared ${count} user data items from localStorage`)
     } catch (error) {
       console.error('[StorageManager] Failed to clear user data:', error)
     }
@@ -147,7 +146,6 @@ export const StorageManager = {
         }
       })
 
-      console.log(`[StorageManager] Cleared ${count} items from localStorage`)
     } catch (error) {
       console.error('[StorageManager] Failed to clear all:', error)
     }

@@ -14,6 +14,9 @@ import { MessageActions } from '@/components/MessageActions'
 import { MessageEdit } from '@/components/MessageEdit'
 import { Button } from '@/components/ui/button'
 import { Loader2, Edit2 } from 'lucide-react'
+import { MarkdownIcon } from '@/components/icons/MarkdownIcon'
+import { TextFileIcon } from '@/components/icons/TextFileIcon'
+import { cn } from '@/lib/utils'
 import type { Message } from '@/lib/types/chat'
 
 interface ChatMessageUIProps {
@@ -37,9 +40,6 @@ interface ChatMessageUIProps {
   
   /** 编辑并重新发送回调 */
   onEdit?: (newContent: string) => void
-  
-  /** 继续生成回调 */
-  onContinue?: () => void
 }
 
 /**
@@ -57,10 +57,15 @@ export function ChatMessageUI({
   isLastAssistantMessage,
   onRetry,
   onEdit,
-  onContinue,
 }: ChatMessageUIProps) {
   const isUser = message.role === 'user'
   const [isEditing, setIsEditing] = React.useState(false)
+
+  // 获取消息显示状态
+  const displayState = message.displayState || 'idle'
+
+  // 根据 displayState 计算实际的显示状态
+  const isActuallyStreaming = displayState === 'streaming' || isStreamingThinking || isStreamingAnswer
   
   // ============ 用户消息 ============
   if (isUser) {
@@ -78,8 +83,48 @@ export function ChatMessageUI({
               <Edit2 className="h-4 w-4" />
             </Button>
           )}
-          
-          <div className="max-w-[70%]">
+
+          <div className="max-w-[70%] flex flex-col items-end gap-2">
+            {/* 文件附件标签 */}
+            {message.attachments && message.attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 justify-end">
+                {message.attachments.map((file, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs",
+                      file.type === 'md'
+                        ? "bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800"
+                        : "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                    )}
+                  >
+                    {file.type === 'md' ? (
+                      <MarkdownIcon className="h-3 w-3 text-orange-500" />
+                    ) : (
+                      <TextFileIcon className="h-3 w-3 text-blue-500" />
+                    )}
+                    <span className={cn(
+                      "font-medium",
+                      file.type === 'md'
+                        ? "text-orange-700 dark:text-orange-300"
+                        : "text-blue-700 dark:text-blue-300"
+                    )}>
+                      {file.name}
+                    </span>
+                    <span className={cn(
+                      "text-xs",
+                      file.type === 'md'
+                        ? "text-orange-500 dark:text-orange-400"
+                        : "text-blue-500 dark:text-blue-400"
+                    )}>
+                      {(file.size / 1024).toFixed(1)}KB
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 消息内容 */}
             {isEditing ? (
               <MessageEdit
                 originalContent={message.content}
@@ -91,9 +136,9 @@ export function ChatMessageUI({
               />
             ) : (
               <div className="rounded-3xl bg-[hsl(var(--message-user-bg))] px-5 py-3">
-            <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words text-[hsl(var(--text-primary))]">
-              {message.content}
-            </div>
+                <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words text-[hsl(var(--text-primary))]">
+                  {message.content}
+                </div>
               </div>
             )}
           </div>
@@ -103,51 +148,57 @@ export function ChatMessageUI({
   }
   
   // ============ AI 消息 ============
-  const isPending = !message.thinking && !message.content && (isStreamingThinking || isStreamingAnswer || isWaitingForResponse)
-  
+
+  // 根据 displayState 决定显示内容
+  const showWaitingIndicator = displayState === 'waiting' && !message.thinking && !message.content
+  const showErrorIndicator = (displayState === 'error' || message.hasError) && !message.content
+
   return (
     <div className="w-full py-6">
         <div className="space-y-4">
-          {/* Pending 状态：显示加载动画 */}
-          {isPending && (
+          {/* Waiting 状态：等待响应 */}
+          {showWaitingIndicator && (
             <div className="flex items-center gap-2 text-[hsl(var(--text-secondary))]">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">正在思考...</span>
+              <span className="text-sm">等待响应...</span>
             </div>
           )}
-          
+
+          {/* Error 状态：显示错误提示 */}
+          {showErrorIndicator && (
+            <div className="flex items-center gap-2 text-red-500">
+              <span className="text-sm">生成失败</span>
+            </div>
+          )}
+
           {/* Thinking 面板（独立组件） */}
           {message.thinking && (
             <ThinkingPanel
               content={message.thinking}
-              isStreaming={isStreamingThinking}
+              isStreaming={isActuallyStreaming && isStreamingThinking}
               defaultExpanded={true}
             />
           )}
-          
+
           {/* Answer 内容 */}
           {message.content && (
             <div className="prose-container">
               <MessageContent
                 content={message.content}
-                isStreaming={isStreamingAnswer}
-                showCursor={true}
+                isStreaming={isActuallyStreaming && isStreamingAnswer}
+                showCursor={isActuallyStreaming}
               />
             </div>
           )}
-          
+
           {/* 操作按钮（仅在非流式状态且有内容时显示，包含错误重试） */}
-          {message.content && !isStreamingAnswer && !isStreamingThinking && (
+          {message.content && !isActuallyStreaming && (
             <MessageActions
               content={message.content}
               messageId={message.id}
               role={message.role as 'user' | 'assistant'}
               hasError={message.hasError}
-              isPaused={message.isPaused}
-              pauseReason={message.pauseReason}
-              isLastMessage={isLastAssistantMessage}
               onRetry={onRetry}
-              onContinue={onContinue}
             />
           )}
       </div>

@@ -94,19 +94,18 @@ export function useChatInput() {
         
         // 如果没有会话，先创建一个
         if (!currentConversationId) {
-          console.log('[ChatInput] No conversation, creating one...')
           try {
             const { conversation } = await ConversationAPI.create()
             currentConversationId = conversation.id
-            
+
             // 更新store
             useChatStore.getState().setConversationId(currentConversationId)
-            
+
             // 更新URL（如果在 /chat 页面）
             if (window.location.pathname === '/chat') {
               window.history.replaceState(null, '', `/chat/${currentConversationId}`)
             }
-            
+
             // 添加到会话列表
             if (conversation) {
               const state = useChatStore.getState()
@@ -116,8 +115,6 @@ export function useChatInput() {
                 currentConversationId: conversation.id,
               })
             }
-            
-            console.log('[ChatInput] Created conversation:', currentConversationId)
           } catch (error) {
             console.error('[ChatInput] Failed to create conversation:', error)
             setLoading(false)
@@ -151,10 +148,9 @@ export function useChatInput() {
           throw new Error(`API error: ${response.status}`)
         }
         
-        // 从响应header获取conversationId、messageId、canContinue和标题
+        // 从响应header获取conversationId、messageId和标题
         const conversationId = response.headers.get('X-Conversation-ID')
         const serverMessageId = response.headers.get('X-Message-ID')
-        const canContinue = response.headers.get('X-Can-Continue') === 'true'
         const conversationTitleEncoded = response.headers.get('X-Conversation-Title')
         const conversationTitle = conversationTitleEncoded ? decodeURIComponent(conversationTitleEncoded) : null
         
@@ -167,9 +163,8 @@ export function useChatInput() {
         if (conversationId && conversationTitle) {
           const state = useChatStore.getState()
           const existingConversation = state.conversations.find(c => c.id === conversationId)
-          
+
           if (existingConversation && existingConversation.title !== conversationTitle) {
-            console.log('[ChatInput] Updating conversation title:', conversationTitle)
             useChatStore.setState({
               conversations: state.conversations.map(c =>
                 c.id === conversationId ? { ...c, title: conversationTitle } : c
@@ -185,9 +180,8 @@ export function useChatInput() {
         // 使用新ID进行后续操作
         actualMessageId = serverMessageId || aiMsg.id
         if (serverMessageId) {
-          useChatStore.getState().updateMessage(aiMsg.id, { 
+          useChatStore.getState().updateMessage(aiMsg.id, {
             id: serverMessageId,
-            canContinue: canContinue,
           })
         }
         
@@ -346,7 +340,6 @@ export function useChatInput() {
     const pendingMessage = StorageManager.get<string>(STORAGE_KEYS.USER.PENDING_MESSAGE)
 
     if (pendingMessage) {
-      console.log('[ChatInput] Found pending message, filling input:', pendingMessage)
       setInput(pendingMessage)
 
       // 清除 localStorage 中的待发送消息
@@ -389,20 +382,15 @@ export function useChatInput() {
     const handleVisibilityChange = () => {
       // 只在标签页隐藏且正在加载时才暂停
       if (document.hidden && isLoading) {
-        console.log('[Visibility] Tab hidden, pausing request...')
-        
         // 中止当前请求
         if (abortControllerRef.current) {
           abortControllerRef.current.abort()
           abortControllerRef.current = null
         }
-        
+
         // 标记为标签页切换导致的暂停
         stopStreaming('tab_hidden')
         setLoading(false)
-      } else if (!document.hidden && !isLoading) {
-        console.log('[Visibility] Tab visible again')
-        // 标签页重新可见时，不自动继续，让用户决定是否继续
       }
     }
     

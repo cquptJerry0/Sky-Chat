@@ -46,7 +46,6 @@ export default function HomePage() {
           const pendingMessage = StorageManager.get<string>(STORAGE_KEYS.USER.PENDING_MESSAGE)
 
           if (pendingMessage) {
-            console.log('[HomePage] Found pending message, creating conversation...')
 
             // 有待发送消息：创建会话并跳转（不清除 pendingMessage，让输入框读取）
             try {
@@ -63,17 +62,14 @@ export default function HomePage() {
           }
 
           // 2. 无待发送消息：正常重定向（静默加载）
-          console.log('[HomePage] No pending message, loading conversations...')
           await loadConversations()
           const conversations = useChatStore.getState().conversations
 
           if (conversations.length > 0) {
             // 有会话：重定向到最近的会话
-            console.log('[HomePage] Redirecting to latest conversation')
             router.push(`/chat/${conversations[0].id}`)
           } else {
             // 无会话：重定向到空白聊天页
-            console.log('[HomePage] No conversations, redirecting to /chat')
             router.push('/chat')
           }
         } catch (error) {

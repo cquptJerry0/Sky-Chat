@@ -110,55 +110,6 @@ export function LandingHero() {
         </div>
       </div>
 
-      {/* 使用场景展示 */}
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-semibold text-[hsl(var(--text-primary))] mb-3">
-            适用场景
-          </h2>
-          <p className="text-muted-foreground">
-            无论是工作学习还是日常咨询，Sky Chat 都能为你提供帮助
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* 场景 1 */}
-          <div className="p-5 rounded-lg bg-muted/30 border border-border">
-            <div className="space-y-2">
-              <h4 className="font-medium text-[hsl(var(--text-primary))]">
-                编程开发
-              </h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                代码审查、Bug 修复、算法设计、架构咨询
-              </p>
-            </div>
-          </div>
-
-          {/* 场景 2 */}
-          <div className="p-5 rounded-lg bg-muted/30 border border-border">
-            <div className="space-y-2">
-              <h4 className="font-medium text-[hsl(var(--text-primary))]">
-                学习研究
-              </h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                知识问答、论文写作、概念解释、学习规划
-              </p>
-            </div>
-          </div>
-
-          {/* 场景 3 */}
-          <div className="p-5 rounded-lg bg-muted/30 border border-border">
-            <div className="space-y-2">
-              <h4 className="font-medium text-[hsl(var(--text-primary))]">
-                内容创作
-              </h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                文案撰写、创意策划、内容优化、翻译润色
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* 底部信息栏 */}
       <div className="max-w-3xl mx-auto">

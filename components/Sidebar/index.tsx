@@ -36,6 +36,7 @@ export function Sidebar({ children, isLeader, className }: SidebarProps) {
     <aside
       className={cn(
         'flex h-screen flex-col bg-[hsl(var(--sidebar-bg))] dark:bg-[hsl(var(--sidebar-bg))] transition-all duration-300 relative',
+        'overflow-x-hidden',  // 关键：隐藏水平滚动条
         collapsed ? 'w-16' : 'w-64',
         className
       )}
@@ -45,9 +46,14 @@ export function Sidebar({ children, isLeader, className }: SidebarProps) {
         {!collapsed ? (
           <>
             {/* 展开状态：Logo + 折叠按钮 */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <MessageSquare className="h-5 w-5 shrink-0" />
-              <span className="font-semibold text-lg">Sky Chat</span>
+              {/* 使用条件渲染替代 opacity 动画，避免闪烁 */}
+              {!collapsed && (
+                <span className="font-semibold text-lg whitespace-nowrap animate-in fade-in duration-150">
+                  Sky Chat
+                </span>
+              )}
             </div>
             <Button
               variant="ghost"
@@ -80,7 +86,7 @@ export function Sidebar({ children, isLeader, className }: SidebarProps) {
 
       {/* 中间：动态内容（会话列表等模块） */}
       <div className={cn(
-        "flex-1 overflow-y-auto px-3",
+        "flex-1 overflow-y-auto overflow-x-hidden px-3",  // 添加 overflow-x-hidden
         collapsed && "hidden"
       )}>
         {children}
@@ -90,8 +96,8 @@ export function Sidebar({ children, isLeader, className }: SidebarProps) {
       <div className="p-3 mt-auto">
         {/* Leader 状态指示 */}
         {isLeader && (
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className={cn(
               "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400 w-full justify-center",
               collapsed ? "px-1" : ""

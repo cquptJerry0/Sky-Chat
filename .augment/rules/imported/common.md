@@ -8,7 +8,7 @@ type: "always_apply"
 ---
 alwaysApply: true
 ---
-
+# 写完代码后不准创造markdown文档
 # Sky Chat 编码行为规范
 
 ## 1. 禁止提前封装

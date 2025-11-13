@@ -80,54 +80,61 @@
   }
   
   .dark {
-    /* ChatGPT 深色主题配色 */
-    --background: 0 0% 7%;                /* #121212 - 主背景 */
-    --foreground: 0 0% 95%;               /* #F2F2F2 - 主文字 */
-    
-    --sidebar-bg: 0 0% 10%;               /* #1A1A1A - 侧边栏背景 */
-    --sidebar-hover: 0 0% 15%;            /* #262626 - 侧边栏悬停 */
-    --sidebar-active: 0 0% 18%;           /* #2E2E2E - 侧边栏激活 */
-    
-    --input-bg: 0 0% 15%;                 /* #262626 - 输入框背景 */
-    --input-hover: 0 0% 18%;              /* #2E2E2E - 输入框悬停 */
-    --input-border: 0 0% 25%;             /* #404040 - 输入框边框 */
-    
-    --message-user-bg: 0 0% 15%;          /* #262626 - 用户消息背景 */
-    --message-ai-bg: 0 0% 7%;             /* #121212 - AI消息背景 */
-    
-    --text-primary: 0 0% 95%;             /* #F2F2F2 - 主要文字 */
-    --text-secondary: 0 0% 70%;           /* #B3B3B3 - 次要文字 */
-    --text-tertiary: 0 0% 50%;            /* #808080 - 三级文字 */
-    
-    --button-primary-bg: 0 0% 95%;        /* #F2F2F2 - 主按钮背景 */
-    --button-primary-hover: 0 0% 88%;     /* #E0E0E0 - 主按钮悬停 */
-    --button-secondary-bg: 0 0% 15%;      /* #262626 - 次按钮背景 */
-    --button-secondary-hover: 0 0% 18%;   /* #2E2E2E - 次按钮悬停 */
-    
-    --accent-blue: 217 91% 60%;           /* #3B82F6 - 蓝色强调 */
-    --accent-green: 142 71% 45%;          /* #10B981 - 绿色 */
-    --accent-red: 0 84% 60%;              /* #EF4444 - 红色 */
-    
-    --border: 0 0% 18%;
-    --ring: 217 91% 60%;
-    --radius: 0.75rem;
-    
+    /* VSCode Dark+ 主题配色 */
+    --background: 0 0% 11.8%;             /* #1e1e1e - 编辑器背景 */
+    --foreground: 0 0% 83.1%;             /* #d4d4d4 - 主文字 */
+
+    /* Sidebar 配色 - VSCode 侧边栏 */
+    --sidebar-bg: 0 0% 14.5%;             /* #252526 - 侧边栏背景 */
+    --sidebar-hover: 0 0% 17.6%;          /* #2d2d30 - 侧边栏悬停 */
+    --sidebar-active: 0 0% 23.5%;         /* #3c3c3c - 侧边栏激活 */
+
+    /* Input 配色 - VSCode 输入框 */
+    --input-bg: 0 0% 23.5%;               /* #3c3c3c - 输入框背景 */
+    --input-hover: 0 0% 26.7%;            /* #444444 - 输入框悬停 */
+    --input-border: 0 0% 33.3%;           /* #555555 - 输入框边框 */
+
+    /* 消息配色 */
+    --message-user-bg: 0 0% 17.6%;        /* #2d2d30 - 用户消息背景 */
+    --message-ai-bg: 0 0% 11.8%;          /* #1e1e1e - AI消息背景 */
+
+    /* 文字配色 - VSCode 文字颜色 */
+    --text-primary: 0 0% 83.1%;           /* #d4d4d4 - 主要文字 */
+    --text-secondary: 0 0% 52.2%;         /* #858585 - 次要文字 */
+    --text-tertiary: 0 0% 40%;            /* #666666 - 三级文字 */
+
+    /* 按钮配色 */
+    --button-primary-bg: 207 100% 40%;    /* #007acc - VSCode 蓝色（状态栏） */
+    --button-primary-hover: 207 100% 35%; /* #0062a3 - 悬停加深 */
+    --button-secondary-bg: 0 0% 23.5%;    /* #3c3c3c - 次按钮背景 */
+    --button-secondary-hover: 0 0% 26.7%; /* #444444 - 次按钮悬停 */
+
+    /* 状态配色 - VSCode 语法高亮色 */
+    --accent-blue: 207 100% 40%;          /* #007acc - VSCode 蓝色 */
+    --accent-green: 89 61% 52%;           /* #89d185 - VSCode 绿色 */
+    --accent-red: 0 79% 63%;              /* #f48771 - VSCode 红色 */
+
+    /* 边框和其他 */
+    --border: 0 0% 20%;                   /* #333333 - 边框 */
+    --ring: 207 100% 40%;                 /* #007acc - 聚焦环 */
+    --radius: 0.375rem;                   /* 6px - VSCode 风格小圆角 */
+
     /* 兼容旧变量 */
-    --card: 0 0% 7%;
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 0 0% 95%;
-    --primary-foreground: 0 0% 7%;
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 95%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 70%;
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 95%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 95%;
-    --input: 0 0% 15%;
+    --card: 0 0% 14.5%;
+    --card-foreground: 0 0% 83.1%;
+    --popover: 0 0% 17.6%;
+    --popover-foreground: 0 0% 83.1%;
+    --primary: 207 100% 40%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 23.5%;
+    --secondary-foreground: 0 0% 83.1%;
+    --muted: 0 0% 23.5%;
+    --muted-foreground: 0 0% 52.2%;
+    --accent: 207 100% 40%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 79% 63%;
+    --destructive-foreground: 0 0% 100%;
+    --input: 0 0% 23.5%;
   }
 }
 
@@ -205,7 +212,7 @@
 
 .prose-container .prose pre code {
   @apply text-sm;
-  color: #1F1F1F;
+  color: hsl(var(--foreground));
   font-weight: 400;
   background: hsl(var(--background));
 }

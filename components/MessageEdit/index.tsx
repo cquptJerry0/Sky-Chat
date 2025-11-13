@@ -60,34 +60,34 @@ export function MessageEdit({ originalContent, onCancel, onSend }: MessageEditPr
   }
   
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <textarea
         ref={textareaRef}
         value={content}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={handleKeyDown}
-        className="w-full min-h-[100px] p-3 border border-border rounded-lg resize-none outline-none focus:ring-2 focus:ring-primary/20 bg-white dark:bg-gray-800"
-        placeholder="编辑消息..."
+        className="w-full min-h-[120px] p-4 border-2 border-[hsl(var(--input-border))] rounded-2xl resize-none outline-none focus:border-[hsl(var(--ring))] bg-[hsl(var(--input-bg))] text-[hsl(var(--text-primary))] transition-colors placeholder:text-[hsl(var(--text-tertiary))]"
+        placeholder="编辑消息内容..."
       />
-      
+
       <div className="flex items-center justify-end gap-2">
         <Button
           variant="ghost"
           size="sm"
           onClick={onCancel}
-          className="h-8 px-3 text-sm"
+          className="h-9 px-4 text-sm hover:bg-[hsl(var(--sidebar-hover))]"
         >
-          <X className="h-4 w-4 mr-1" />
+          <X className="h-4 w-4 mr-1.5" />
           取消
         </Button>
-        
+
         <Button
           size="sm"
           onClick={handleSend}
           disabled={!content.trim() || content.trim() === originalContent}
-          className="h-8 px-3 text-sm bg-primary text-primary-foreground hover:bg-primary/90"
+          className="h-9 px-4 text-sm bg-[hsl(var(--button-primary-bg))] text-white hover:bg-[hsl(var(--button-primary-hover))] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Send className="h-4 w-4 mr-1" />
+          <Send className="h-4 w-4 mr-1.5" />
           发送
         </Button>
       </div>

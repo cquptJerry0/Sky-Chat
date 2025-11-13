@@ -27,7 +27,7 @@ export function AccountLinkNotification() {
                 <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-600" />
                 <div className="space-y-1">
                   <p>
-                    您的 {data.recentLink.provider === 'google' ? 'Google' : 'GitHub'} 账号已成功关联到 {session.user.email}
+                    您的 {data.recentLink.provider === 'google' ? 'Google' : 'GitHub'} 账号已成功关联到 {session.user?.email}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     如果不是您本人操作，请立即修改密码

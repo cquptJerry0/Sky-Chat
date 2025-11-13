@@ -169,7 +169,12 @@ interface ChatState {
    * 更新会话标题
    */
   updateConversationTitle: (id: string, title: string) => Promise<void>
-  
+
+  /**
+   * 置顶/取消置顶会话
+   */
+  toggleConversationPin: (id: string, isPinned: boolean) => Promise<void>
+
   /**
    * 清空当前消息列表
    */
@@ -226,7 +231,7 @@ const getInitialModel = (): string => {
     if (savedModel) {
       const model = getModelById(savedModel)
       if (model) {
-        console.log('[ChatStore] Restored model from localStorage:', savedModel)
+
         return savedModel
       }
     }
@@ -315,15 +320,7 @@ export const useChatStore = create<ChatState>()((set) => ({
       )
     }
 
-    // 如果提供了中断原因，标记当前streaming的消息
-    if (reason && state.streamingMessageId) {
-      const shouldPause = reason !== 'user_stop' // 主动停止不需要暂停标记
-      state.updateMessage(state.streamingMessageId, {
-        isPaused: shouldPause,
-        pauseReason: reason,
-        canContinue: shouldPause, // 非主动停止的都可以续传
-      })
-    }
+    // 中断原因已移除，不再需要标记暂停状态
     
     set({ 
       streamingMessageId: null, 
@@ -337,7 +334,7 @@ export const useChatStore = create<ChatState>()((set) => ({
   setModel: (modelId) => {
     try {
       StorageManager.set(STORAGE_KEYS.USER.SELECTED_MODEL, modelId)
-      console.log('[ChatStore] Saved model to localStorage:', modelId)
+
     } catch (error) {
       console.error('[ChatStore] Failed to save model to localStorage:', error)
     }
@@ -356,9 +353,6 @@ export const useChatStore = create<ChatState>()((set) => ({
     set({ conversationsLoading: true })
     try {
       const { conversations } = await ConversationAPI.list()
-      console.log(
-        `[ChatStore] Loaded ${conversations.length} conversations for current user`
-      )
 
       // 安全检查：确保所有会话都有 userId（开发环境下）
       if (process.env.NODE_ENV === 'development') {
@@ -371,9 +365,23 @@ export const useChatStore = create<ChatState>()((set) => ({
         }
       }
 
+      // 排序：置顶的在前，按 pinnedAt 或 updatedAt 排序
+      const sortedConversations = [...conversations].sort((a, b) => {
+        // 置顶的排在前面
+        if (a.isPinned && !b.isPinned) return -1
+        if (!a.isPinned && b.isPinned) return 1
+
+        // 都置顶或都不置顶，按时间排序
+        if (a.isPinned && b.isPinned) {
+          return new Date(b.pinnedAt || 0).getTime() - new Date(a.pinnedAt || 0).getTime()
+        }
+
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      })
+
       set({
-        conversations,
-        filteredConversations: conversations,
+        conversations: sortedConversations,
+        filteredConversations: sortedConversations,
         conversationsLoading: false,
       })
     } catch (error) {
@@ -427,7 +435,10 @@ export const useChatStore = create<ChatState>()((set) => ({
       console.error('[ChatStore] Failed to switch conversation:', error)
 
       // 检查是否是 404 错误（会话不存在）
-      const is404 = error instanceof Error && (error as any).status === 404
+      const is404 =
+        error instanceof Error &&
+        'status' in error &&
+        (error as { status: number }).status === 404
 
       if (is404) {
         console.warn('[ChatStore] Conversation not found, may have been deleted')
@@ -464,9 +475,7 @@ export const useChatStore = create<ChatState>()((set) => ({
             : state.currentConversationId,
         messages: state.currentConversationId === id ? [] : state.messages,
       }))
-      
-      console.log(`[ChatStore] Conversation deleted successfully: ${id}`)
-      
+
       // 可选：验证删除（仅在开发环境）
       if (process.env.NODE_ENV === 'development') {
         // 延迟检查，确保数据库事务完成
@@ -480,9 +489,8 @@ export const useChatStore = create<ChatState>()((set) => ({
               const state = useChatStore.getState()
               state.loadConversations()
             }
-          } catch (error) {
+          } catch {
             // 忽略验证错误
-            console.log('[ChatStore] Could not verify deletion:', error)
           }
         }, 1000)
       }
@@ -509,6 +517,41 @@ export const useChatStore = create<ChatState>()((set) => ({
       }))
     } catch (error) {
       console.error('Failed to update conversation title:', error)
+    }
+  },
+
+  toggleConversationPin: async (id, isPinned) => {
+    try {
+      const { conversation } = await ConversationAPI.togglePin(id, isPinned)
+
+      // 更新本地状态
+      set((state) => {
+        const updateConversation = (c: Conversation) =>
+          c.id === id ? { ...c, isPinned: conversation.isPinned, pinnedAt: conversation.pinnedAt } : c
+
+        // 更新后重新排序：置顶的在前，按 pinnedAt 或 updatedAt 排序
+        const sortConversations = (conversations: Conversation[]) => {
+          return [...conversations.map(updateConversation)].sort((a, b) => {
+            // 置顶的排在前面
+            if (a.isPinned && !b.isPinned) return -1
+            if (!a.isPinned && b.isPinned) return 1
+
+            // 都置顶或都不置顶，按时间排序
+            if (a.isPinned && b.isPinned) {
+              return new Date(b.pinnedAt || 0).getTime() - new Date(a.pinnedAt || 0).getTime()
+            }
+
+            return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          })
+        }
+
+        return {
+          conversations: sortConversations(state.conversations),
+          filteredConversations: sortConversations(state.filteredConversations),
+        }
+      })
+    } catch (error) {
+      console.error('Failed to toggle conversation pin:', error)
     }
   },
   
@@ -605,7 +648,7 @@ export const useChatStore = create<ChatState>()((set) => ({
       
       // ✅ 保留所有历史消息，在末尾追加新的用户消息
       const newUserMessage: Message = {
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
         role: 'user',
         content: newContent,
       }
@@ -685,7 +728,7 @@ export const useChatStore = create<ChatState>()((set) => ({
         error: (error) => {
           // AbortError 是正常中断，不需要特殊处理
           if (error.name === 'AbortError') {
-            console.log('[Continue] Stream aborted by user')
+
           } else {
             console.error('Continue generation error:', error)
             state.updateMessage(messageId, { hasError: true })

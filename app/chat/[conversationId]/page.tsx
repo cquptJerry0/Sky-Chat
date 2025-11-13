@@ -30,14 +30,14 @@ import { useLoading } from '@/lib/hooks/use-loading'
 
 // 提升Sidebar到外层，避免重新渲染
 const ChatSidebar = React.memo(() => (
-  <Sidebar isLeader={true}>
+  <Sidebar>
     <div className="space-y-2">
       {/* 新建对话按钮模块 */}
       <NewChatButton />
-      
+
       {/* 会话搜索模块 */}
       <ConversationSearch />
-      
+
       {/* 会话列表模块 */}
       <ConversationList />
     </div>
@@ -63,27 +63,31 @@ function ConversationContent() {
   // 使用 loading hook
   const { withLoading, shouldShowLoading } = useLoading()
   
-  // 当conversationId变化时，加载对应会话的消息
+  // 当 URL 的 conversationId 变化时，加载对应会话的消息
   React.useEffect(() => {
     if (!conversationId) return
 
     // 如果当前会话ID与URL参数一致，不需要重新加载
-    if (currentConversationId === conversationId) return
+    if (currentConversationId === conversationId) {
+      return
+    }
+
 
     const loadConversation = async () => {
       await withLoading(async () => {
         try {
           await switchConversation(conversationId)
         } catch (error) {
-          console.error('Failed to load conversation:', error)
-          // 如果加载失败，重定向到首页
+          console.error('[ConversationPage] Failed to load conversation:', error)
+          // 如果加载失败（如会话不存在），重定向到首页
           router.push('/')
         }
       }, 'visible')
     }
 
     loadConversation()
-  }, [conversationId, currentConversationId, switchConversation, router, withLoading])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, currentConversationId]) // 只依赖 conversationId 和 currentConversationId
   
   return (
     <MainLayout sidebar={<ChatSidebar />}>

@@ -35,7 +35,6 @@ export function LandingInput() {
     if (!trimmedMessage) return
 
     StorageManager.set(STORAGE_KEYS.USER.PENDING_MESSAGE, trimmedMessage)
-    console.log('[LandingInput] Saved pending message:', trimmedMessage)
 
     setShowLogin(true)
   }, [message])

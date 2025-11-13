@@ -60,14 +60,20 @@ export async function POST(req: Request) {
 
     // 使用更安全的ID生成方式：时间戳 + 随机数
     const messageId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-    
-    // 使用事务创建用户消息和AI消息（确保原子性）
+
+    // 创建时间戳，确保 assistant 消息在 user 消息之后
+    const now = new Date()
+    const userMessageTime = now
+    const assistantMessageTime = new Date(now.getTime() + 1) // 加 1 毫秒
+
+    // 使用事务创建用户消息和AI消息（确保原子性和顺序）
     await prisma.$transaction([
       prisma.message.create({
         data: {
           conversationId: conversation.id,
           role: 'user',
           content: message,
+          createdAt: userMessageTime,
         },
       }),
       prisma.message.create({
@@ -76,6 +82,7 @@ export async function POST(req: Request) {
           conversationId: conversation.id,
           role: 'assistant',
           content: '',
+          createdAt: assistantMessageTime, // 确保在 user 消息之后
         },
       }),
     ])
@@ -93,7 +100,6 @@ export async function POST(req: Request) {
         where: { id: conversation.id },
         data: { title: updatedTitle }
       })
-      console.log('[Chat API] Auto-generated title:', updatedTitle)
     }
 
     // 获取历史消息（用于上下文）
@@ -106,7 +112,7 @@ export async function POST(req: Request) {
         content: 'You are a helpful assistant. 你是一个友好的 AI 助手。',
       },
       // 历史消息
-      ...historyMessages.map((msg) => ({
+      ...historyMessages.map((msg: { role: string; content: string }) => ({
         role: msg.role,
         content: msg.content,
       })),
@@ -180,7 +186,6 @@ export async function POST(req: Request) {
     const timeoutDuration = 30000 // 30秒
     const timeoutInterval = setInterval(() => {
       if (Date.now() - lastDataTime > timeoutDuration) {
-        console.log(`[Chat API] Timeout for message: ${messageId}`)
         clearInterval(timeoutInterval)
         reader.cancel().catch(() => {})
         streamManager.errorTask(messageId)
@@ -258,10 +263,9 @@ export async function POST(req: Request) {
                     
                     // 更新fullContent到StreamManager
                     streamManager.updateFullContent(messageId, thinkingContent, answerContent)
-                    
+
                     // 只有前端还在连接时才发送
                     if (!frontendDisconnected) {
-                      streamManager.updateSentContent(messageId, thinkingContent, answerContent)
                       const thinkingData = JSON.stringify({
                         type: 'thinking',
                         content: delta.reasoning_content,
@@ -277,10 +281,9 @@ export async function POST(req: Request) {
                     
                     // 更新fullContent到StreamManager
                     streamManager.updateFullContent(messageId, thinkingContent, answerContent)
-                    
+
                     // 只有前端还在连接时才发送
                     if (!frontendDisconnected) {
-                      streamManager.updateSentContent(messageId, thinkingContent, answerContent)
                       const answerData = JSON.stringify({
                         type: 'answer',
                         content: delta.content,
@@ -319,12 +322,10 @@ export async function POST(req: Request) {
       cancel() {
         // 清理超时定时器
         clearInterval(timeoutInterval)
-        
-        // 前端断开连接，标记为paused，但继续收集后端内容
-        console.log(`[Chat API] Frontend disconnected for message: ${messageId}`)
+
+        // 前端断开连接，继续收集后端内容
         frontendDisconnected = true
-        streamManager.pauseTask(messageId)
-        
+
         // 立即保存当前进度到数据库（防止服务器重启丢失）
         const task = streamManager.getTask(messageId)
         if (task && (task.fullContent || task.fullThinking)) {

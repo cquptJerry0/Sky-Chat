@@ -9,7 +9,6 @@
  * @module modules/message-list
  */
 
-import * as React from 'react'
 import { useRef, useEffect, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useChatStore } from '@/lib/stores/chat.store'
@@ -104,28 +103,20 @@ export function MessageList() {
     if (isNewMessage) {
       // 新消息：总是滚动（除非用户上滑）
       shouldScroll = !userScrolledUp
-      console.log('[MessageList] New message detected, shouldScroll:', shouldScroll, 'userScrolledUp:', userScrolledUp)
     } else if (isStreamingUpdate) {
       // 流式更新：只有在底部时才滚动
       shouldScroll = !userScrolledUp
     }
-    
+
     if (!shouldScroll) return
-    
-    console.log('[MessageList] Scrolling to bottom, messages:', messages.length, 'scrollHeight:', container.scrollHeight)
-    
+
     // 执行滚动 - 使用多重延迟确保DOM完成
     const scrollToBottom = () => {
-      const before = container.scrollTop
       container.scrollTop = container.scrollHeight
-      const after = container.scrollTop
-      
-      console.log('[MessageList] Scroll attempt:', { before, after, scrollHeight: container.scrollHeight, clientHeight: container.clientHeight })
-      
+
       // 再延迟一次，处理异步渲染的情况
       setTimeout(() => {
         container.scrollTop = container.scrollHeight
-        console.log('[MessageList] Delayed scroll:', { scrollTop: container.scrollTop, scrollHeight: container.scrollHeight })
       }, 50)
     }
     

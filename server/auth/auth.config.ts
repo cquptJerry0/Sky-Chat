@@ -17,12 +17,13 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/server/db/client'
 
 export const authConfig = {
+  trustHost: true, // 修复 NextAuth 5.0 beta 与 Next.js 16 的兼容性问题
+
   providers: [
     // Google OAuth
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      checks: ['state'], // 禁用 PKCE，只使用 state 检查（修复 NextAuth 5.0 beta PKCE bug）
       authorization: {
         params: {
           prompt: 'consent',
@@ -36,7 +37,6 @@ export const authConfig = {
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      checks: ['state'],
       authorization: {
         params: {
           prompt: 'select_account',
@@ -103,7 +103,7 @@ export const authConfig = {
       }
 
       const accountAlreadyLinked = existingUser.accounts.some(
-        (acc) => acc.provider === account?.provider
+        (acc: { provider: string }) => acc.provider === account?.provider
       )
 
       if (accountAlreadyLinked) {
@@ -177,43 +177,16 @@ export const authConfig = {
     maxAge: 7 * 24 * 60 * 60,
   },
 
-  // Workaround: NextAuth 5.0 beta cookie parsing issue with Next.js 16
+  // 修复 NextAuth 5.0 beta 与 Next.js 16 的 state cookie 解析问题
   cookies: {
-    sessionToken: {
-      name: `authjs.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
-    callbackUrl: {
-      name: `authjs.callback-url`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
-    csrfToken: {
-      name: `authjs.csrf-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
     state: {
-      name: `authjs.state`,
+      name: 'authjs.state',
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 900,
+        secure: false, // 开发环境使用 http，不需要 secure
+        maxAge: 900, // 15 分钟
       },
     },
   },

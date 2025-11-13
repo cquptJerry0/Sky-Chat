@@ -8,12 +8,16 @@ import { prisma } from '@/server/db/client'
 
 export const ConversationRepository = {
   /**
-   * 获取用户所有会话（按更新时间倒序）
+   * 获取用户所有会话（置顶优先，然后按更新时间倒序）
    */
   async findByUserId(userId: string) {
     return prisma.conversation.findMany({
       where: { userId },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: [
+        { isPinned: 'desc' },      // 置顶的在前
+        { pinnedAt: 'desc' },      // 置顶时间倒序
+        { updatedAt: 'desc' },     // 更新时间倒序
+      ],
       include: {
         _count: {
           select: { messages: true },
@@ -34,9 +38,14 @@ export const ConversationRepository = {
   /**
    * 获取单个会话（含权限检查）
    */
-  async findById(id: string, userId: string) {
-    return prisma.conversation.findFirst({
-      where: { id, userId },
+  async findById(id: string, userId?: string) {
+    if (userId) {
+      return prisma.conversation.findFirst({
+        where: { id, userId },
+      })
+    }
+    return prisma.conversation.findUnique({
+      where: { id },
     })
   },
 
@@ -78,6 +87,19 @@ export const ConversationRepository = {
       where: { id, userId },
     })
     return result.count > 0
+  },
+
+  /**
+   * 置顶/取消置顶会话
+   */
+  async togglePin(id: string, isPinned: boolean) {
+    return prisma.conversation.update({
+      where: { id },
+      data: {
+        isPinned,
+        pinnedAt: isPinned ? new Date() : null,
+      },
+    })
   },
 }
 

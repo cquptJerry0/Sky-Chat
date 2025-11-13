@@ -104,9 +104,12 @@ model Conversation {
   sharedAt     DateTime?
   viewCount    Int       @default(0)
   lastViewedAt DateTime?
-  
+  isPinned     Boolean   @default(false)
+  pinnedAt     DateTime?
+
   @@index([userId, updatedAt(sort: Desc)])
   @@index([shareToken])
+  @@index([userId, isPinned, pinnedAt(sort: Desc)])
 }
 
 model Message {

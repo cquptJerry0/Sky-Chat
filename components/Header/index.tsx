@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { Settings, MoreVertical, UserCircle2, LogOut, Palette, Archive } from 'lucide-react'
+import { Info, UserCircle2, LogOut, Palette, Archive } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ModelSelector } from '@/components/ModelSelector'
 import { useChatStore } from '@/lib/stores/chat.store'
@@ -20,21 +20,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
-import { useToast } from '@/hooks/use-toast'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 export function Header() {
   const selectedModel = useChatStore((s) => s.selectedModel)
   const setModel = useChatStore((s) => s.setModel)
   const reset = useChatStore((s) => s.reset)
   const currentConversationId = useChatStore((s) => s.currentConversationId)
-  const clearMessages = useChatStore((s) => s.clearMessages)
   const { data: session } = useSession()
   const { theme, setTheme } = useTheme()
-  const { toast } = useToast()
   const [exportManagerOpen, setExportManagerOpen] = React.useState(false)
+  const [aboutDialogOpen, setAboutDialogOpen] = React.useState(false)
 
   const handleLogout = async () => {
-    console.log('[Header] Logging out, clearing user data...')
 
     StorageManager.clearUserData()
 
@@ -48,14 +52,6 @@ export function Header() {
     else if (theme === 'dark') setTheme('system')
     else setTheme('light')
   }
-  
-  const handleClearHistory = () => {
-    clearMessages()
-    toast({
-      title: '历史已清空',
-      description: '当前会话的所有消息已清空',
-    })
-  }
 
   return (
     <header className="sticky top-0 z-10 h-[60px] flex items-center justify-between px-6 bg-background border-none">
@@ -66,66 +62,35 @@ export function Header() {
 
       {/* 右侧：操作按钮 */}
       <div className="flex items-center gap-2">
-        {/* 当前会话分享和导出按钮 - 仅当有会话时显示 */}
+        {/* 当前会话分享按钮 - 仅当有会话时显示 */}
         {currentConversationId && (
-          <>
-            <ShareButton 
-              conversationId={currentConversationId}
-              className="h-9"
-            />
-            <ExportButton 
-              conversationId={currentConversationId}
-              variant="icon"
-              className="h-9 w-9 rounded-lg"
-            />
-          </>
+          <ShareButton
+            conversationId={currentConversationId}
+            className="h-9"
+          />
         )}
 
-        {/* 设置按钮 */}
+        {/* 导出管理按钮 */}
         <Button
           variant="ghost"
           size="icon"
+          onClick={() => setExportManagerOpen(true)}
           className="h-9 w-9 rounded-lg hover:bg-[hsl(var(--sidebar-hover))]"
+          title="导出管理"
         >
-          <Settings className="h-4 w-4" />
+          <Archive className="h-4 w-4" />
         </Button>
 
-        {/* 更多选项 */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-lg hover:bg-[hsl(var(--sidebar-hover))]"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {currentConversationId && (
-              <>
-                <DropdownMenuItem 
-                  onClick={handleClearHistory}
-                  className="cursor-pointer"
-                >
-                  <span>清空当前会话</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
-            <DropdownMenuItem 
-              onClick={() => setExportManagerOpen(true)}
-              className="cursor-pointer"
-            >
-              <Archive className="mr-2 h-4 w-4" />
-              <span>导出管理</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer">
-              <span>关于</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* 关于按钮 */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setAboutDialogOpen(true)}
+          className="h-9 w-9 rounded-lg hover:bg-[hsl(var(--sidebar-hover))]"
+          title="关于"
+        >
+          <Info className="h-4 w-4" />
+        </Button>
 
         {/* 用户菜单 */}
         <DropdownMenu>
@@ -188,10 +153,46 @@ export function Header() {
       </div>
 
       {/* 批量导出管理对话框 */}
-      <ExportManagerDialog 
-        open={exportManagerOpen} 
-        onOpenChange={setExportManagerOpen} 
+      <ExportManagerDialog
+        open={exportManagerOpen}
+        onOpenChange={setExportManagerOpen}
       />
+
+      {/* 关于对话框 */}
+      <Dialog open={aboutDialogOpen} onOpenChange={setAboutDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>关于 Sky Chat</DialogTitle>
+            <DialogDescription>
+              一个基于硅基流动 API 的智能对话应用
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">版本信息</h4>
+              <p className="text-sm text-muted-foreground">
+                版本: 1.0.0
+              </p>
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">功能特性</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• 支持多种 AI 模型</li>
+                <li>• 思考模式（Reasoning）</li>
+                <li>• 语音输入与合成</li>
+                <li>• 会话分享与导出</li>
+                <li>• OAuth 登录（GitHub/Google）</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">技术栈</h4>
+              <p className="text-sm text-muted-foreground">
+                Next.js 16 • React 19 • TypeScript • Prisma • PostgreSQL
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   )
 }

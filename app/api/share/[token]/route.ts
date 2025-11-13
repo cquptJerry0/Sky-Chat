@@ -43,7 +43,13 @@ export async function GET(
         createdAt: conversation.createdAt,
         sharedAt: conversation.sharedAt,
         author: conversation.user.username,
-        messages: conversation.messages.map((msg) => ({
+        messages: conversation.messages.map((msg: {
+          id: string
+          role: string
+          content: string
+          thinking: string | null
+          createdAt: Date
+        }) => ({
           id: msg.id,
           role: msg.role,
           content: msg.content,
