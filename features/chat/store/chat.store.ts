@@ -192,13 +192,21 @@ interface ChatState {
    * 批量设置消息
    */
   setMessages: (messages: Message[]) => void
-  
+
+  /**
+   * 发送消息（统一的发送方法）
+   * @param content - 消息内容
+   * @param options - 可选参数
+   * @param options.createUserMessage - 是否创建 user 消息（默认 true）
+   */
+  sendMessage: (content: string, options?: { createUserMessage?: boolean }) => Promise<void>
+
   /**
    * 重试失败的消息
    * 删除该消息及其之后的所有消息，然后重新发送用户输入
    */
   retryMessage: (messageId: string) => void
-  
+
   /**
    * 编辑用户消息并重新发送
    * 删除该消息之后的所有消息，更新该消息内容，然后重新发送
@@ -657,64 +665,186 @@ export const useChatStore = create<ChatState>()((set) => ({
     }
   },
   
-  retryMessage: (messageId) =>
-    set((state) => {
-      // 找到该消息的索引
-      const messageIndex = state.messages.findIndex((m) => m.id === messageId)
-      if (messageIndex === -1) return state
-      
-      // 找到该消息及其对应的用户消息
-      const message = state.messages[messageIndex]
-      
-      // 如果是AI消息，找到前一个用户消息
-      if (message.role === 'assistant') {
-        // 删除该AI消息及其之后的所有消息
-        const newMessages = state.messages.slice(0, messageIndex)
-        
-        // 找到最后一个用户消息
-        const lastUserMessage = [...newMessages]
-          .reverse()
-          .find((m) => m.role === 'user')
-        
-        if (lastUserMessage) {
-          // 触发重新生成（通过自定义事件）
-          // 注意：这个事件会在use-chat-input.ts中被监听
-          window.dispatchEvent(
-            new CustomEvent('retry-message', {
-              detail: { content: lastUserMessage.content },
-            })
-          )
-          
-          return { messages: newMessages }
+  // ============ 统一的消息发送方法 ============
+  sendMessage: async (content, options = {}) => {
+    const { createUserMessage = true } = options
+    const state = useChatStore.getState()
+
+    // 如果正在发送，忽略
+    if (state.isSendingMessage) {
+      console.warn('[Store] Already sending message, ignoring')
+      return
+    }
+
+    const { nanoid } = await import('nanoid')
+
+    // 生成消息 ID
+    const userMessageId = createUserMessage ? nanoid() : undefined
+    const aiMessageId = nanoid()
+
+    console.log('[Store] ========== SEND MESSAGE ==========')
+    console.log('[Store] Content:', content)
+    console.log('[Store] CreateUserMessage:', createUserMessage)
+    console.log('[Store] UserMessageId:', userMessageId)
+    console.log('[Store] AiMessageId:', aiMessageId)
+
+    // 如果需要创建 user 消息，添加到 store
+    if (createUserMessage && userMessageId) {
+      const userMsg: Message = {
+        id: userMessageId,
+        role: 'user',
+        content,
+      }
+      state.addMessage(userMsg)
+      console.log('[Store] User message added')
+    }
+
+    // 创建 AI 消息
+    const aiMsg: Message = {
+      id: aiMessageId,
+      role: 'assistant',
+      content: '',
+      thinking: '',
+    }
+    state.addMessage(aiMsg)
+    console.log('[Store] AI message added, ID:', aiMessageId)
+
+    // 设置发送状态
+    set({ isSendingMessage: true })
+
+    try {
+      // 获取或创建会话
+      let conversationId = state.currentConversationId
+
+      if (!conversationId) {
+        const { conversation } = await ConversationAPI.create()
+        conversationId = conversation.id
+        set({ currentConversationId: conversationId })
+
+        // 更新 URL
+        if (typeof window !== 'undefined' && window.location.pathname === '/chat') {
+          window.history.replaceState(null, '', `/chat/${conversationId}`)
         }
+
+        // 添加到会话列表
+        set((state) => ({
+          conversations: [conversation, ...state.conversations],
+          filteredConversations: [conversation, ...state.filteredConversations],
+        }))
       }
-      
-      return state
-    }),
-  
-    editAndResend: (messageId, newContent) =>
-    set((state) => {
-      const messageIndex = state.messages.findIndex((m) => m.id === messageId)
-      if (messageIndex === -1) return state
 
-      const message = state.messages[messageIndex]
-      if (message.role !== 'user') return state
+      // 调用 API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          conversationId,
+          model: state.selectedModel,
+          enableThinking: state.enableThinking,
+          thinkingBudget: 4096,
+          userMessageId,
+          aiMessageId,
+        }),
+      })
 
-      // 1. 删除该消息及之后的所有消息
-      const messagesBefore = state.messages.slice(0, messageIndex)
-
-      // 2. 触发重新发送的事件（就像正常发送一样）
-      window.dispatchEvent(
-        new CustomEvent('edit-and-resend', {
-          detail: { content: newContent },
-        })
-      )
-
-      // 3. 返回新的消息列表（不包含被编辑的消息）
-      return {
-        messages: messagesBefore,
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
       }
-    }),
+
+      // 处理流式响应
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No reader available')
+      }
+
+      // 使用 SSEParser 处理流
+      const { SSEParser } = await import('@/lib/services/sse-parser')
+
+      SSEParser.parseStream(reader).subscribe({
+        next: (data) => {
+          console.log('[Store SSE] Received:', data.type, data.content?.slice(0, 20))
+
+          if (data.type === 'thinking' && data.content) {
+            if (state.streamingPhase !== 'thinking') {
+              state.startStreaming(aiMessageId, 'thinking')
+            }
+            state.appendThinking(aiMessageId, data.content)
+          } else if (data.type === 'answer' && data.content) {
+            if (state.streamingPhase !== 'answer') {
+              state.startStreaming(aiMessageId, 'answer')
+            }
+            state.appendContent(aiMessageId, data.content)
+          } else if (data.type === 'complete') {
+            state.stopStreaming()
+            set({ isSendingMessage: false })
+          }
+        },
+        error: (error) => {
+          console.error('[Store SSE] Error:', error)
+          state.updateMessage(aiMessageId, { hasError: true })
+          state.stopStreaming()
+          set({ isSendingMessage: false })
+        },
+        complete: () => {
+          console.log('[Store SSE] Complete')
+          state.stopStreaming()
+          set({ isSendingMessage: false })
+        },
+      })
+    } catch (error) {
+      console.error('[Store] Send message error:', error)
+      state.updateMessage(aiMessageId, { hasError: true })
+      state.stopStreaming()
+      set({ isSendingMessage: false })
+    }
+  },
+
+  // 重试消息：删除失败的 AI 消息，重新发送
+  retryMessage: (messageId) => {
+    const state = useChatStore.getState()
+    const messageIndex = state.messages.findIndex((m) => m.id === messageId)
+
+    if (messageIndex === -1) return
+
+    const message = state.messages[messageIndex]
+
+    if (message.role === 'assistant') {
+      // 删除该AI消息及其之后的所有消息
+      const newMessages = state.messages.slice(0, messageIndex)
+
+      // 找到最后一个用户消息
+      const lastUserMessage = [...newMessages]
+        .reverse()
+        .find((m) => m.role === 'user')
+
+      if (lastUserMessage) {
+        // 更新消息列表
+        set({ messages: newMessages })
+
+        // 重新发送（不创建 user 消息）
+        state.sendMessage(lastUserMessage.content, { createUserMessage: false })
+      }
+    }
+  },
+
+  // 编辑并重发：删除旧消息，发送新消息
+  editAndResend: (messageId, newContent) => {
+    const state = useChatStore.getState()
+    const messageIndex = state.messages.findIndex((m) => m.id === messageId)
+
+    if (messageIndex === -1) return
+
+    const message = state.messages[messageIndex]
+    if (message.role !== 'user') return
+
+    // 删除该消息及之后的所有消息
+    const messagesBefore = state.messages.slice(0, messageIndex)
+    set({ messages: messagesBefore })
+
+    // 发送新消息（创建新的 user 消息）
+    state.sendMessage(newContent, { createUserMessage: true })
+  },
   
   continueGeneration: async (messageId) => {
     const state = useChatStore.getState()

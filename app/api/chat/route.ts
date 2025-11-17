@@ -30,19 +30,17 @@ export async function POST(req: Request) {
   }
 
   const {
-    message,
+    content,
     conversationId,
     model = 'Qwen/Qwen2.5-7B-Instruct',
     enableThinking = false,
     thinkingBudget = 4096,
     tools,
-    isRetry = false,
-    isEdit = false,
-    userMessageId,  // 前端传来的 user 消息 ID
+    userMessageId,  // 前端传来的 user 消息 ID（如果为 undefined，说明是重试）
     aiMessageId,    // 前端传来的 AI 消息 ID
   } = await req.json()
 
-  if (!message?.trim()) {
+  if (!content?.trim()) {
     return Response.json({ error: 'Message is required' }, { status: 400 })
   }
 
@@ -70,27 +68,16 @@ export async function POST(req: Request) {
     const userMessageTime = now
     const assistantMessageTime = new Date(now.getTime() + 1) // 加 1 毫秒
 
-    // 根据操作类型决定是否创建用户消息
-    if (isRetry) {
-      // 重试：只创建 AI 消息（user 消息已存在）
-      await prisma.message.create({
-        data: {
-          id: messageId,
-          conversationId: conversation.id,
-          role: 'assistant',
-          content: '',
-          createdAt: assistantMessageTime,
-        },
-      })
-    } else if (isEdit) {
-      // 编辑重发：创建新的 user 消息和 AI 消息（使用前端传来的 ID）
+    // 统一的消息创建逻辑：根据 userMessageId 是否存在决定是否创建 user 消息
+    if (userMessageId) {
+      // 需要创建 user 消息（正常发送、编辑重发）
       await prisma.$transaction([
         prisma.message.create({
           data: {
-            id: userMessageId,  // 使用前端传来的 ID
+            id: userMessageId,
             conversationId: conversation.id,
             role: 'user',
-            content: message,
+            content,
             createdAt: userMessageTime,
           },
         }),
@@ -105,27 +92,16 @@ export async function POST(req: Request) {
         }),
       ])
     } else {
-      // 正常发送：创建 user 消息和 AI 消息（使用前端传来的 ID）
-      await prisma.$transaction([
-        prisma.message.create({
-          data: {
-            id: userMessageId,  // 使用前端传来的 ID
-            conversationId: conversation.id,
-            role: 'user',
-            content: message,
-            createdAt: userMessageTime,
-          },
-        }),
-        prisma.message.create({
-          data: {
-            id: messageId,
-            conversationId: conversation.id,
-            role: 'assistant',
-            content: '',
-            createdAt: assistantMessageTime, // 确保在 user 消息之后
-          },
-        }),
-      ])
+      // 不需要创建 user 消息（重试）
+      await prisma.message.create({
+        data: {
+          id: messageId,
+          conversationId: conversation.id,
+          role: 'assistant',
+          content: '',
+          createdAt: assistantMessageTime,
+        },
+      })
     }
     
     // 自动生成会话标题（如果是第一条消息且标题为"新对话"）
@@ -136,7 +112,7 @@ export async function POST(req: Request) {
     let updatedTitle = conversation.title
     if (messageCount === 2 && conversation.title === '新对话') {
       // 根据第一条消息内容生成标题（最多20个字符）
-      updatedTitle = message.trim().substring(0, 20) + (message.length > 20 ? '...' : '')
+      updatedTitle = content.trim().substring(0, 20) + (content.length > 20 ? '...' : '')
       await prisma.conversation.update({
         where: { id: conversation.id },
         data: { title: updatedTitle }
@@ -145,7 +121,7 @@ export async function POST(req: Request) {
 
     // 获取历史消息（用于上下文）
     const historyMessages = await MessageRepository.findByConversationId(conversation.id)
-    
+
     // 构建消息上下文（系统消息 + 历史消息 + 当前消息）
     const contextMessages = [
       {
@@ -160,7 +136,7 @@ export async function POST(req: Request) {
       // 当前用户消息
       {
         role: 'user',
-        content: message,
+        content,
       },
     ]
     
@@ -387,7 +363,6 @@ export async function POST(req: Request) {
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
         'X-Session-ID': sessionId,
-        'X-Message-ID': messageId,
         'X-Conversation-ID': conversation.id,
         'X-Conversation-Title': encodeURIComponent(updatedTitle),
         'X-Can-Continue': 'true', // 后端会持续收集内容，支持续传
