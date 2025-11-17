@@ -35,11 +35,14 @@ export function ChatInput() {
   const {
     input,
     setInput,
-    isLoading,
+    isSendingMessage,
     isRecording,
     isTranscribing,
+    uploadedFiles,
     handleSubmit,
     handleStop,
+    handleFileUpload,
+    handleRemoveFile,
     startRecording,
     stopRecording,
   } = useChatInput()
@@ -51,18 +54,18 @@ export function ChatInput() {
       setInput={setInput}
       selectedModel={selectedModel}
       enableThinking={enableThinking}
-      isLoading={isLoading}
+      isLoading={isSendingMessage}
       isRecording={isRecording}
       isTranscribing={isTranscribing}
-      uploadedFiles={[]}
+      uploadedFiles={uploadedFiles}
       onSubmit={handleSubmit}
       onStop={handleStop}
       onModelChange={setModel}
       onThinkingToggle={toggleThinking}
       onStartRecording={startRecording}
       onStopRecording={stopRecording}
-      onFileUpload={() => {}}
-      onRemoveFile={() => {}}
+      onFileUpload={handleFileUpload}
+      onRemoveFile={handleRemoveFile}
     />
   )
 }

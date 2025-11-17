@@ -198,8 +198,12 @@ interface ChatState {
    * @param content - 消息内容
    * @param options - 可选参数
    * @param options.createUserMessage - 是否创建 user 消息（默认 true）
+   * @param options.attachments - 文件附件列表
    */
-  sendMessage: (content: string, options?: { createUserMessage?: boolean }) => Promise<void>
+  sendMessage: (content: string, options?: {
+    createUserMessage?: boolean
+    attachments?: import('@/features/chat/types/chat').FileAttachment[]
+  }) => Promise<void>
 
   /**
    * 重试失败的消息
@@ -608,7 +612,7 @@ export const useChatStore = create<ChatState>()((set) => ({
   
   // ============ 统一的消息发送方法 ============
   sendMessage: async (content, options = {}) => {
-    const { createUserMessage = true } = options
+    const { createUserMessage = true, attachments } = options
     const state = useChatStore.getState()
 
     if (state.isSendingMessage) {
@@ -625,6 +629,7 @@ export const useChatStore = create<ChatState>()((set) => ({
         id: userMessageId,
         role: 'user',
         content,
+        attachments,
       }
       state.addMessage(userMsg)
     }
@@ -634,6 +639,7 @@ export const useChatStore = create<ChatState>()((set) => ({
       role: 'assistant',
       content: '',
       thinking: '',
+      displayState: 'waiting', // 初始状态为 waiting
     }
     state.addMessage(aiMsg)
 
@@ -694,26 +700,32 @@ export const useChatStore = create<ChatState>()((set) => ({
           if (data.type === 'thinking' && data.content) {
             if (state.streamingPhase !== 'thinking') {
               state.startStreaming(aiMessageId, 'thinking')
+              // 收到第一个 thinking，更新 displayState 为 streaming
+              state.updateMessage(aiMessageId, { displayState: 'streaming' })
             }
             state.appendThinking(aiMessageId, data.content)
           } else if (data.type === 'answer' && data.content) {
             if (state.streamingPhase !== 'answer') {
               state.startStreaming(aiMessageId, 'answer')
+              // 收到第一个 answer，更新 displayState 为 streaming
+              state.updateMessage(aiMessageId, { displayState: 'streaming' })
             }
             state.appendContent(aiMessageId, data.content)
           } else if (data.type === 'complete') {
             state.stopStreaming()
+            state.updateMessage(aiMessageId, { displayState: 'idle' })
             set({ isSendingMessage: false })
           }
         },
         error: (error) => {
           console.error('SSE stream error:', error)
-          state.updateMessage(aiMessageId, { hasError: true })
+          state.updateMessage(aiMessageId, { hasError: true, displayState: 'error' })
           state.stopStreaming()
           set({ isSendingMessage: false })
         },
         complete: () => {
           state.stopStreaming()
+          state.updateMessage(aiMessageId, { displayState: 'idle' })
           set({ isSendingMessage: false })
         },
       })

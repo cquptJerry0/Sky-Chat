@@ -29,7 +29,7 @@ interface ChatInputUIProps {
   isLoading: boolean
   isRecording: boolean
   isTranscribing: boolean
-  uploadedFiles: Array<{ name: string; content: string; size: number; type: 'txt' | 'md' }>
+  uploadedFiles: Array<{ name: string; size: number; type: 'txt' | 'md' }>
 
   // 方法
   onSubmit: (e: React.FormEvent) => void
