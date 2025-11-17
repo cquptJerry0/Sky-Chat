@@ -1,6 +1,6 @@
 /**
  * Conversation Store - 会话管理
- * 
+ *
  * 负责会话列表、切换、创建、删除等操作
  */
 
@@ -9,23 +9,29 @@ import {
   ConversationAPI,
   type Conversation,
 } from '@/lib/services/conversation-api'
+import { sortConversations } from '@/features/conversation/utils/sort-conversations'
 
-interface ConversationState {
+export interface ConversationState {
   // 当前会话
   currentConversationId: string | null
-  
+
   // 会话列表
   conversations: Conversation[]
   filteredConversations: Conversation[]
   conversationsLoading: boolean
-  
+
+  // 搜索
+  searchQuery: string
+
   // 切换状态
   isSwitchingConversation: boolean
-  
+
   // Actions
   setConversationId: (id: string | null) => void
   loadConversations: () => Promise<void>
   setFilteredConversations: (conversations: Conversation[]) => void
+  setSearchQuery: (query: string) => void
+  addConversation: (conversation: Conversation) => void
   createNewConversation: () => Promise<void>
   switchConversation: (id: string) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
@@ -40,6 +46,7 @@ const initialState = {
   conversations: [],
   filteredConversations: [],
   conversationsLoading: false,
+  searchQuery: '',
   isSwitchingConversation: false,
 }
 
@@ -54,9 +61,11 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     set({ conversationsLoading: true })
     try {
       const { conversations } = await ConversationAPI.list()
+      const sortedConversations = sortConversations(conversations)
+
       set({
-        conversations,
-        filteredConversations: conversations,
+        conversations: sortedConversations,
+        filteredConversations: sortedConversations,
         conversationsLoading: false,
       })
     } catch (error) {
@@ -67,6 +76,33 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
 
   setFilteredConversations: (conversations: Conversation[]) =>
     set({ filteredConversations: conversations }),
+
+  setSearchQuery: (query) => {
+    set({ searchQuery: query })
+
+    const { conversations } = get()
+    if (!query.trim()) {
+      set({ filteredConversations: conversations })
+      return
+    }
+
+    const filtered = conversations.filter((conv) =>
+      conv.title.toLowerCase().includes(query.toLowerCase())
+    )
+    set({ filteredConversations: filtered })
+  },
+
+  addConversation: (conversation: Conversation) => {
+    set((state) => {
+      const updated = [conversation, ...state.conversations]
+      const sorted = sortConversations(updated)
+
+      return {
+        conversations: sorted,
+        filteredConversations: sorted,
+      }
+    })
+  },
 
   createNewConversation: async () => {
     set({ currentConversationId: null })
@@ -114,15 +150,20 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
 
   toggleConversationPin: async (id, isPinned) => {
     try {
-      await ConversationAPI.togglePin(id, isPinned)
-      set((state) => ({
-        conversations: state.conversations.map((c) =>
-          c.id === id ? { ...c, isPinned } : c
-        ),
-        filteredConversations: state.filteredConversations.map((c) =>
-          c.id === id ? { ...c, isPinned } : c
-        ),
-      }))
+      const { conversation } = await ConversationAPI.togglePin(id, isPinned)
+
+      set((state) => {
+        const updateConversation = (c: Conversation) =>
+          c.id === id ? { ...c, isPinned: conversation.isPinned, pinnedAt: conversation.pinnedAt } : c
+
+        const updatedConversations = state.conversations.map(updateConversation)
+        const updatedFiltered = state.filteredConversations.map(updateConversation)
+
+        return {
+          conversations: sortConversations(updatedConversations),
+          filteredConversations: sortConversations(updatedFiltered),
+        }
+      })
     } catch (error) {
       console.error('Failed to toggle conversation pin:', error)
       throw error
