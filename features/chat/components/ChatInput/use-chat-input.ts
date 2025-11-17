@@ -75,30 +75,42 @@ export function useChatInput() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // 验证文件类型
-    const validTypes = ['text/plain', 'text/markdown']
-    if (!validTypes.includes(file.type) && !file.name.endsWith('.md') && !file.name.endsWith('.txt')) {
-      return
-    }
-
-    // 验证文件大小（最大 1MB）
-    const MAX_SIZE = 1024 * 1024
-    if (file.size > MAX_SIZE) {
-      return
-    }
-
-    // 添加文件到列表
-    const fileType = file.name.endsWith('.md') ? 'md' : 'txt'
-
-    setUploadedFiles(prev => [...prev, {
-      name: file.name,
-      type: fileType,
-      size: file.size,
-    }])
-
-    // 重置 input
+    // 重置 input（提前重置，避免重复上传）
     e.target.value = ''
-  }, [])
+
+    try {
+      // 上传文件到后端
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Upload failed')
+      }
+
+      const fileData = await response.json()
+
+      // 添加文件到列表
+      setUploadedFiles(prev => [...prev, fileData])
+
+      toast({
+        title: '文件已添加',
+        description: `${fileData.name} (${(fileData.size / 1024).toFixed(1)} KB)`,
+      })
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast({
+        title: '上传失败',
+        description: error instanceof Error ? error.message : '无法上传文件',
+        variant: 'destructive',
+      })
+    }
+  }, [toast])
 
   /**
    * 移除文件

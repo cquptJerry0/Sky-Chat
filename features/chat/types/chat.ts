@@ -104,6 +104,8 @@ export interface FileAttachment {
   type: 'txt' | 'md'
   /** 文件大小（字节） */
   size: number
+  /** 文件内容（由后端读取） */
+  content: string
 }
 
 /**

@@ -124,6 +124,17 @@ export async function POST(req: Request) {
     // 获取历史消息（用于上下文）
     const historyMessages = await MessageRepository.findByConversationId(conversation.id)
 
+    // 构建当前用户消息内容（包含文件内容）
+    let currentUserMessage = content
+    if (attachments && attachments.length > 0) {
+      // 将文件内容添加到消息中
+      const fileContents = attachments.map((file: { name: string; content: string }) => {
+        return `\n\n---\n**附件: ${file.name}**\n\`\`\`\n${file.content}\n\`\`\``
+      }).join('\n')
+
+      currentUserMessage = content + fileContents
+    }
+
     // 构建消息上下文（系统消息 + 历史消息 + 当前消息）
     const contextMessages = [
       {
@@ -135,10 +146,10 @@ export async function POST(req: Request) {
         role: msg.role,
         content: msg.content,
       })),
-      // 当前用户消息
+      // 当前用户消息（包含文件内容）
       {
         role: 'user',
-        content,
+        content: currentUserMessage,
       },
     ]
     
