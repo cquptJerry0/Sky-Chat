@@ -376,12 +376,17 @@ export const useChatStore = create<ChatState>()((set) => ({
     set({ isSendingMessage: true })
 
     try {
-      // 获取或创建会话
-      let conversationId = state.currentConversationId
+      // 从 ConversationStore 获取当前会话ID
+      let conversationId = useConversationStore.getState().currentConversationId
 
       if (!conversationId) {
         const { conversation } = await ConversationAPI.create()
         conversationId = conversation.id
+
+        // 设置到 ConversationStore（主导）
+        useConversationStore.getState().setConversationId(conversationId)
+
+        // 同步到 ChatStore
         set({ currentConversationId: conversationId })
 
         // 更新 URL

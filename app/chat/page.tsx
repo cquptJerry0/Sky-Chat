@@ -21,6 +21,8 @@ import { NewChatButton } from '@/components/NewChatButton'
 import { ConversationSearch } from '@/features/conversation/components/ConversationSearch'
 import { MainLayout } from '@/components/MainLayout'
 import { AuthGuard } from '@/features/auth/components/AuthGuard'
+import { useConversationStore } from '@/features/conversation/store/conversation-store'
+import { useChatStore } from '@/features/chat/store/chat.store'
 
 // 提升Sidebar到外层，避免重新渲染
 const ChatSidebar = React.memo(() => (
@@ -44,6 +46,17 @@ ChatSidebar.displayName = 'ChatSidebar'
  * 新建聊天内容组件
  */
 function NewChatContent() {
+  const setConversationId = useConversationStore((s) => s.setConversationId)
+  const setChatConversationId = useChatStore((s) => s.setConversationId)
+  const clearMessages = useChatStore((s) => s.clearMessages)
+
+  // 进入新建对话页面时，清空当前会话ID
+  React.useEffect(() => {
+    setConversationId(null)
+    setChatConversationId(null)
+    clearMessages()
+  }, [setConversationId, setChatConversationId, clearMessages])
+
   return (
     <MainLayout sidebar={<ChatSidebar />} header={<Header />}>
       {/* 虚拟滚动消息列表（包含空状态） */}
