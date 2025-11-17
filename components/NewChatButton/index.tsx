@@ -13,7 +13,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { PenSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useChatStore } from '@/features/chat/store/chat.store'
+import { useConversationStore } from '@/features/conversation/store/conversation-store'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,31 +28,19 @@ import {
 
 /**
  * 新建对话按钮组件
- * 
+ *
  * 零props设计，点击时创建新会话并导航到新路由
  */
 export function NewChatButton() {
   const router = useRouter()
-  const createNewConversation = useChatStore((s) => s.createNewConversation)
-  const [isCreating, setIsCreating] = React.useState(false)
-  
+  const createNewConversation = useConversationStore((s) => s.createNewConversation)
+
   const handleNewChat = async () => {
-    if (isCreating) return
+    // 创建新会话（设置 currentConversationId 为 null）
+    await createNewConversation()
 
-    setIsCreating(true)
-    try {
-      // 创建新会话（会自动清空消息并设置状态）
-      const conversationId = await createNewConversation()
-
-      // 直接导航到新会话
-      if (conversationId !== null && conversationId !== undefined) {
-        router.push(`/chat/${conversationId}`)
-      }
-    } catch (error) {
-      console.error('[NewChatButton] Failed to create conversation:', error)
-    } finally {
-      setIsCreating(false)
-    }
+    // 导航到新建对话页面
+    router.push('/chat')
   }
 
   return (
@@ -81,10 +69,9 @@ export function NewChatButton() {
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleNewChat}
-            disabled={isCreating}
             className="bg-gray-800 text-white hover:bg-gray-700 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-gray-300"
           >
-            {isCreating ? '创建中...' : '确定'}
+            确定
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

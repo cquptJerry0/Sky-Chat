@@ -11,37 +11,17 @@
 import * as React from 'react'
 import { Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useChatStore } from '@/features/chat/store/chat.store'
+import { useConversationStore } from '@/features/conversation/store/conversation-store'
 
 /**
  * 会话搜索组件
- * 
+ *
  * 提供实时搜索功能，过滤会话列表
  */
 export function ConversationSearch() {
-  const [searchQuery, setSearchQuery] = React.useState('')
-  const conversations = useChatStore((s) => s.conversations)
-  
-  // 过滤会话列表
-  const filteredConversations = React.useMemo(() => {
-    if (!searchQuery.trim()) {
-      return conversations
-    }
-    
-    const query = searchQuery.toLowerCase()
-    return conversations.filter((conv) =>
-      conv.title.toLowerCase().includes(query)
-    )
-  }, [conversations, searchQuery])
-  
-  // 将过滤结果传递给store（用于ConversationList使用）
-  const setFilteredConversations = useChatStore((s) => s.setFilteredConversations)
-  
-  React.useEffect(() => {
-    setFilteredConversations(filteredConversations)
-    // Zustand actions are stable, safe to omit from deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredConversations])
+  const searchQuery = useConversationStore((s) => s.searchQuery)
+  const setSearchQuery = useConversationStore((s) => s.setSearchQuery)
+  const filteredConversations = useConversationStore((s) => s.filteredConversations)
   
   const handleClear = () => {
     setSearchQuery('')

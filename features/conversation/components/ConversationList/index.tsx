@@ -15,7 +15,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { useChatStore } from '@/features/chat/store/chat.store'
+import { useConversationStore } from '@/features/conversation/store/conversation-store'
 import { ConversationListUI } from './ConversationListUI'
 
 /**
@@ -25,17 +25,17 @@ import { ConversationListUI } from './ConversationListUI'
  */
 export function ConversationList() {
   const router = useRouter()
-  
+
   // 从store获取状态（使用filteredConversations支持搜索）
-  const conversations = useChatStore((s) => s.filteredConversations)
-  const currentConversationId = useChatStore((s) => s.currentConversationId)
-  const loading = useChatStore((s) => s.conversationsLoading)
-  
+  const conversations = useConversationStore((s) => s.filteredConversations)
+  const currentConversationId = useConversationStore((s) => s.currentConversationId)
+  const loading = useConversationStore((s) => s.conversationsLoading)
+
   // 从store获取方法
-  const deleteConversation = useChatStore((s) => s.deleteConversation)
-  const updateConversationTitle = useChatStore((s) => s.updateConversationTitle)
-  const toggleConversationPin = useChatStore((s) => s.toggleConversationPin)
-  const loadConversations = useChatStore((s) => s.loadConversations)
+  const deleteConversation = useConversationStore((s) => s.deleteConversation)
+  const updateConversationTitle = useConversationStore((s) => s.updateConversationTitle)
+  const toggleConversationPin = useConversationStore((s) => s.toggleConversationPin)
+  const loadConversations = useConversationStore((s) => s.loadConversations)
 
   // 初始化：加载会话列表（只执行一次）
   React.useEffect(() => {
@@ -50,7 +50,7 @@ export function ConversationList() {
 
     if (isDeletingCurrent) {
       // 先找到下一个会话
-      const allConversations = useChatStore.getState().conversations
+      const allConversations = useConversationStore.getState().conversations
       const nextConversation = allConversations.find((c) => c.id !== id)
 
       if (nextConversation) {
