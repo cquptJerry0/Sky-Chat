@@ -15,7 +15,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { LoginDialog } from '@/components/LoginDialog'
+import { LoginDialog } from '@/features/auth/components/LoginDialog'
 
 interface AuthGuardProps {
   /** 子组件 */

@@ -4,12 +4,12 @@ import * as React from 'react'
 import Image from 'next/image'
 import { Info, UserCircle2, LogOut, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ModelSelector } from '@/components/ModelSelector'
+import { ModelSelector } from '@/features/chat/components/ModelSelector'
 import { useChatStore } from '@/lib/stores/chat.store'
 import { useSession, signOut } from 'next-auth/react'
 import { useTheme } from 'next-themes'
 import { StorageManager } from '@/lib/utils/storage'
-import { ShareButton } from '@/components/ShareButton'
+import { ShareButton } from '@/features/share/components/ShareButton'
 import {
   DropdownMenu,
   DropdownMenuContent,

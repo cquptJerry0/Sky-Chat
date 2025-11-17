@@ -8,10 +8,10 @@
  */
 
 import * as React from 'react'
-import { ThinkingPanel } from '@/components/ThinkingPanel'
-import { MessageContent } from '@/components/MessageContent'
-import { MessageActions } from '@/components/MessageActions'
-import { MessageEdit } from '@/components/MessageEdit'
+import { ThinkingPanel } from '@/features/chat/components/ThinkingPanel'
+import { MessageContent } from '@/features/chat/components/MessageContent'
+import { MessageActions } from '@/features/chat/components/MessageActions'
+import { MessageEdit } from '@/features/chat/components/MessageEdit'
 import { Button } from '@/components/ui/button'
 import { Loader2, Edit2 } from 'lucide-react'
 import { MarkdownIcon } from '@/components/icons/MarkdownIcon'

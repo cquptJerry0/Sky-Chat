@@ -6,7 +6,7 @@
 import { MessageDisplay } from './MessageDisplay'
 import { ShareHeader } from './ShareHeader'
 import { ShareFooter } from './ShareFooter'
-import { SharePageOverlay } from '@/components/SharePageOverlay'
+import { SharePageOverlay } from '@/features/share/components/SharePageOverlay'
 
 interface Message {
   id: string

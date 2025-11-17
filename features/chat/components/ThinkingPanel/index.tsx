@@ -16,7 +16,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Brain } from 'lucide-react'
-import { MessageContent } from '@/components/MessageContent'
+import { MessageContent } from '@/features/chat/components/MessageContent'
 
 interface ThinkingPanelProps {
   /** 思考内容（Markdown 格式） */

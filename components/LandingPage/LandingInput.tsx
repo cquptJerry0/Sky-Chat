@@ -14,7 +14,7 @@
 import * as React from 'react'
 import { Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { LoginDialog } from '@/components/LoginDialog'
+import { LoginDialog } from '@/features/auth/components/LoginDialog'
 import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
 
 /**

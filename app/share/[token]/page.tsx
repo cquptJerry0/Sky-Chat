@@ -6,7 +6,7 @@
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/server/db/client'
-import { SharePageContent } from '@/components/SharePageContent'
+import { SharePageContent } from '@/features/share/components/SharePageContent'
 
 /**
  * 生成页面元数据（SEO优化）

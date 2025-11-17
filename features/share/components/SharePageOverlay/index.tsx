@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MessageSquare, Sparkles } from 'lucide-react'
-import { LoginDialog } from '@/components/LoginDialog'
+import { LoginDialog } from '@/features/auth/components/LoginDialog'
 
 interface SharePageOverlayProps {
   conversationId: string

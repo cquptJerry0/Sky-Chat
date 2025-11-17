@@ -23,9 +23,9 @@ import { MessageList } from '@/features/chat/components/MessageList'
 import { ChatInput } from '@/features/chat/components/ChatInput'
 import { ConversationList } from '@/features/conversation/components/ConversationList'
 import { NewChatButton } from '@/components/NewChatButton'
-import { ConversationSearch } from '@/components/ConversationSearch'
+import { ConversationSearch } from '@/features/conversation/components/ConversationSearch'
 import { MainLayout } from '@/components/MainLayout'
-import { AuthGuard } from '@/components/AuthGuard'
+import { AuthGuard } from '@/features/auth/components/AuthGuard'
 import { useLoading } from '@/lib/hooks/use-loading'
 
 // 提升Sidebar到外层，避免重新渲染

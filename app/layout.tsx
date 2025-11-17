@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from '@/components/Providers'
 import { Toaster } from '@/components/ui/toaster'
-import { AccountLinkNotification } from '@/components/AccountLinkNotification'
+import { AccountLinkNotification } from '@/features/auth/components/AccountLinkNotification'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export const metadata: Metadata = {
