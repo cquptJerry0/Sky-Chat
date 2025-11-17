@@ -31,7 +31,7 @@ export async function verifyJWT(token: string): Promise<JWTPayload> {
   try {
     const { payload } = await jose.jwtVerify(token, secret)
     return { userId: payload.userId as string }
-  } catch (error) {
+  } catch {
     throw new Error('Invalid token')
   }
 }

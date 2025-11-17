@@ -371,9 +371,7 @@ class StreamManager {
     const now = Date.now()
     const thirtyMinutesAgo = new Date(now - 30 * 60 * 1000)
     const twoHoursAgo = new Date(now - 2 * 60 * 60 * 1000)
-    
-    let cleanedCount = 0
-    
+
     for (const [messageId, task] of this.tasks.entries()) {
       // 清理30分钟前完成或错误的任务
       if (
@@ -381,16 +379,12 @@ class StreamManager {
         task.updatedAt < thirtyMinutesAgo
       ) {
         this.deleteTask(messageId)
-        cleanedCount++
       }
       // 清理2小时前暂停的任务（可能是前端永久断开）
       else if (task.status === 'paused' && task.updatedAt < twoHoursAgo) {
         this.deleteTask(messageId)
-        cleanedCount++
       }
     }
-    
-
   }
 }
 

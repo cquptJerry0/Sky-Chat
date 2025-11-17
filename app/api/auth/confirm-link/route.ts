@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/server/db/client'
-import { signIn } from '@/server/auth'
 
 export async function POST(req: Request) {
   try {

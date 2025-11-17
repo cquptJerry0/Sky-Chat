@@ -23,7 +23,7 @@ export async function GET() {
         createdAt: user.createdAt,
       },
     })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 }

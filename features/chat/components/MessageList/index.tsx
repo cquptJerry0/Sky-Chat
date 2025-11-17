@@ -2,10 +2,10 @@
 
 /**
  * Message List Module - 虚拟滚动消息列表
- * 
+ *
  * 整合 TanStack Virtual + 消息渲染 + 无限滚动
  * 简单直接，无过度封装
- * 
+ *
  * @module modules/message-list
  */
 
@@ -16,6 +16,7 @@ import { useConversationStore } from '@/features/conversation'
 import { ChatMessage } from '@/features/chat/components/ChatMessage'
 import { Loader2 } from 'lucide-react'
 
+/* eslint-disable react-hooks/incompatible-library */
 export function MessageList() {
   // 从 Store 获取数据
   const messages = useChatStore((s) => s.messages)
