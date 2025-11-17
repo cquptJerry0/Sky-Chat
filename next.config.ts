@@ -15,6 +15,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+
+  // 生产环境移除 console.log
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'], // 保留 console.error 和 console.warn
+    } : false,
+  },
 }
 
 export default nextConfig
