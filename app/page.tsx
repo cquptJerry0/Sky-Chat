@@ -15,7 +15,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { useChatStore } from '@/features/chat/store/chat.store'
+import { useConversationStore } from '@/features/conversation'
 import { LandingPage } from '@/components/LandingPage'
 import { Loading } from '@/components/Loading'
 import { useLoading } from '@/lib/hooks/use-loading'
@@ -29,7 +29,7 @@ import { ConversationAPI } from '@/lib/services/conversation-api'
 export default function HomePage() {
   const { status } = useSession()
   const router = useRouter()
-  const loadConversations = useChatStore((s) => s.loadConversations)
+  const loadConversations = useConversationStore((s) => s.loadConversations)
   const { withLoading, shouldShowLoading } = useLoading()
   const [isProcessing, setIsProcessing] = React.useState(false)
   
@@ -59,7 +59,7 @@ export default function HomePage() {
 
           // 2. 无待发送消息：正常重定向（静默加载）
           await loadConversations()
-          const conversations = useChatStore.getState().conversations
+          const conversations = useConversationStore.getState().conversations
 
           if (conversations.length > 0) {
             // 有会话：重定向到最近的会话

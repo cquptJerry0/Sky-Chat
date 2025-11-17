@@ -1,13 +1,16 @@
 /**
  * NextAuth.js Configuration
- * 
+ *
  * OAuth2认证配置：
  * - Google OAuth
  * - GitHub OAuth
  * - Credentials (邮箱/密码备选)
- * 
+ *
  * @see https://authjs.dev/getting-started/installation
  */
+
+// 导入 fetch polyfill 解决 Next.js 16 兼容性问题
+import './fetch-polyfill'
 
 import type { NextAuthConfig } from 'next-auth'
 import Google from 'next-auth/providers/google'

@@ -8,6 +8,7 @@ export type AuditAction =
   | 'conversation.delete'
   | 'message.view'
   | 'message.create'
+  | 'message.delete'
   | 'auth.login'
   | 'auth.logout'
   | 'auth.link_account'

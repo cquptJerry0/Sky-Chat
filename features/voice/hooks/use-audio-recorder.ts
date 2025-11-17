@@ -115,7 +115,7 @@ export function useAudioRecorder() {
   /**
    * 停止录音
    *
-   * 停止录音并生成音频 Blob，但保持麦克风连接（方便再次录音）。
+   * 停止录音并生成音频 Blob，1秒后释放麦克风资源。
    * 录音结果会自动保存到 audioBlob 状态中。
    */
   const stopRecording = useCallback(() => {
@@ -123,8 +123,13 @@ export function useAudioRecorder() {
     if (recorder && recorder.state === 'recording') {
       recorder.stop()
       setIsRecording(false)
+
+      // 1秒后释放麦克风资源
+      setTimeout(() => {
+        releaseStream()
+      }, 1000)
     }
-  }, [])
+  }, [releaseStream])
 
   /**
    * 取消录音

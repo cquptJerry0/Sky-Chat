@@ -10,7 +10,7 @@
  */
 
 import * as React from 'react'
-import { useChatStore } from '@/features/chat/store/chat.store'
+import { useConversationStore } from '@/features/conversation'
 import { Loader2 } from 'lucide-react'
 
 interface MainLayoutProps {
@@ -28,7 +28,7 @@ interface MainLayoutProps {
  * 用于所有聊天相关页面的统一布局
  */
 export function MainLayout({ sidebar, header, children }: MainLayoutProps) {
-  const isSwitchingConversation = useChatStore((s) => s.isSwitchingConversation)
+  const isSwitchingConversation = useConversationStore((s) => s.isSwitchingConversation)
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

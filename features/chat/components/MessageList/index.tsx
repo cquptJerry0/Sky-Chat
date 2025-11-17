@@ -12,6 +12,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useChatStore } from '@/features/chat/store/chat.store'
+import { useConversationStore } from '@/features/conversation'
 import { ChatMessage } from '@/features/chat/components/ChatMessage'
 import { Loader2 } from 'lucide-react'
 
@@ -19,7 +20,7 @@ export function MessageList() {
   // 从 Store 获取数据
   const messages = useChatStore((s) => s.messages)
   const isSendingMessage = useChatStore((s) => s.isSendingMessage)
-  const isSwitchingConversation = useChatStore((s) => s.isSwitchingConversation)
+  const isSwitchingConversation = useConversationStore((s) => s.isSwitchingConversation)
   const isLoadingOlder = useChatStore((s) => s.isLoadingOlder)
   const hasOlderMessages = useChatStore((s) => s.hasOlderMessages)
   const loadOlderMessages = useChatStore((s) => s.loadOlderMessages)

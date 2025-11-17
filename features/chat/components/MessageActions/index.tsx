@@ -46,7 +46,6 @@ interface MessageActionsProps {
 export function MessageActions({
   content,
   role,
-  hasError,
   onCopy,
   onRetry,
   className,

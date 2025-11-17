@@ -2,19 +2,13 @@
 
 /**
  * 导出按钮组件（调用后端 API）
- * 
- * 简化版本，直接调用后端导出 API
+ *
+ * 直接点击导出为 Markdown
  */
 
 import * as React from 'react'
 import { Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { useToast } from '@/lib/hooks/use-toast'
 
 interface ExportButtonProps {
@@ -26,7 +20,7 @@ export function ExportButton({ conversationId, className }: ExportButtonProps) {
   const { toast } = useToast()
   const [isExporting, setIsExporting] = React.useState(false)
 
-  const handleExport = async (format: 'markdown') => {
+  const handleExport = async () => {
     if (isExporting) return
     if (!conversationId) {
       toast({
@@ -40,8 +34,8 @@ export function ExportButton({ conversationId, className }: ExportButtonProps) {
     setIsExporting(true)
 
     try {
-      // 调用后端 API
-      const url = `/api/export/${conversationId}?format=${format}&includeThinking=true&includeMetadata=false`
+      // 调用后端 API，直接导出为 Markdown
+      const url = `/api/export/${conversationId}?format=markdown&includeThinking=true&includeMetadata=false`
       const response = await fetch(url)
 
       if (!response.ok) {
@@ -61,7 +55,7 @@ export function ExportButton({ conversationId, className }: ExportButtonProps) {
 
       toast({
         title: '导出成功',
-        description: `会话已导出为 ${format.toUpperCase()} 格式`,
+        description: '会话已导出为 Markdown 格式',
       })
     } catch (error) {
       console.error('Export error:', error)
@@ -76,27 +70,16 @@ export function ExportButton({ conversationId, className }: ExportButtonProps) {
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className={className}
-          disabled={isExporting}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          {isExporting ? '导出中...' : '导出'}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem
-          onClick={() => handleExport('markdown')}
-          disabled={isExporting}
-        >
-          导出为 Markdown
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      variant="outline"
+      size="sm"
+      className={className}
+      disabled={isExporting}
+      onClick={handleExport}
+    >
+      <Download className="h-4 w-4 mr-2" />
+      {isExporting ? '导出中...' : '导出'}
+    </Button>
   )
 }
 
