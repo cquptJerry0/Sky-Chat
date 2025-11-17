@@ -295,12 +295,9 @@ export const useChatStore = create<ChatState>()((set) => ({
   
   // ============ Message Actions ============
   addMessage: (message: Message) =>
-    set((state) => {
-      console.log('[Store] addMessage called, ID:', message.id, 'role:', message.role, 'current count:', state.messages.length)
-      return {
-        messages: [...state.messages, message],
-      }
-    }),
+    set((state) => ({
+      messages: [...state.messages, message],
+    })),
   
   updateMessage: (id: string, updates: Partial<Message>) =>
     set((state) => ({
@@ -317,16 +314,11 @@ export const useChatStore = create<ChatState>()((set) => ({
     })),
   
   appendContent: (id: string, chunk: string) =>
-    set((state) => {
-      const targetMessage = state.messages.find(m => m.id === id)
-      console.log('[Store] appendContent called for:', id, 'found:', !!targetMessage, 'chunk:', chunk.slice(0, 20))
-
-      return {
-        messages: state.messages.map((m) =>
-          m.id === id ? { ...m, content: (m.content || '') + chunk } : m
-        ),
-      }
-    }),
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === id ? { ...m, content: (m.content || '') + chunk } : m
+      ),
+    })),
   
   // ============ Streaming Control ============
   startStreaming: (messageId: string, phase: StreamingPhase) =>
@@ -374,10 +366,7 @@ export const useChatStore = create<ChatState>()((set) => ({
   setSwitchingConversation: (loading) => set({ isSwitchingConversation: loading }),
   
   // ============ Conversation Actions ============
-  setConversationId: (id) => {
-    console.log('[Store] setConversationId called:', id)
-    set({ currentConversationId: id })
-  },
+  setConversationId: (id) => set({ currentConversationId: id }),
   
   loadConversations: async () => {
     set({ conversationsLoading: true })
@@ -436,10 +425,8 @@ export const useChatStore = create<ChatState>()((set) => ({
     set({ filteredConversations: conversations }),
   
   createNewConversation: async () => {
-    console.log('[Store] createNewConversation called')
     try {
       const { conversation } = await ConversationAPI.create()
-      console.log('[Store] createNewConversation: clearing messages for new conversation:', conversation.id)
       set((state) => ({
         conversations: [conversation, ...state.conversations],
         filteredConversations: [conversation, ...state.filteredConversations],
@@ -452,31 +439,21 @@ export const useChatStore = create<ChatState>()((set) => ({
   },
   
   switchConversation: async (id) => {
-    console.log('[Store] switchConversation called, target ID:', id, 'current ID:', useChatStore.getState().currentConversationId)
-
     const startTime = Date.now()
-    const MIN_LOADING_TIME = 600 // 最小 loading 时间 0.6 秒
+    const MIN_LOADING_TIME = 600
 
-    // 立即设置 loading 状态和会话 ID
-    console.log('[Store] switchConversation: setting loading state and clearing messages')
     set({ isSwitchingConversation: true, currentConversationId: id })
 
     try {
-      // 加载消息
       const { messages } = await ConversationAPI.getMessages(id)
-      console.log('[Store] switchConversation: loaded', messages.length, 'messages')
 
-      // 计算已经过去的时间
       const elapsed = Date.now() - startTime
       const remaining = MIN_LOADING_TIME - elapsed
 
-      // 如果加载太快，等待剩余时间
       if (remaining > 0) {
         await new Promise(resolve => setTimeout(resolve, remaining))
       }
 
-      // 更新消息和状态
-      console.log('[Store] switchConversation: updating messages in store')
       set({
         messages: messages as Message[],
         isSwitchingConversation: false,
@@ -485,19 +462,8 @@ export const useChatStore = create<ChatState>()((set) => ({
         newestMessageId: messages[messages.length - 1]?.id || null,
       })
     } catch (error) {
-      console.error('[ChatStore] Failed to switch conversation:', error)
+      console.error('Failed to switch conversation:', error)
 
-      // 检查是否是 404 错误（会话不存在）
-      const is404 =
-        error instanceof Error &&
-        'status' in error &&
-        (error as { status: number }).status === 404
-
-      if (is404) {
-        console.warn('[ChatStore] Conversation not found, may have been deleted')
-      }
-
-      // 确保最小 loading 时间后再显示错误
       const elapsed = Date.now() - startTime
       const remaining = MIN_LOADING_TIME - elapsed
       if (remaining > 0) {
@@ -505,8 +471,6 @@ export const useChatStore = create<ChatState>()((set) => ({
       }
 
       set({ isSwitchingConversation: false, messages: [] })
-
-      // 抛出错误让上层处理（比如重定向）
       throw error
     }
   },
@@ -518,7 +482,6 @@ export const useChatStore = create<ChatState>()((set) => ({
       
       // 验证删除成功
       if (!result.success) {
-        console.error('Delete failed: API returned unsuccessful')
         throw new Error('Delete operation failed')
       }
       
@@ -536,24 +499,7 @@ export const useChatStore = create<ChatState>()((set) => ({
         messages: state.currentConversationId === id ? [] : state.messages,
       }))
 
-      // 可选：验证删除（仅在开发环境）
-      if (process.env.NODE_ENV === 'development') {
-        // 延迟检查，确保数据库事务完成
-        setTimeout(async () => {
-          try {
-            const { conversations } = await ConversationAPI.list()
-            const stillExists = conversations.find((c) => c.id === id)
-            if (stillExists) {
-              console.error('[ChatStore] WARNING: Conversation still exists after delete!', id)
-              // 重新加载以保持一致性
-              const state = useChatStore.getState()
-              state.loadConversations()
-            }
-          } catch {
-            // 忽略验证错误
-          }
-        }, 1000)
-      }
+
     } catch (error) {
       console.error('Failed to delete conversation:', error)
     }
@@ -665,25 +611,15 @@ export const useChatStore = create<ChatState>()((set) => ({
     const { createUserMessage = true } = options
     const state = useChatStore.getState()
 
-    // 如果正在发送，忽略
     if (state.isSendingMessage) {
-      console.warn('[Store] Already sending message, ignoring')
       return
     }
 
     const { nanoid } = await import('nanoid')
 
-    // 生成消息 ID
     const userMessageId = createUserMessage ? nanoid() : undefined
     const aiMessageId = nanoid()
 
-    console.log('[Store] ========== SEND MESSAGE ==========')
-    console.log('[Store] Content:', content)
-    console.log('[Store] CreateUserMessage:', createUserMessage)
-    console.log('[Store] UserMessageId:', userMessageId)
-    console.log('[Store] AiMessageId:', aiMessageId)
-
-    // 如果需要创建 user 消息，添加到 store
     if (createUserMessage && userMessageId) {
       const userMsg: Message = {
         id: userMessageId,
@@ -691,10 +627,8 @@ export const useChatStore = create<ChatState>()((set) => ({
         content,
       }
       state.addMessage(userMsg)
-      console.log('[Store] User message added')
     }
 
-    // 创建 AI 消息
     const aiMsg: Message = {
       id: aiMessageId,
       role: 'assistant',
@@ -702,7 +636,6 @@ export const useChatStore = create<ChatState>()((set) => ({
       thinking: '',
     }
     state.addMessage(aiMsg)
-    console.log('[Store] AI message added, ID:', aiMessageId)
 
     // 设置发送状态
     set({ isSendingMessage: true })
@@ -758,8 +691,6 @@ export const useChatStore = create<ChatState>()((set) => ({
 
       SSEParser.parseStream(reader).subscribe({
         next: (data) => {
-          console.log('[Store SSE] Received:', data.type, data.content?.slice(0, 20))
-
           if (data.type === 'thinking' && data.content) {
             if (state.streamingPhase !== 'thinking') {
               state.startStreaming(aiMessageId, 'thinking')
@@ -776,19 +707,18 @@ export const useChatStore = create<ChatState>()((set) => ({
           }
         },
         error: (error) => {
-          console.error('[Store SSE] Error:', error)
+          console.error('SSE stream error:', error)
           state.updateMessage(aiMessageId, { hasError: true })
           state.stopStreaming()
           set({ isSendingMessage: false })
         },
         complete: () => {
-          console.log('[Store SSE] Complete')
           state.stopStreaming()
           set({ isSendingMessage: false })
         },
       })
     } catch (error) {
-      console.error('[Store] Send message error:', error)
+      console.error('Send message error:', error)
       state.updateMessage(aiMessageId, { hasError: true })
       state.stopStreaming()
       set({ isSendingMessage: false })
@@ -828,7 +758,7 @@ export const useChatStore = create<ChatState>()((set) => ({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ messageIds: messageIdsToDelete }),
           }).catch((error) => {
-            console.error('[Store] Failed to delete messages from database:', error)
+            console.error('Failed to delete messages from database:', error)
           })
         }
 
@@ -863,7 +793,7 @@ export const useChatStore = create<ChatState>()((set) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messageIds: messageIdsToDelete }),
       }).catch((error) => {
-        console.error('[Store] Failed to delete messages from database:', error)
+        console.error('Failed to delete messages from database:', error)
       })
     }
 

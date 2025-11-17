@@ -84,26 +84,31 @@ export function MessageList() {
     }
   }, [virtualItems, hasOlderMessages, isLoadingOlder, messages.length, loadOlderMessages])
   
-  // 3. 核心滚动逻辑 - 百分百滚动到底部
+  // 3. 核心滚动逻辑 - 发送消息时强制滚动到底部
   useEffect(() => {
     if (messages.length === 0) return
-    
+
     const container = scrollContainerRef.current
     if (!container) return
-    
+
     // 判断场景
     const isNewMessage = messages.length > previousMessagesLength.current
     const isStreamingUpdate = streamingMessageId && !isNewMessage
-    
+
     // 更新计数
     previousMessagesLength.current = messages.length
-    
+
     // 决定是否滚动
     let shouldScroll = false
-    
+
     if (isNewMessage) {
-      // 新消息：总是滚动（除非用户上滑）
-      shouldScroll = !userScrolledUp
+      // 新消息：如果是发送消息（isSendingMessage），强制滚动；否则只在底部时滚动
+      shouldScroll = isSendingMessage || !userScrolledUp
+
+      // 如果是发送消息，重置 userScrolledUp 状态
+      if (isSendingMessage) {
+        setUserScrolledUp(false)
+      }
     } else if (isStreamingUpdate) {
       // 流式更新：只有在底部时才滚动
       shouldScroll = !userScrolledUp
@@ -120,15 +125,15 @@ export function MessageList() {
         container.scrollTop = container.scrollHeight
       }, 50)
     }
-    
+
     // 立即滚动一次
     scrollToBottom()
-    
+
     // RAF再滚动一次（处理虚拟列表延迟渲染）
     requestAnimationFrame(() => {
       scrollToBottom()
     })
-  }, [messages.length, streamingMessageId, userScrolledUp])
+  }, [messages.length, streamingMessageId, userScrolledUp, isSendingMessage])
   
   // 空状态 - 只有在非加载状态且真的没有消息时才显示欢迎语
   // 不管是发送消息还是切换会话，都不应该显示欢迎语
