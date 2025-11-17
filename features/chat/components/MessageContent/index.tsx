@@ -17,7 +17,7 @@ import type { Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeRaw from 'rehype-raw'
-import { rehypeCursor } from '@/lib/markdown/rehype-cursor'
+import { rehypeCursor } from '@/features/chat/utils/rehype-cursor'
 import { markdownComponents } from './MarkdownComponents'
 
 interface MessageContentProps {

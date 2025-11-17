@@ -14,7 +14,7 @@
  * @module modules/chat-input
  */
 
-import { useChatStore } from '@/lib/stores/chat.store'
+import { useChatStore } from '@/features/chat/store/chat.store'
 import { useChatInput } from './use-chat-input'
 import { ChatInputUI } from './ChatInputUI'
 

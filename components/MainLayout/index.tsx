@@ -10,7 +10,7 @@
  */
 
 import * as React from 'react'
-import { useChatStore } from '@/lib/stores/chat.store'
+import { useChatStore } from '@/features/chat/store/chat.store'
 import { Loader2 } from 'lucide-react'
 
 interface MainLayoutProps {

@@ -13,7 +13,7 @@
  * @module modules/chat-message
  */
 
-import { useChatStore } from '@/lib/stores/chat.store'
+import { useChatStore } from '@/features/chat/store/chat.store'
 import { ChatMessageUI } from './ChatMessageUI'
 
 interface ChatMessageProps {

@@ -11,7 +11,7 @@
 import * as React from 'react'
 import { Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useChatStore } from '@/lib/stores/chat.store'
+import { useChatStore } from '@/features/chat/store/chat.store'
 
 /**
  * 会话搜索组件

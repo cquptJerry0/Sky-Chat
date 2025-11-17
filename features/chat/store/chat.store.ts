@@ -13,8 +13,8 @@
  */
 
 import { create } from 'zustand'
-import type { Message, AbortReason } from '@/lib/types/chat'
-import { getDefaultModel, getModelById } from '@/lib/constants/models'
+import type { Message, AbortReason } from '@/features/chat/types/chat'
+import { getDefaultModel, getModelById } from '@/features/chat/constants/models'
 import {
   ConversationAPI,
   type Conversation,

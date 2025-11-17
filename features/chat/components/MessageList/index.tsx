@@ -11,7 +11,7 @@
 
 import { useRef, useEffect, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useChatStore } from '@/lib/stores/chat.store'
+import { useChatStore } from '@/features/chat/store/chat.store'
 import { ChatMessage } from '@/features/chat/components/ChatMessage'
 import { Loader2 } from 'lucide-react'
 

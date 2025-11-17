@@ -5,7 +5,7 @@
  */
 
 import { create } from 'zustand'
-import type { Message, AbortReason } from '@/lib/types/chat'
+import type { Message, AbortReason } from '@/features/chat/types/chat'
 
 type StreamingPhase = 'thinking' | 'answer' | null
 

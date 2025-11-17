@@ -15,7 +15,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { useChatStore } from '@/lib/stores/chat.store'
+import { useChatStore } from '@/features/chat/store/chat.store'
 import { ConversationListUI } from './ConversationListUI'
 
 /**

@@ -15,7 +15,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { useChatStore } from '@/lib/stores/chat.store'
+import { useChatStore } from '@/features/chat/store/chat.store'
 import { LandingPage } from '@/components/LandingPage'
 import { Loading } from '@/components/Loading'
 import { useLoading } from '@/lib/hooks/use-loading'

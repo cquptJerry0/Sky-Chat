@@ -1,5 +1,5 @@
-import { getModelById, getDefaultModel } from '@/lib/constants/models'
-import type { ChatConfig } from '@/lib/types/chat'
+import { getModelById, getDefaultModel } from '@/features/chat/constants/models'
+import type { ChatConfig } from '@/features/chat/types/chat'
 
 /**
  * 请求 Payload 构建器

@@ -13,7 +13,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { PenSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useChatStore } from '@/lib/stores/chat.store'
+import { useChatStore } from '@/features/chat/store/chat.store'
 import {
   AlertDialog,
   AlertDialogAction,

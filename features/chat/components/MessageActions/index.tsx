@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { VOICE_OPTIONS } from '@/lib/constants/voices'
+import { VOICE_OPTIONS } from '@/features/voice/constants/voices'
 import { cn } from '@/lib/utils'
 import { useAudioPlayer } from '@/features/voice/hooks/use-audio-player'
 import { useToast } from '@/lib/hooks/use-toast'

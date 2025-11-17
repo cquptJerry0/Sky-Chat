@@ -11,7 +11,7 @@
  * @module services/chat-api
  */
 
-import type { ChatConfig } from '@/lib/types/chat'
+import type { ChatConfig } from '@/features/chat/types/chat'
 
 export class ChatAPI {
   /**

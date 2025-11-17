@@ -1,4 +1,4 @@
-import { getModelById } from '@/lib/constants/models'
+import { getModelById } from '@/features/chat/constants/models'
 import { getCurrentUserId } from '@/server/auth/utils'
 import { ConversationRepository } from '@/server/repositories/conversation.repository'
 import { MessageRepository } from '@/server/repositories/message.repository'

@@ -12,14 +12,14 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { nanoid } from 'nanoid'
-import { useChatStore } from '@/lib/stores/chat.store'
+import { useChatStore } from '@/features/chat/store/chat.store'
 import { SSEParser } from '@/lib/services/sse-parser'
 import { useToast } from '@/lib/hooks/use-toast'
 import { useAudioRecorder } from '@/features/voice/hooks/use-audio-recorder'
 import { ChatAPI } from '@/lib/services/chat-api'
 import { ConversationAPI } from '@/lib/services/conversation-api'
 import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
-import type { Message } from '@/lib/types/chat'
+import type { Message } from '@/features/chat/types/chat'
 
 /**
  * 输入逻辑钩子

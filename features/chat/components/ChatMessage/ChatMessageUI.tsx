@@ -17,7 +17,7 @@ import { Loader2, Edit2 } from 'lucide-react'
 import { MarkdownIcon } from '@/components/icons/MarkdownIcon'
 import { TextFileIcon } from '@/components/icons/TextFileIcon'
 import { cn } from '@/lib/utils'
-import type { Message } from '@/lib/types/chat'
+import type { Message } from '@/features/chat/types/chat'
 
 interface ChatMessageUIProps {
   /** 消息数据 */

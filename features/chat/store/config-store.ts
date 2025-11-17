@@ -5,7 +5,7 @@
  */
 
 import { create } from 'zustand'
-import { getDefaultModel, getModelById } from '@/lib/constants/models'
+import { getDefaultModel, getModelById } from '@/features/chat/constants/models'
 import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
 
 interface ConfigState {

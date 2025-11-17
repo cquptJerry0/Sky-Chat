@@ -16,7 +16,7 @@
 
 import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useChatStore } from '@/lib/stores/chat.store'
+import { useChatStore } from '@/features/chat/store/chat.store'
 import { Sidebar } from '@/components/Sidebar'
 import { Header } from '@/components/Header'
 import { MessageList } from '@/features/chat/components/MessageList'

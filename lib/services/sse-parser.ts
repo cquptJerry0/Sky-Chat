@@ -1,5 +1,5 @@
 import { Observable } from 'rxjs'
-import type { SSEData } from '@/lib/types/chat'
+import type { SSEData } from '@/features/chat/types/chat'
 
 /**
  * SSE 消息解析器
