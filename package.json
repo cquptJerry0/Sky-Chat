@@ -17,7 +17,8 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f postgres",
-    "docker:restart": "docker-compose restart"
+    "docker:restart": "docker-compose restart",
+    "prepare": "husky"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
@@ -59,6 +60,8 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
     "@tailwindcss/typography": "^0.5.19",
     "@types/hast": "^3.0.4",
     "@types/node": "^20",
@@ -70,6 +73,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.1",
     "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.7.1",

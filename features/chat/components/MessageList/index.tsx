@@ -12,7 +12,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useChatStore } from '@/lib/stores/chat.store'
-import { ChatMessage } from '@/modules/chat-message'
+import { ChatMessage } from '@/features/chat/components/ChatMessage'
 import { Loader2 } from 'lucide-react'
 
 export function MessageList() {

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useSession } from 'next-auth/react'
-import { useToast } from '@/hooks/use-toast'
+import { useToast } from '@/lib/hooks/use-toast'
 import { CheckCircle2 } from 'lucide-react'
 
 export function AccountLinkNotification() {

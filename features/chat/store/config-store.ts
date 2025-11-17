@@ -21,13 +21,13 @@ interface ConfigState {
 
 function getInitialModel(): string {
   if (typeof window === 'undefined') return getDefaultModel().id
-  
-  const stored = StorageManager.get<string>(STORAGE_KEYS.SELECTED_MODEL)
+
+  const stored = StorageManager.get<string>(STORAGE_KEYS.USER.SELECTED_MODEL)
   if (stored) {
     const model = getModelById(stored)
     if (model) return stored
   }
-  
+
   return getDefaultModel().id
 }
 
@@ -47,7 +47,7 @@ export const useConfigStore = create<ConfigState>((set) => ({
     }
 
     set({ selectedModel: modelId })
-    StorageManager.set(STORAGE_KEYS.SELECTED_MODEL, modelId)
+    StorageManager.set(STORAGE_KEYS.USER.SELECTED_MODEL, modelId)
   },
 
   toggleThinking: (enabled) => set({ enableThinking: enabled }),

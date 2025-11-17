@@ -2,15 +2,13 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { Info, UserCircle2, LogOut, Palette, Archive } from 'lucide-react'
+import { Info, UserCircle2, LogOut, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ModelSelector } from '@/components/ModelSelector'
 import { useChatStore } from '@/lib/stores/chat.store'
 import { useSession, signOut } from 'next-auth/react'
 import { useTheme } from 'next-themes'
 import { StorageManager } from '@/lib/utils/storage'
-import { ExportButton } from '@/components/ExportButton'
-import { ExportManagerDialog } from '@/components/ExportManager'
 import { ShareButton } from '@/components/ShareButton'
 import {
   DropdownMenu,
@@ -35,7 +33,6 @@ export function Header() {
   const currentConversationId = useChatStore((s) => s.currentConversationId)
   const { data: session } = useSession()
   const { theme, setTheme } = useTheme()
-  const [exportManagerOpen, setExportManagerOpen] = React.useState(false)
   const [aboutDialogOpen, setAboutDialogOpen] = React.useState(false)
 
   const handleLogout = async () => {
@@ -69,17 +66,6 @@ export function Header() {
             className="h-9"
           />
         )}
-
-        {/* 导出管理按钮 */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setExportManagerOpen(true)}
-          className="h-9 w-9 rounded-lg hover:bg-[hsl(var(--sidebar-hover))]"
-          title="导出管理"
-        >
-          <Archive className="h-4 w-4" />
-        </Button>
 
         {/* 关于按钮 */}
         <Button
@@ -151,12 +137,6 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-
-      {/* 批量导出管理对话框 */}
-      <ExportManagerDialog
-        open={exportManagerOpen}
-        onOpenChange={setExportManagerOpen}
-      />
 
       {/* 关于对话框 */}
       <Dialog open={aboutDialogOpen} onOpenChange={setAboutDialogOpen}>

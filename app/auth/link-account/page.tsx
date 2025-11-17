@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { useToast } from '@/lib/hooks/use-toast'
 
 export default function LinkAccountPage() {
   const router = useRouter()
@@ -148,7 +148,7 @@ export default function LinkAccountPage() {
             <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded-lg">
               <p className="text-xs text-yellow-800 dark:text-yellow-200">
                 <strong>安全提示：</strong>
-                如果这不是您本人的操作，请点击"取消"并立即修改密码。
+                如果这不是您本人的操作，请点击&ldquo;取消&rdquo;并立即修改密码。
               </p>
             </div>
           </div>

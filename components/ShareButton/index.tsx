@@ -17,7 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { useToast } from '@/hooks/use-toast'
+import { useToast } from '@/lib/hooks/use-toast'
 
 interface ShareButtonProps {
   conversationId: string

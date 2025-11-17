@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { useToast } from '@/hooks/use-toast'
+import { useToast } from '@/lib/hooks/use-toast'
 import { OAuth2Login } from './OAuth2Login'
 import { signIn } from 'next-auth/react'
 

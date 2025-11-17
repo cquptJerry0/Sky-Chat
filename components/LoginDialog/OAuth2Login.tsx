@@ -12,7 +12,7 @@
 import * as React from 'react'
 import { signIn } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
-import { useToast } from '@/hooks/use-toast'
+import { useToast } from '@/lib/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 
 export function OAuth2Login() {

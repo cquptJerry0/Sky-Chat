@@ -23,8 +23,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { VOICE_OPTIONS } from '@/lib/constants/voices'
 import { cn } from '@/lib/utils'
-import { useAudioPlayer } from '@/lib/hooks/use-audio-player'
-import { useToast } from '@/hooks/use-toast'
+import { useAudioPlayer } from '@/features/voice/hooks/use-audio-player'
+import { useToast } from '@/lib/hooks/use-toast'
 
 interface MessageActionsProps {
   /** 消息内容 */

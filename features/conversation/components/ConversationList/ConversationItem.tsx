@@ -12,7 +12,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { MessageSquare, Trash2, Edit2, Check, X, MoreVertical, Eye, Pin, Download } from 'lucide-react'
+import { MessageSquare, Trash2, Edit2, Check, X, MoreVertical, Eye, Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -23,8 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import type { Conversation } from '@/lib/services/conversation-api'
-import { exportService } from '@/lib/services/export'
-import { useToast } from '@/hooks/use-toast'
+import { useToast } from '@/lib/hooks/use-toast'
 
 interface ConversationItemProps {
   conversation: Conversation
@@ -51,36 +50,6 @@ export function ConversationItem({
   const handleSelect = React.useCallback(() => {
     router.push(`/chat/${conversation.id}`)
   }, [router, conversation.id])
-  
-  // 处理导出（使用 SimpleExportButton 的逻辑）
-  const [isExporting, setIsExporting] = React.useState(false)
-  
-  const handleExport = async (format: 'markdown' | 'pdf') => {
-    if (isExporting) return
-    
-    setIsExporting(true)
-    try {
-      await exportService.exportConversation(conversation.id, {
-        format,
-        includeThinking: true,
-        includeTimestamp: true,
-        includeMetadata: false,
-      })
-      toast({
-        title: '导出成功',
-        description: `会话已导出为 ${format.toUpperCase()} 格式`,
-      })
-    } catch (error) {
-      console.error('Export error:', error)
-      toast({
-        title: '导出失败',
-        description: error instanceof Error ? error.message : '导出过程中出现错误',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsExporting(false)
-    }
-  }
 
   const handleSave = () => {
     if (editTitle.trim() && editTitle !== conversation.title) {
@@ -194,16 +163,6 @@ export function ConversationItem({
                     conversation.isPinned && "fill-current"
                   )} />
                   <span>{conversation.isPinned ? '取消置顶' : '置顶'}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleExport('pdf')
-                  }}
-                  disabled={isExporting}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  <span>导出为 PDF</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

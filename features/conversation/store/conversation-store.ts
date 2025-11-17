@@ -53,10 +53,10 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
   loadConversations: async () => {
     set({ conversationsLoading: true })
     try {
-      const data = await ConversationAPI.getAll()
+      const { conversations } = await ConversationAPI.list()
       set({
-        conversations: data,
-        filteredConversations: data,
+        conversations,
+        filteredConversations: conversations,
         conversationsLoading: false,
       })
     } catch (error) {
