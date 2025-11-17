@@ -21,6 +21,7 @@ import {
 } from '@/lib/services/conversation-api'
 import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
 import { sortConversations } from '@/features/conversation/utils/sort-conversations'
+import { useConversationStore } from '@/features/conversation/store/conversation-store'
 
 /**
  * 流式传输阶段指示器
@@ -603,7 +604,10 @@ export const useChatStore = create<ChatState>()((set) => ({
           window.history.replaceState(null, '', `/chat/${conversationId}`)
         }
 
-        // 添加到会话列表并排序
+        // 添加到 ConversationStore
+        useConversationStore.getState().addConversation(conversation)
+
+        // 同步到 ChatStore（临时保留，后续会删除）
         set((state) => {
           const updatedConversations = [conversation, ...state.conversations]
           const updatedFiltered = [conversation, ...state.filteredConversations]
