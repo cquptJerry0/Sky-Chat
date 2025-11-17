@@ -9,9 +9,6 @@
  * @see https://authjs.dev/getting-started/installation
  */
 
-// 导入 fetch polyfill 解决 Next.js 16 兼容性问题
-import './fetch-polyfill'
-
 import type { NextAuthConfig } from 'next-auth'
 import Google from 'next-auth/providers/google'
 import GitHub from 'next-auth/providers/github'

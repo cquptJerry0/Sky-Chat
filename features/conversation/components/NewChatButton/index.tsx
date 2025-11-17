@@ -1,4 +1,3 @@
-
 'use client'
 
 /**
@@ -6,7 +5,7 @@
  * 
  * 零props设计，所有逻辑自包含
  * 
- * @module components/NewChatButton
+ * @module features/conversation/components/NewChatButton
  */
 
 import * as React from 'react'
