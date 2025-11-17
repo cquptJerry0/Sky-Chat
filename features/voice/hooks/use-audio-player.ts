@@ -30,6 +30,8 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { ChatAPI } from '@/lib/services/chat-api'
+import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
+import { getDefaultVoice } from '@/features/voice/constants/voices'
 
 /**
  * 音频播放器 Hook
@@ -49,7 +51,11 @@ export function useAudioPlayer() {
   /** 是否正在生成音频 */
   const [isGenerating, setIsGenerating] = useState(false)
   /** 当前选中的语音 ID（使用完整格式：模型名:音色ID） */
-  const [selectedVoice, setSelectedVoice] = useState('FunAudioLLM/CosyVoice2-0.5B:diana')
+  const [selectedVoice, setSelectedVoice] = useState(() => {
+    // 从 localStorage 读取保存的语音选择
+    const savedVoice = StorageManager.get<string>(STORAGE_KEYS.USER.SELECTED_VOICE)
+    return savedVoice || getDefaultVoice().id
+  })
   /** Audio 元素引用 */
   const audioRef = useRef<HTMLAudioElement | null>(null)
   /** 音频 Blob URL 引用（用于清理） */
@@ -164,6 +170,11 @@ export function useAudioPlayer() {
       audioRef.current.currentTime = 0
     }
   }, [])
+
+  // 保存语音选择到 localStorage
+  useEffect(() => {
+    StorageManager.set(STORAGE_KEYS.USER.SELECTED_VOICE, selectedVoice)
+  }, [selectedVoice])
 
   // 清理音频资源和事件监听器
   useEffect(() => {

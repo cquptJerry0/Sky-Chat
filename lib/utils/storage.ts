@@ -19,6 +19,7 @@ export const STORAGE_KEYS = {
   USER: {
     SELECTED_MODEL: 'user-selected-model',
     PENDING_MESSAGE: 'user-pending-message',
+    SELECTED_VOICE: 'user-selected-voice',
   },
 
   // UI 偏好（退出登录时保留）
