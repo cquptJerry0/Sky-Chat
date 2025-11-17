@@ -68,7 +68,7 @@ export function useAudioRecorder() {
    * 请求麦克风权限并开始录音。
    * 录音数据会以 audio/webm 格式保存。
    * 
-   * @throws {Error} 麦克风权限被拒绝或不支持
+   * @throws {Error} 麦克风权限被拒绝或不支持或未检测到麦克风
    * 
    * @example
    * ```tsx
@@ -76,7 +76,7 @@ export function useAudioRecorder() {
    *   try {
    *     await startRecording()
    *   } catch (error) {
-   *     alert('无法访问麦克风')
+   *     console.error('无法访问麦克风')
    *   }
    * }}>
    *   开始录音
@@ -88,7 +88,7 @@ export function useAudioRecorder() {
       // 请求麦克风权限
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
-      
+
       // 创建 MediaRecorder 实例
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm',
@@ -116,11 +116,10 @@ export function useAudioRecorder() {
         }
       }
 
-      // 开始录音
-      mediaRecorder.start()
+      // 开始录音 - 添加 timeslice 参数，每 100ms 触发一次 dataavailable
+      mediaRecorder.start(100)
       setIsRecording(true)
     } catch (error) {
-      console.error('Failed to start recording:', error)
       throw error
     }
   }, [])
@@ -164,11 +163,33 @@ export function useAudioRecorder() {
     chunksRef.current = []
   }, [])
 
+  /**
+   * 取消录音并释放设备
+   * 用于用户主动取消录音的场景
+   */
+  const cancelRecording = useCallback(() => {
+    // 停止录音
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop()
+    }
+
+    // 清空数据
+    setAudioBlob(null)
+    chunksRef.current = []
+    setIsRecording(false)
+
+    // 立即释放麦克风
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+  }, [])
+
   // 清理资源：组件卸载时停止录音并释放麦克风
   useEffect(() => {
     return () => {
-      // 如果还在录音，停止录音
-      if (mediaRecorderRef.current && isRecording) {
+      // 检查 MediaRecorder 的实际状态，而不是依赖 isRecording state
+      if (mediaRecorderRef.current?.state === 'recording') {
         mediaRecorderRef.current.stop()
       }
       // 释放麦克风资源
@@ -176,13 +197,14 @@ export function useAudioRecorder() {
         streamRef.current.getTracks().forEach((track) => track.stop())
       }
     }
-  }, [isRecording])
+  }, []) // 空依赖数组，避免闭包问题
 
   return {
     isRecording,
     audioBlob,
     startRecording,
     stopRecording,
+    cancelRecording, // 新增：取消录音功能
     clearAudio,
   }
 }
