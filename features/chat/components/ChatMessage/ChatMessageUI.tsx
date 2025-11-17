@@ -13,7 +13,7 @@ import { MessageContent } from '@/features/chat/components/MessageContent'
 import { MessageActions } from '@/features/chat/components/MessageActions'
 import { MessageEdit } from '@/features/chat/components/MessageEdit'
 import { Button } from '@/components/ui/button'
-import { Loader2, Edit2 } from 'lucide-react'
+import { Loader2, Edit2, RotateCw } from 'lucide-react'
 import { MarkdownIcon } from '@/components/icons/MarkdownIcon'
 import { TextFileIcon } from '@/components/icons/TextFileIcon'
 import { cn } from '@/lib/utils'
@@ -53,8 +53,6 @@ export function ChatMessageUI({
   message,
   isStreamingThinking,
   isStreamingAnswer,
-  isWaitingForResponse,
-  isLastAssistantMessage,
   onRetry,
   onEdit,
 }: ChatMessageUIProps) {
@@ -191,8 +189,22 @@ export function ChatMessageUI({
             </div>
           )}
 
-          {/* 操作按钮（仅在非流式状态且有内容时显示，包含错误重试） */}
-          {message.content && !isActuallyStreaming && (
+          {/* 操作按钮 */}
+          {/* 流式传输时：只显示重试按钮（用于中断） */}
+          {/* 非流式传输时：显示所有操作按钮（复制、朗读、重试） */}
+          {isActuallyStreaming && onRetry ? (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onRetry}
+                className="h-7 w-7 hover:bg-gray-100 dark:hover:bg-gray-800"
+                title="重试"
+              >
+                <RotateCw className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : message.content ? (
             <MessageActions
               content={message.content}
               messageId={message.id}
@@ -200,7 +212,7 @@ export function ChatMessageUI({
               hasError={message.hasError}
               onRetry={onRetry}
             />
-          )}
+          ) : null}
       </div>
     </div>
   )
