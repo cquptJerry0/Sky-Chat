@@ -13,7 +13,6 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { LoginDialog } from '@/features/auth/components/LoginDialog'
 
@@ -22,12 +21,6 @@ interface AuthGuardProps {
   children: React.ReactNode
   /** 未登录时是否重定向到指定路径 */
   redirectTo?: string | null
-  /** 加载状态时显示的文本 */
-  loadingText?: string
-  /** 未登录时显示的文本 */
-  unauthenticatedText?: string
-  /** 是否显示加载动画 */
-  showLoader?: boolean
 }
 
 /**
@@ -57,9 +50,6 @@ interface AuthGuardProps {
 export function AuthGuard({
   children,
   redirectTo = null,
-  loadingText = '加载中...',
-  unauthenticatedText = '请先登录...',
-  showLoader = true,
 }: AuthGuardProps) {
   const router = useRouter()
   const { isLoading, isAuthenticated, showLoginDialog } = useAuth()

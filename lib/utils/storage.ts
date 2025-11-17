@@ -110,12 +110,10 @@ export const StorageManager = {
 
     try {
       const keys = Object.keys(localStorage)
-      let count = 0
 
       keys.forEach((key) => {
         if (key.startsWith(USER_DATA_PREFIX)) {
           localStorage.removeItem(key)
-          count++
         }
       })
 
@@ -137,12 +135,10 @@ export const StorageManager = {
 
     try {
       const keys = Object.keys(localStorage)
-      let count = 0
 
       keys.forEach((key) => {
         if (key.startsWith(USER_DATA_PREFIX) || key.startsWith(UI_PREF_PREFIX)) {
           localStorage.removeItem(key)
-          count++
         }
       })
 

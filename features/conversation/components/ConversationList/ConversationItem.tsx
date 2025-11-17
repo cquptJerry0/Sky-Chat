@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import type { Conversation } from '@/lib/services/conversation-api'
-import { useToast } from '@/lib/hooks/use-toast'
 
 interface ConversationItemProps {
   conversation: Conversation
@@ -41,7 +40,6 @@ export function ConversationItem({
   onTogglePin,
 }: ConversationItemProps) {
   const router = useRouter()
-  const { toast } = useToast()
   const [isEditing, setIsEditing] = React.useState(false)
   const [editTitle, setEditTitle] = React.useState(conversation.title)
   const [isHovered, setIsHovered] = React.useState(false)

@@ -16,7 +16,7 @@ export function CopyButton({ text }: CopyButtonProps) {
       await navigator.clipboard.writeText(text)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
+    } catch {
       try {
         const textArea = document.createElement('textarea')
         textArea.value = text

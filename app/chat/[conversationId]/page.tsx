@@ -68,7 +68,7 @@ function ConversationContent() {
   const setChatConversationId = useChatStore((s) => s.setConversationId)
 
   // 使用 loading hook
-  const { withLoading, shouldShowLoading } = useLoading()
+  const { withLoading } = useLoading()
 
   // 当 URL 的 conversationId 变化时，加载对应会话的消息
   React.useEffect(() => {

@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react'
-import { Loader2, History } from 'lucide-react'
+import { History } from 'lucide-react'
 import { ConversationItem } from './ConversationItem'
 import type { Conversation } from '@/lib/services/conversation-api'
 import {
@@ -24,7 +24,6 @@ import {
 interface ConversationListUIProps {
   conversations: Conversation[]
   currentConversationId: string | null
-  loading: boolean
   onDelete: (id: string) => void
   onRename: (id: string, newTitle: string) => void
   onTogglePin: (id: string, isPinned: boolean) => void
@@ -33,7 +32,6 @@ interface ConversationListUIProps {
 export function ConversationListUI({
   conversations,
   currentConversationId,
-  loading,
   onDelete,
   onRename,
   onTogglePin,
