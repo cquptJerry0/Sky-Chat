@@ -11,6 +11,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { nanoid } from 'nanoid'
 import { useChatStore } from '@/lib/stores/chat.store'
 import { SSEParser } from '@/lib/services/sse-parser'
 import { useToast } from '@/hooks/use-toast'
@@ -32,7 +33,7 @@ export function useChatInput() {
   const abortControllerRef = useRef<AbortController | null>(null)
   
   // 从 store 获取状态和 actions
-  const isLoading = useChatStore((s) => s.isLoading)
+  const isSendingMessage = useChatStore((s) => s.isSendingMessage)
   const selectedModel = useChatStore((s) => s.selectedModel)
   const enableThinking = useChatStore((s) => s.enableThinking)
   const addMessage = useChatStore((s) => s.addMessage)
@@ -40,47 +41,117 @@ export function useChatInput() {
   const appendContent = useChatStore((s) => s.appendContent)
   const startStreaming = useChatStore((s) => s.startStreaming)
   const stopStreaming = useChatStore((s) => s.stopStreaming)
-  const setLoading = useChatStore((s) => s.setLoading)
+  const setSendingMessage = useChatStore((s) => s.setSendingMessage)
   const updateMessage = useChatStore((s) => s.updateMessage)
   
   // 录音功能
   const {
     isRecording,
     audioBlob,
-    startRecording,
+    startRecording: startRecordingRaw,
     stopRecording: stopRecordingRaw,
     clearAudio,
   } = useAudioRecorder()
+
+  /**
+   * 开始录音（带错误处理）
+   */
+  const startRecording = useCallback(async () => {
+    try {
+      await startRecordingRaw()
+    } catch (error) {
+      console.error('Failed to start recording:', error)
+
+      // 检查错误类型并显示友好提示
+      if (error instanceof Error) {
+        if (error.name === 'NotFoundError' || error.message.includes('Requested device not found')) {
+          toast({
+            title: '未检测到麦克风',
+            description: '请检查您的设备是否连接了麦克风，或者尝试刷新页面。',
+            variant: 'destructive',
+          })
+        } else if (error.name === 'NotAllowedError' || error.message.includes('Permission denied')) {
+          toast({
+            title: '麦克风权限被拒绝',
+            description: '请在浏览器设置中允许访问麦克风。',
+            variant: 'destructive',
+          })
+        } else if (error.name === 'NotSupportedError') {
+          toast({
+            title: '浏览器不支持录音',
+            description: '请使用 Chrome、Edge 或 Safari 等现代浏览器。',
+            variant: 'destructive',
+          })
+        } else {
+          toast({
+            title: '录音失败',
+            description: error.message || '无法启动录音，请稍后重试。',
+            variant: 'destructive',
+          })
+        }
+      } else {
+        toast({
+          title: '录音失败',
+          description: '无法启动录音，请稍后重试。',
+          variant: 'destructive',
+        })
+      }
+    }
+  }, [startRecordingRaw, toast])
   
   /**
    * 发送消息（内部方法，可被handleSubmit和重试调用）
+   * @param message - 消息内容
+   * @param options - 可选参数
+   * @param options.skipUserMessage - 是否跳过创建用户消息（重试时使用）
+   * @param options.isRetry - 是否是重试操作
+   * @param options.isEdit - 是否是编辑重发操作
    */
   const sendMessage = useCallback(
-    async (message: string) => {
-      if (isLoading || isRecording || isTranscribing) {
+    async (
+      message: string,
+      options?: {
+        skipUserMessage?: boolean
+        isRetry?: boolean
+        isEdit?: boolean
+      }
+    ) => {
+      if (isSendingMessage || isRecording || isTranscribing) {
         return
       }
-      
-      // 创建用户消息（使用时间戳+随机数避免ID冲突）
-      const timestamp = Date.now()
-      const randomSuffix = Math.random().toString(36).substring(2, 9)
-      const userMsg: Message = {
-        id: `${timestamp}-user-${randomSuffix}`,
-        role: 'user',
-        content: message,
+
+      const { skipUserMessage = false, isRetry = false, isEdit = false } = options || {}
+
+      console.log('[ChatInput] sendMessage called with options:', { skipUserMessage, isRetry, isEdit })
+
+      // 使用 nanoid 生成唯一 ID（前后端统一使用）
+      const userMessageId = nanoid()
+      const aiMessageId = nanoid()
+
+      console.log('[ChatInput] Creating messages - user:', userMessageId, 'ai:', aiMessageId)
+
+      // 只有在非重试模式下才添加用户消息
+      if (!skipUserMessage) {
+        const userMsg: Message = {
+          id: userMessageId,
+          role: 'user',
+          content: message,
+        }
+        addMessage(userMsg)
+        console.log('[ChatInput] User message added to store')
       }
-      
+
       // 创建 AI 消息
       const aiMsg: Message = {
-        id: `${timestamp}-ai-${randomSuffix}`,
+        id: aiMessageId,
         role: 'assistant',
         content: '',
         thinking: '',
       }
-      
-      addMessage(userMsg)
+
       addMessage(aiMsg)
-      setLoading(true)
+      console.log('[ChatInput] AI message added to store, ID:', aiMsg.id)
+      setSendingMessage(true)
       
       // 创建 AbortController
       abortControllerRef.current = new AbortController()
@@ -117,7 +188,7 @@ export function useChatInput() {
             }
           } catch (error) {
             console.error('[ChatInput] Failed to create conversation:', error)
-            setLoading(false)
+            setSendingMessage(false)
             stopStreaming()
             toast({
               title: '创建会话失败',
@@ -135,6 +206,11 @@ export function useChatInput() {
           model: selectedModel,
           enableThinking,
           thinkingBudget: 4096,
+          isRetry,
+          isEdit,
+          // 传递前端生成的消息 ID 给后端
+          userMessageId: skipUserMessage ? undefined : userMessageId,
+          aiMessageId: aiMessageId,
         }
         
         const response = await fetch('/api/chat', {
@@ -193,6 +269,8 @@ export function useChatInput() {
         // 使用 SSEParser 处理流
         SSEParser.parseStream(reader).subscribe({
           next: (data) => {
+            console.log('[SSE] Received:', data.type, 'messageId:', actualMessageId)
+
             if (data.type === 'thinking' && data.content) {
               // 开始 thinking 阶段
               if (useChatStore.getState().streamingPhase !== 'thinking') {
@@ -205,9 +283,14 @@ export function useChatInput() {
                 startStreaming(actualMessageId, 'answer')
               }
               appendContent(actualMessageId, data.content)
+
+              // 调试：检查消息是否更新
+              const currentMessages = useChatStore.getState().messages
+              const targetMessage = currentMessages.find(m => m.id === actualMessageId)
+              console.log('[SSE] Message updated:', targetMessage?.content?.slice(0, 50))
             } else if (data.type === 'complete') {
               stopStreaming()
-              setLoading(false)
+              setSendingMessage(false)
             }
           },
           error: (error) => {
@@ -215,7 +298,7 @@ export function useChatInput() {
               console.error('Stream error:', error)
               updateMessage(actualMessageId, { hasError: true })
               stopStreaming()
-              setLoading(false)
+              setSendingMessage(false)
               toast({
                 title: '发送失败',
                 description: '网络错误，请重试',
@@ -225,13 +308,13 @@ export function useChatInput() {
           },
           complete: () => {
             stopStreaming()
-            setLoading(false)
+            setSendingMessage(false)
           },
         })
       } catch (error) {
         console.error('Send message error:', error)
         stopStreaming()
-        setLoading(false)
+        setSendingMessage(false)
         updateMessage(actualMessageId, { hasError: true })
         
         if (error instanceof Error && error.name !== 'AbortError') {
@@ -244,7 +327,7 @@ export function useChatInput() {
       }
     },
     [
-      isLoading,
+      isSendingMessage,
       isRecording,
       isTranscribing,
       selectedModel,
@@ -254,7 +337,7 @@ export function useChatInput() {
       appendContent,
       startStreaming,
       stopStreaming,
-      setLoading,
+      setSendingMessage,
       updateMessage,
       toast,
     ]
@@ -289,11 +372,11 @@ export function useChatInput() {
       )
       abortControllerRef.current = null // 清理引用
     }
-    
+
     // 传递中断原因
     stopStreaming('user_stop')
-    setLoading(false)
-  }, [stopStreaming, setLoading])
+    setSendingMessage(false)
+  }, [stopStreaming, setSendingMessage])
   
   /**
    * 停止录音并转录
@@ -307,14 +390,27 @@ export function useChatInput() {
    */
   useEffect(() => {
     if (!audioBlob || isRecording) return
-    
+
+    // 验证音频文件大小（至少需要 1KB）
+    const MIN_AUDIO_SIZE = 1024 // 1KB
+    if (audioBlob.size < MIN_AUDIO_SIZE) {
+      toast({
+        title: '录音时间太短',
+        description: '请至少录音 1 秒钟',
+        variant: 'destructive',
+      })
+      clearAudio()
+      return
+    }
+
     const transcribe = async () => {
       setIsTranscribing(true)
-      
+
       try {
         const audioFile = new File([audioBlob], 'recording.webm', {
           type: audioBlob.type || 'audio/webm',
         })
+
         const result = await ChatAPI.speechToText(audioFile)
         setInput(result.text)
         clearAudio()
@@ -329,7 +425,7 @@ export function useChatInput() {
         setIsTranscribing(false)
       }
     }
-    
+
     transcribe()
   }, [audioBlob, isRecording, clearAudio, toast])
   
@@ -354,14 +450,22 @@ export function useChatInput() {
     const handleRetryMessage = (event: Event) => {
       const customEvent = event as CustomEvent<{ content: string }>
       if (customEvent.detail?.content) {
-        sendMessage(customEvent.detail.content)
+        // 重试时：跳过创建用户消息（因为用户消息已存在）
+        sendMessage(customEvent.detail.content, {
+          skipUserMessage: true,
+          isRetry: true,
+        })
       }
     }
 
     const handleEditAndResend = (event: Event) => {
       const customEvent = event as CustomEvent<{ content: string }>
       if (customEvent.detail?.content) {
-        sendMessage(customEvent.detail.content)
+        // 编辑后重发：创建新的用户消息，但告诉后端这是编辑操作
+        sendMessage(customEvent.detail.content, {
+          skipUserMessage: false,
+          isEdit: true,
+        })
       }
     }
 
@@ -381,7 +485,7 @@ export function useChatInput() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       // 只在标签页隐藏且正在加载时才暂停
-      if (document.hidden && isLoading) {
+      if (document.hidden && isSendingMessage) {
         // 中止当前请求
         if (abortControllerRef.current) {
           abortControllerRef.current.abort()
@@ -390,25 +494,25 @@ export function useChatInput() {
 
         // 标记为标签页切换导致的暂停
         stopStreaming('tab_hidden')
-        setLoading(false)
+        setSendingMessage(false)
       }
     }
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [isLoading, stopStreaming, setLoading])
+  }, [isSendingMessage, stopStreaming, setSendingMessage])
   
   return {
     // 状态
     input,
     setInput,
-    isLoading,
+    isLoading: isSendingMessage,
     isRecording,
     isTranscribing,
-    
+
     // 方法
     handleSubmit,
     handleStop,
