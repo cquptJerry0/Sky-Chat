@@ -556,11 +556,6 @@ export const useChatStore = create<ChatState>()((set) => ({
       }
     } catch (error) {
       console.error('Failed to delete conversation:', error)
-      // 删除失败时不更新本地状态，保持数据一致性
-      
-      // 可选：重新加载会话列表以确保状态一致
-      // const state = useChatStore.getState()
-      // state.loadConversations()
     }
   },
   
