@@ -137,5 +137,16 @@ export const MessageRepository = {
       where: { conversationId },
     })
   },
+
+  /**
+   * 批量删除指定的消息
+   */
+  async deleteMany(messageIds: string[]) {
+    return prisma.message.deleteMany({
+      where: {
+        id: { in: messageIds },
+      },
+    })
+  },
 }
 

@@ -205,13 +205,13 @@ interface ChatState {
    * 重试失败的消息
    * 删除该消息及其之后的所有消息，然后重新发送用户输入
    */
-  retryMessage: (messageId: string) => void
+  retryMessage: (messageId: string) => Promise<void>
 
   /**
    * 编辑用户消息并重新发送
    * 删除该消息之后的所有消息，更新该消息内容，然后重新发送
    */
-  editAndResend: (messageId: string, newContent: string) => void
+  editAndResend: (messageId: string, newContent: string) => Promise<void>
   
   /**
    * 继续生成（断点续传）
@@ -801,7 +801,7 @@ export const useChatStore = create<ChatState>()((set) => ({
   },
 
   // 重试消息：删除失败的 AI 消息，重新发送
-  retryMessage: (messageId) => {
+  retryMessage: async (messageId) => {
     const state = useChatStore.getState()
     const messageIndex = state.messages.findIndex((m) => m.id === messageId)
 
@@ -810,6 +810,10 @@ export const useChatStore = create<ChatState>()((set) => ({
     const message = state.messages[messageIndex]
 
     if (message.role === 'assistant') {
+      // 获取要删除的消息（该消息及之后的所有消息）
+      const messagesToDelete = state.messages.slice(messageIndex)
+      const messageIdsToDelete = messagesToDelete.map((m) => m.id)
+
       // 删除该AI消息及其之后的所有消息
       const newMessages = state.messages.slice(0, messageIndex)
 
@@ -822,6 +826,17 @@ export const useChatStore = create<ChatState>()((set) => ({
         // 更新消息列表
         set({ messages: newMessages })
 
+        // 异步删除数据库中的消息（不阻塞发送）
+        if (messageIdsToDelete.length > 0) {
+          fetch('/api/messages/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messageIds: messageIdsToDelete }),
+          }).catch((error) => {
+            console.error('[Store] Failed to delete messages from database:', error)
+          })
+        }
+
         // 重新发送（不创建 user 消息）
         state.sendMessage(lastUserMessage.content, { createUserMessage: false })
       }
@@ -829,7 +844,7 @@ export const useChatStore = create<ChatState>()((set) => ({
   },
 
   // 编辑并重发：删除旧消息，发送新消息
-  editAndResend: (messageId, newContent) => {
+  editAndResend: async (messageId, newContent) => {
     const state = useChatStore.getState()
     const messageIndex = state.messages.findIndex((m) => m.id === messageId)
 
@@ -838,9 +853,24 @@ export const useChatStore = create<ChatState>()((set) => ({
     const message = state.messages[messageIndex]
     if (message.role !== 'user') return
 
-    // 删除该消息及之后的所有消息
+    // 获取要删除的消息（该消息及之后的所有消息）
+    const messagesToDelete = state.messages.slice(messageIndex)
+    const messageIdsToDelete = messagesToDelete.map((m) => m.id)
+
+    // 先删除前端消息
     const messagesBefore = state.messages.slice(0, messageIndex)
     set({ messages: messagesBefore })
+
+    // 异步删除数据库中的消息（不阻塞发送）
+    if (messageIdsToDelete.length > 0) {
+      fetch('/api/messages/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageIds: messageIdsToDelete }),
+      }).catch((error) => {
+        console.error('[Store] Failed to delete messages from database:', error)
+      })
+    }
 
     // 发送新消息（创建新的 user 消息）
     state.sendMessage(newContent, { createUserMessage: true })
