@@ -20,6 +20,7 @@ import {
   type Conversation,
 } from '@/lib/services/conversation-api'
 import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
+import { sortConversations } from '@/features/conversation/utils/sort-conversations'
 
 /**
  * 流式传输阶段指示器
@@ -355,20 +356,7 @@ export const useChatStore = create<ChatState>()((set) => ({
     set({ conversationsLoading: true })
     try {
       const { conversations } = await ConversationAPI.list()
-
-      // 排序：置顶的在前，按 pinnedAt 或 updatedAt 排序
-      const sortedConversations = [...conversations].sort((a, b) => {
-        // 置顶的排在前面
-        if (a.isPinned && !b.isPinned) return -1
-        if (!a.isPinned && b.isPinned) return 1
-
-        // 都置顶或都不置顶，按时间排序
-        if (a.isPinned && b.isPinned) {
-          return new Date(b.pinnedAt || 0).getTime() - new Date(a.pinnedAt || 0).getTime()
-        }
-
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      })
+      const sortedConversations = sortConversations(conversations)
 
       set({
         conversations: sortedConversations,
@@ -497,30 +485,17 @@ export const useChatStore = create<ChatState>()((set) => ({
     try {
       const { conversation } = await ConversationAPI.togglePin(id, isPinned)
 
-      // 更新本地状态
+      // 更新本地状态并重新排序
       set((state) => {
         const updateConversation = (c: Conversation) =>
           c.id === id ? { ...c, isPinned: conversation.isPinned, pinnedAt: conversation.pinnedAt } : c
 
-        // 更新后重新排序：置顶的在前，按 pinnedAt 或 updatedAt 排序
-        const sortConversations = (conversations: Conversation[]) => {
-          return [...conversations.map(updateConversation)].sort((a, b) => {
-            // 置顶的排在前面
-            if (a.isPinned && !b.isPinned) return -1
-            if (!a.isPinned && b.isPinned) return 1
-
-            // 都置顶或都不置顶，按时间排序
-            if (a.isPinned && b.isPinned) {
-              return new Date(b.pinnedAt || 0).getTime() - new Date(a.pinnedAt || 0).getTime()
-            }
-
-            return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-          })
-        }
+        const updatedConversations = state.conversations.map(updateConversation)
+        const updatedFiltered = state.filteredConversations.map(updateConversation)
 
         return {
-          conversations: sortConversations(state.conversations),
-          filteredConversations: sortConversations(state.filteredConversations),
+          conversations: sortConversations(updatedConversations),
+          filteredConversations: sortConversations(updatedFiltered),
         }
       })
     } catch (error) {
@@ -628,11 +603,16 @@ export const useChatStore = create<ChatState>()((set) => ({
           window.history.replaceState(null, '', `/chat/${conversationId}`)
         }
 
-        // 添加到会话列表
-        set((state) => ({
-          conversations: [conversation, ...state.conversations],
-          filteredConversations: [conversation, ...state.filteredConversations],
-        }))
+        // 添加到会话列表并排序
+        set((state) => {
+          const updatedConversations = [conversation, ...state.conversations]
+          const updatedFiltered = [conversation, ...state.filteredConversations]
+
+          return {
+            conversations: sortConversations(updatedConversations),
+            filteredConversations: sortConversations(updatedFiltered),
+          }
+        })
       }
 
       // 调用 API
