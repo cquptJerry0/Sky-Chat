@@ -13,11 +13,12 @@
  */
 
 import * as React from 'react'
-import { MessageSquare, PanelLeftClose, PanelLeft } from 'lucide-react'
+import { PanelLeftClose, PanelLeft } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useUIStore } from '@/lib/stores/ui.store'
 import { cn } from '@/lib/utils'
+import { SkyLogoIcon } from '@/components/icons/SkyLogo'
 
 interface SidebarProps {
   /** 子组件（如会话列表模块） */
@@ -45,12 +46,12 @@ export function Sidebar({ children, isLeader, className }: SidebarProps) {
       <div className="flex items-center justify-between p-3 px-4">
         {!collapsed ? (
           <>
-            {/* 展开状态：Logo + 折叠按钮 */}
+            {/* 展开状态：Logo + 文字 + 折叠按钮 */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <MessageSquare className="h-5 w-5 shrink-0" />
+              <SkyLogoIcon width={32} height={32} className="shrink-0" />
               {/* 使用条件渲染替代 opacity 动画，避免闪烁 */}
               {!collapsed && (
-                <span className="font-semibold text-lg whitespace-nowrap animate-in fade-in duration-150">
+                <span className="font-semibold text-lg whitespace-nowrap animate-in fade-in duration-150 bg-gradient-to-r from-[#60A5FA] to-[#2563EB] bg-clip-text text-transparent">
                   Sky Chat
                 </span>
               )}
@@ -69,7 +70,7 @@ export function Sidebar({ children, isLeader, className }: SidebarProps) {
           <>
             {/* 折叠状态：仅Logo */}
             <div className="flex flex-col items-center gap-3 w-full">
-              <MessageSquare className="h-5 w-5" />
+              <SkyLogoIcon width={32} height={32} />
               <Button
                 variant="ghost"
                 size="icon"

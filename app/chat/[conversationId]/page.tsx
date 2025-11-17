@@ -90,13 +90,10 @@ function ConversationContent() {
   }, [conversationId, currentConversationId]) // 只依赖 conversationId 和 currentConversationId
   
   return (
-    <MainLayout sidebar={<ChatSidebar />}>
-      {/* Header（顶部固定） */}
-      <Header />
-      
+    <MainLayout sidebar={<ChatSidebar />} header={<Header />}>
       {/* 虚拟滚动消息列表 */}
       <MessageList key={conversationId} />
-      
+
       {/* 输入框（固定在底部）- 零 props */}
       <ChatInput />
     </MainLayout>

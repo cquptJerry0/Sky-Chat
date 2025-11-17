@@ -177,7 +177,7 @@ export const authConfig = {
     maxAge: 7 * 24 * 60 * 60,
   },
 
-  // 修复 NextAuth 5.0 beta 与 Next.js 16 的 state cookie 解析问题
+  // 修复 NextAuth 5.0 beta 与 Next.js 16 的 cookie 解析问题
   cookies: {
     state: {
       name: 'authjs.state',
@@ -185,7 +185,17 @@ export const authConfig = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: false, // 开发环境使用 http，不需要 secure
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 900, // 15 分钟
+      },
+    },
+    pkceCodeVerifier: {
+      name: 'authjs.pkce.code_verifier',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
         maxAge: 900, // 15 分钟
       },
     },

@@ -127,16 +127,16 @@ export class ChatAPI {
 
   /**
    * 语音转文本
-   * 
-   * @description 
+   *
+   * @description
    * 调用 /api/speech 接口将音频文件转换为文本。
    * 支持多种音频格式（webm, mp4, mpeg, wav, ogg）。
-   * 
+   *
    * @param {File} audio - 音频文件（File 或 Blob 对象）
    * @param {AbortSignal} [abortSignal] - 中断信号
    * @returns {Promise<{text: string, language?: string, duration?: number}>} 识别结果
    * @throws {Error} STT API 调用失败
-   * 
+   *
    * @example
    * ```ts
    * const audioFile = new File([audioBlob], 'recording.webm')

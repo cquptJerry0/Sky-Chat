@@ -36,13 +36,16 @@ interface ChatState {
   // ============ 核心状态 ============
   /** 消息历史 */
   messages: Message[]
-  
-  /** 全局加载状态 */
-  isLoading: boolean
-  
+
+  /** 消息发送加载状态 */
+  isSendingMessage: boolean
+
+  /** 会话切换加载状态 */
+  isSwitchingConversation: boolean
+
   /** 当前选中的模型 ID */
   selectedModel: string
-  
+
   /** 是否启用思考模式（支持的模型） */
   enableThinking: boolean
   
@@ -123,16 +126,21 @@ interface ChatState {
    * 设置活动模型
    */
   setModel: (modelId: string) => void
-  
+
   /**
    * 切换思考模式
    */
   toggleThinking: (enabled: boolean) => void
-  
+
   /**
-   * 设置全局加载状态
+   * 设置消息发送加载状态
    */
-  setLoading: (loading: boolean) => void
+  setSendingMessage: (loading: boolean) => void
+
+  /**
+   * 设置会话切换加载状态
+   */
+  setSwitchingConversation: (loading: boolean) => void
   
   // ============ 会话管理操作 ============
   /**
@@ -247,7 +255,8 @@ const getInitialModel = (): string => {
  */
 const initialState = {
   messages: [],
-  isLoading: false,
+  isSendingMessage: false,
+  isSwitchingConversation: false,
   selectedModel: getInitialModel(),
   enableThinking: false,
   currentConversationId: null,
@@ -277,41 +286,49 @@ export const useChatStore = create<ChatState>()((set) => ({
   ...initialState,
   
   // ============ Message Actions ============
-  addMessage: (message) =>
-    set((state) => ({
-      messages: [...state.messages, message],
-    })),
+  addMessage: (message: Message) =>
+    set((state) => {
+      console.log('[Store] addMessage called, ID:', message.id, 'role:', message.role, 'current count:', state.messages.length)
+      return {
+        messages: [...state.messages, message],
+      }
+    }),
   
-  updateMessage: (id, updates) =>
+  updateMessage: (id: string, updates: Partial<Message>) =>
     set((state) => ({
       messages: state.messages.map((m) =>
         m.id === id ? { ...m, ...updates } : m
       ),
     })),
   
-  appendThinking: (id, chunk) =>
+  appendThinking: (id: string, chunk: string) =>
     set((state) => ({
       messages: state.messages.map((m) =>
         m.id === id ? { ...m, thinking: (m.thinking || '') + chunk } : m
       ),
     })),
   
-  appendContent: (id, chunk) =>
-    set((state) => ({
-      messages: state.messages.map((m) =>
-        m.id === id ? { ...m, content: (m.content || '') + chunk } : m
-      ),
-    })),
+  appendContent: (id: string, chunk: string) =>
+    set((state) => {
+      const targetMessage = state.messages.find(m => m.id === id)
+      console.log('[Store] appendContent called for:', id, 'found:', !!targetMessage, 'chunk:', chunk.slice(0, 20))
+
+      return {
+        messages: state.messages.map((m) =>
+          m.id === id ? { ...m, content: (m.content || '') + chunk } : m
+        ),
+      }
+    }),
   
   // ============ Streaming Control ============
-  startStreaming: (messageId, phase) =>
+  startStreaming: (messageId: string, phase: StreamingPhase) =>
     set({ 
       streamingMessageId: messageId, 
       streamingPhase: phase,
       abortReason: null, // 开始新的流式传输时清除之前的中断原因
     }),
   
-  stopStreaming: (reason) => {
+  stopStreaming: (reason?: AbortReason) => {
     // 中止续传请求（如果存在）
     const state = useChatStore.getState()
     if (state.continueAbortController) {
@@ -341,13 +358,18 @@ export const useChatStore = create<ChatState>()((set) => ({
 
     set({ selectedModel: modelId })
   },
-  
+
   toggleThinking: (enabled) => set({ enableThinking: enabled }),
-  
-  setLoading: (loading) => set({ isLoading: loading }),
+
+  setSendingMessage: (loading) => set({ isSendingMessage: loading }),
+
+  setSwitchingConversation: (loading) => set({ isSwitchingConversation: loading }),
   
   // ============ Conversation Actions ============
-  setConversationId: (id) => set({ currentConversationId: id }),
+  setConversationId: (id) => {
+    console.log('[Store] setConversationId called:', id)
+    set({ currentConversationId: id })
+  },
   
   loadConversations: async () => {
     set({ conversationsLoading: true })
@@ -406,8 +428,10 @@ export const useChatStore = create<ChatState>()((set) => ({
     set({ filteredConversations: conversations }),
   
   createNewConversation: async () => {
+    console.log('[Store] createNewConversation called')
     try {
       const { conversation } = await ConversationAPI.create()
+      console.log('[Store] createNewConversation: clearing messages for new conversation:', conversation.id)
       set((state) => ({
         conversations: [conversation, ...state.conversations],
         filteredConversations: [conversation, ...state.filteredConversations],
@@ -420,13 +444,34 @@ export const useChatStore = create<ChatState>()((set) => ({
   },
   
   switchConversation: async (id) => {
-    set({ isLoading: true })
+    console.log('[Store] switchConversation called, target ID:', id, 'current ID:', useChatStore.getState().currentConversationId)
+
+    const startTime = Date.now()
+    const MIN_LOADING_TIME = 600 // 最小 loading 时间 0.6 秒
+
+    // 立即设置 loading 状态和会话 ID
+    console.log('[Store] switchConversation: setting loading state and clearing messages')
+    set({ isSwitchingConversation: true, currentConversationId: id })
+
     try {
+      // 加载消息
       const { messages } = await ConversationAPI.getMessages(id)
+      console.log('[Store] switchConversation: loaded', messages.length, 'messages')
+
+      // 计算已经过去的时间
+      const elapsed = Date.now() - startTime
+      const remaining = MIN_LOADING_TIME - elapsed
+
+      // 如果加载太快，等待剩余时间
+      if (remaining > 0) {
+        await new Promise(resolve => setTimeout(resolve, remaining))
+      }
+
+      // 更新消息和状态
+      console.log('[Store] switchConversation: updating messages in store')
       set({
-        currentConversationId: id,
         messages: messages as Message[],
-        isLoading: false,
+        isSwitchingConversation: false,
         hasOlderMessages: messages.length >= 50,
         oldestMessageId: messages[0]?.id || null,
         newestMessageId: messages[messages.length - 1]?.id || null,
@@ -444,7 +489,14 @@ export const useChatStore = create<ChatState>()((set) => ({
         console.warn('[ChatStore] Conversation not found, may have been deleted')
       }
 
-      set({ isLoading: false, messages: [] })
+      // 确保最小 loading 时间后再显示错误
+      const elapsed = Date.now() - startTime
+      const remaining = MIN_LOADING_TIME - elapsed
+      if (remaining > 0) {
+        await new Promise(resolve => setTimeout(resolve, remaining))
+      }
+
+      set({ isSwitchingConversation: false, messages: [] })
 
       // 抛出错误让上层处理（比如重定向）
       throw error
@@ -640,53 +692,51 @@ export const useChatStore = create<ChatState>()((set) => ({
       return state
     }),
   
-  editAndResend: (messageId, newContent) =>
+    editAndResend: (messageId, newContent) =>
     set((state) => {
-      // 找到该消息
-      const message = state.messages.find((m) => m.id === messageId)
-      if (!message || message.role !== 'user') return state
-      
-      // ✅ 保留所有历史消息，在末尾追加新的用户消息
-      const newUserMessage: Message = {
-        id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
-        role: 'user',
-        content: newContent,
-      }
-      
-      // 触发重新生成（通过自定义事件）
+      const messageIndex = state.messages.findIndex((m) => m.id === messageId)
+      if (messageIndex === -1) return state
+
+      const message = state.messages[messageIndex]
+      if (message.role !== 'user') return state
+
+      // 1. 删除该消息及之后的所有消息
+      const messagesBefore = state.messages.slice(0, messageIndex)
+
+      // 2. 触发重新发送的事件（就像正常发送一样）
       window.dispatchEvent(
         new CustomEvent('edit-and-resend', {
           detail: { content: newContent },
         })
       )
-      
-      return { 
-        messages: [...state.messages, newUserMessage],
-        newestMessageId: newUserMessage.id,
+
+      // 3. 返回新的消息列表（不包含被编辑的消息）
+      return {
+        messages: messagesBefore,
       }
     }),
   
   continueGeneration: async (messageId) => {
     const state = useChatStore.getState()
     const message = state.messages.find((m) => m.id === messageId)
-    
+
     if (!message || message.role !== 'assistant') {
       return
     }
-    
+
     const conversationId = state.currentConversationId
     if (!conversationId) {
       return
     }
-    
+
     // 创建AbortController用于中断续传
     const abortController = new AbortController()
     set({ continueAbortController: abortController })
-    
+
     // 开始流式传输
     state.startStreaming(messageId, 'answer')
-    state.setLoading(true)
-    
+    state.setSendingMessage(true)
+
     try {
       const response = await fetch('/api/chat/continue', {
         method: 'POST',
@@ -694,16 +744,16 @@ export const useChatStore = create<ChatState>()((set) => ({
         body: JSON.stringify({ messageId, conversationId }),
         signal: abortController.signal,
       })
-      
+
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`)
       }
-      
+
       const reader = response.body?.getReader()
       if (!reader) {
         throw new Error('No reader available')
       }
-      
+
       // 使用 SSEParser 处理流
       const { SSEParser } = await import('@/lib/services/sse-parser')
       SSEParser.parseStream(reader).subscribe({
@@ -722,7 +772,7 @@ export const useChatStore = create<ChatState>()((set) => ({
             state.appendContent(messageId, data.content)
           } else if (data.type === 'complete') {
             state.stopStreaming()
-            state.setLoading(false)
+            state.setSendingMessage(false)
           }
         },
         error: (error) => {
@@ -734,11 +784,11 @@ export const useChatStore = create<ChatState>()((set) => ({
             state.updateMessage(messageId, { hasError: true })
           }
           state.stopStreaming()
-          state.setLoading(false)
+          state.setSendingMessage(false)
         },
         complete: () => {
           state.stopStreaming()
-          state.setLoading(false)
+          state.setSendingMessage(false)
         },
       })
     } catch (error) {
@@ -748,7 +798,7 @@ export const useChatStore = create<ChatState>()((set) => ({
         state.updateMessage(messageId, { hasError: true })
       }
       state.stopStreaming()
-      state.setLoading(false)
+      state.setSendingMessage(false)
     }
   },
   

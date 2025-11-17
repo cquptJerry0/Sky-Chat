@@ -29,34 +29,34 @@ interface ChatMessageProps {
  */
 export function ChatMessage({ messageId }: ChatMessageProps) {
   // 从 store 获取消息数据
-  const message = useChatStore((s) => 
+  const message = useChatStore((s) =>
     s.messages.find((m) => m.id === messageId)
   )
-  
+
   // 从 store 获取流式状态
   const streamingMessageId = useChatStore((s) => s.streamingMessageId)
   const streamingPhase = useChatStore((s) => s.streamingPhase)
-  const isLoading = useChatStore((s) => s.isLoading)
+  const isSendingMessage = useChatStore((s) => s.isSendingMessage)
   const messages = useChatStore((s) => s.messages)
-  
+
   // 获取重试和编辑方法
   const retryMessage = useChatStore((s) => s.retryMessage)
   const editAndResend = useChatStore((s) => s.editAndResend)
-  
+
   // 如果消息不存在，不渲染
   if (!message) {
     return null
   }
-  
+
   // 判断当前消息是否正在流式传输
   const isStreaming = streamingMessageId === messageId
   const isStreamingThinking = isStreaming && streamingPhase === 'thinking'
   const isStreamingAnswer = isStreaming && streamingPhase === 'answer'
-  
+
   // 判断是否是最新的AI消息且正在loading
   const isLastMessage = messages[messages.length - 1]?.id === messageId
   const isAIMessage = message.role === 'assistant'
-  const isWaitingForResponse = isLoading && isLastMessage && isAIMessage
+  const isWaitingForResponse = isSendingMessage && isLastMessage && isAIMessage
   
   // 判断是否是最后一条助手消息（用于智能续传按钮）
   const isLastAssistantMessage = isAIMessage && isLastMessage

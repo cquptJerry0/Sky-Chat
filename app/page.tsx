@@ -44,9 +44,7 @@ export default function HomePage() {
         try {
           // 1. 检查是否有待发送消息
           const pendingMessage = StorageManager.get<string>(STORAGE_KEYS.USER.PENDING_MESSAGE)
-
           if (pendingMessage) {
-
             // 有待发送消息：创建会话并跳转（不清除 pendingMessage，让输入框读取）
             try {
               const { conversation } = await ConversationAPI.create()
@@ -56,9 +54,7 @@ export default function HomePage() {
               return
             } catch (error) {
               console.error('[HomePage] Failed to create conversation:', error)
-              // 创建失败时清除待发送消息，继续正常流程
-              StorageManager.remove(STORAGE_KEYS.USER.PENDING_MESSAGE)
-  }
+            }
           }
 
           // 2. 无待发送消息：正常重定向（静默加载）

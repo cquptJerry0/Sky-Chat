@@ -18,7 +18,8 @@ import { Loader2 } from 'lucide-react'
 export function MessageList() {
   // 从 Store 获取数据
   const messages = useChatStore((s) => s.messages)
-  const isLoading = useChatStore((s) => s.isLoading)
+  const isSendingMessage = useChatStore((s) => s.isSendingMessage)
+  const isSwitchingConversation = useChatStore((s) => s.isSwitchingConversation)
   const isLoadingOlder = useChatStore((s) => s.isLoadingOlder)
   const hasOlderMessages = useChatStore((s) => s.hasOlderMessages)
   const loadOlderMessages = useChatStore((s) => s.loadOlderMessages)
@@ -130,7 +131,8 @@ export function MessageList() {
   }, [messages.length, streamingMessageId, userScrolledUp])
   
   // 空状态 - 只有在非加载状态且真的没有消息时才显示欢迎语
-  if (messages.length === 0 && !isLoading) {
+  // 不管是发送消息还是切换会话，都不应该显示欢迎语
+  if (messages.length === 0 && !isSendingMessage && !isSwitchingConversation) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
@@ -141,21 +143,9 @@ export function MessageList() {
       </div>
     )
   }
-  
-  // 加载状态且没有消息 - 显示loading（切换会话时）
-  if (messages.length === 0 && isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-2 text-[hsl(var(--text-secondary))]">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          <span className="text-sm">加载消息中...</span>
-        </div>
-      </div>
-    )
-  }
-  
+
   return (
-    <div 
+    <div
       ref={scrollContainerRef}
       className="flex-1 overflow-y-auto"
     >
@@ -175,11 +165,11 @@ export function MessageList() {
             </div>
           </div>
         )}
-        
+
         {/* 虚拟列表渲染 */}
         {virtualItems.map((virtualItem) => {
           const message = messages[virtualItem.index]
-          
+
           return (
             <div
               key={virtualItem.key}

@@ -7,7 +7,10 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export const metadata: Metadata = {
   title: 'Sky Chat',
-  description: 'A ChatGPT-style SSE chat application with RxJS',
+  description: 'AI 智能对话助手 - 基于硅基流动的智能聊天应用',
+  icons: {
+    icon: '/icon.svg',
+  },
 }
 
 export default function RootLayout({

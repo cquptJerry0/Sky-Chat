@@ -79,6 +79,34 @@ export interface Tool {
 }
 
 /**
+ * 消息显示状态
+ * @description 描述消息的当前显示状态，用于控制 UI 渲染
+ * - idle: 正常显示（已完成）
+ * - streaming: 正在流式生成
+ * - waiting: 等待响应（用户消息发送后，等待 AI 响应）
+ * - error: 错误（可重试）
+ * - regenerating: 重新生成中
+ */
+export type MessageDisplayState =
+  | 'idle'
+  | 'streaming'
+  | 'waiting'
+  | 'error'
+  | 'regenerating'
+
+/**
+ * 文件附件类型
+ */
+export interface FileAttachment {
+  /** 文件名 */
+  name: string
+  /** 文件类型 */
+  type: 'txt' | 'md'
+  /** 文件大小（字节） */
+  size: number
+}
+
+/**
  * 消息结构
  * @description 聊天系统中单条消息的完整数据结构
  */
@@ -97,8 +125,16 @@ export interface Message {
   hasError?: boolean
   /** 会话 ID（用于断点续传） */
   sessionId?: string
+  /** 用户消息（用于继续生成） */
+  userMessage?: string
   /** 是否正在流式传输中 */
   isStreaming?: boolean
+  /** 时间戳 */
+  timestamp?: number
+  /** 文件附件列表（仅用户消息） */
+  attachments?: FileAttachment[]
+  /** 消息显示状态（用于控制 UI 渲染） */
+  displayState?: MessageDisplayState
 }
 
 /**
@@ -147,68 +183,6 @@ export interface SSEData {
  * - network_error: 网络错误导致中断
  */
 export type AbortReason = 'user_stop' | 'tab_hidden' | 'network_error'
-
-/**
- * 消息显示状态
- * @description 描述消息的当前显示状态，用于控制 UI 渲染
- * - idle: 正常显示（已完成）
- * - streaming: 正在流式生成
- * - waiting: 等待响应（用户消息发送后，等待 AI 响应）
- * - error: 错误（可重试）
- * - regenerating: 重新生成中
- */
-export type MessageDisplayState =
-  | 'idle'
-  | 'streaming'
-  | 'waiting'
-  | 'error'
-  | 'regenerating'
-
-/**
- * 文件附件类型
- */
-export interface FileAttachment {
-  /** 文件名 */
-  name: string
-  /** 文件类型 */
-  type: 'txt' | 'md'
-  /** 文件大小（字节） */
-  size: number
-}
-
-/**
- * Message 类型补充字段
- */
-export interface Message {
-  /** 消息唯一标识 */
-  id: string
-  /** 消息角色 */
-  role: MessageRole
-  /** 消息文本内容 */
-  content: string
-  /** 思考过程（仅 AI 消息，需启用思考模式） */
-  thinking?: string
-  /** 工具调用列表 */
-  toolCalls?: ToolCall[]
-  /** 是否出现错误 */
-  hasError?: boolean
-  /** 会话 ID（用于断点续传） */
-  sessionId?: string
-  /** 用户消息（用于继续生成） */
-  userMessage?: string
-  /** 是否正在流式传输中 */
-  isStreaming?: boolean
-  /** 时间戳 */
-  timestamp?: number
-  /** 文件附件列表（仅用户消息） */
-  attachments?: FileAttachment[]
-
-
-
-  // ===== 新增：消息显示状态 =====
-  /** 消息显示状态（用于控制 UI 渲染） */
-  displayState?: MessageDisplayState
-}
 
 /**
  * 管道状态

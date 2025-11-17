@@ -45,13 +45,10 @@ ChatSidebar.displayName = 'ChatSidebar'
  */
 function NewChatContent() {
   return (
-    <MainLayout sidebar={<ChatSidebar />}>
-      {/* Header（顶部固定） */}
-      <Header />
-      
+    <MainLayout sidebar={<ChatSidebar />} header={<Header />}>
       {/* 虚拟滚动消息列表（包含空状态） */}
       <MessageList />
-      
+
       {/* 输入框（固定在底部） */}
       <ChatInput />
     </MainLayout>

@@ -19,7 +19,6 @@ import { MarkdownIcon } from '@/components/icons/MarkdownIcon'
 import { TextFileIcon } from '@/components/icons/TextFileIcon'
 import { getModelById } from '@/lib/constants/models'
 import { cn } from '@/lib/utils'
-import type { AbortReason } from '@/lib/types/chat'
 
 interface ChatInputUIProps {
   // 状态
@@ -114,12 +113,13 @@ export function ChatInputUI({
   }
   
   // 判断是否可以发送
-  const canSend = input.trim() && !disabled
+  // 注意：在 isLoading 时，按钮会被替换成停止按钮，所以这里不需要考虑 isLoading
+  const canSend = input.trim() && !isRecording && !isTranscribing
 
   return (
     <div
       className={cn(
-        "shrink-0 bg-background border-t border-border/50 transition-colors relative",
+        "shrink-0 bg-background  transition-colors relative",
         isDragging && "bg-blue-50 dark:bg-blue-900/10"
       )}
       onDragOver={handleDragOver}
