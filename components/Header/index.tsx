@@ -10,6 +10,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useTheme } from 'next-themes'
 import { StorageManager } from '@/lib/utils/storage'
 import { ShareButton } from '@/features/share/components/ShareButton'
+import { ExportButton } from '@/components/ExportButton'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +60,14 @@ export function Header() {
 
       {/* 右侧：操作按钮 */}
       <div className="flex items-center gap-2">
+        {/* 当前会话导出按钮 - 仅当有会话时显示 */}
+        {currentConversationId && (
+          <ExportButton
+            conversationId={currentConversationId}
+            className="h-9"
+          />
+        )}
+
         {/* 当前会话分享按钮 - 仅当有会话时显示 */}
         {currentConversationId && (
           <ShareButton

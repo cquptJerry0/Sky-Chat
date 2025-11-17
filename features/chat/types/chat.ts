@@ -179,10 +179,11 @@ export interface SSEData {
  * 中断原因类型
  * @description 描述消息生成被中断的原因
  * - user_stop: 用户主动点击停止按钮
+ * - user_retry: 用户点击重试按钮
  * - tab_hidden: 标签页切换导致暂停
  * - network_error: 网络错误导致中断
  */
-export type AbortReason = 'user_stop' | 'tab_hidden' | 'network_error'
+export type AbortReason = 'user_stop' | 'user_retry' | 'tab_hidden' | 'network_error'
 
 /**
  * 管道状态

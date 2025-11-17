@@ -725,9 +725,15 @@ export const useChatStore = create<ChatState>()((set) => ({
     }
   },
 
-  // 重试消息：删除失败的 AI 消息，重新发送
+  // 重试消息：删除失败的 AI 消息，重新发送（任何时候都可以重试，包括 thinking 中断）
   retryMessage: async (messageId) => {
     const state = useChatStore.getState()
+
+    // 如果正在流式传输，先停止
+    if (state.streamingMessageId) {
+      state.stopStreaming('user_retry')
+    }
+
     const messageIndex = state.messages.findIndex((m) => m.id === messageId)
 
     if (messageIndex === -1) return
