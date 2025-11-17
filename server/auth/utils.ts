@@ -24,7 +24,6 @@ export async function getCurrentUserId(): Promise<string> {
     }
   } catch {
     // NextAuth 失败时继续尝试旧的 JWT token
-    console.debug('NextAuth session not found, trying JWT token')
   }
 
   // 方案2: 尝试从传统 JWT token 获取（向后兼容）
@@ -37,7 +36,7 @@ export async function getCurrentUserId(): Promise<string> {
     return payload.userId
     }
   } catch {
-    console.debug('JWT token verification failed')
+    // JWT token 验证失败
   }
 
   // 两种方案都失败

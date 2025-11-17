@@ -3,18 +3,33 @@
  * 所有消息发送逻辑都在 Store 中处理
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useChatStore } from '@/features/chat/store/chat.store'
+import { useAudioRecorder } from '@/features/voice/hooks/use-audio-recorder'
+import { ChatAPI } from '@/lib/services/chat-api'
+import { useToast } from '@/lib/hooks/use-toast'
 import type { FileAttachment } from '@/features/chat/types/chat'
 
 export function useChatInput() {
   const [input, setInput] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<FileAttachment[]>([])
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const { toast } = useToast()
 
   // 从 Store 获取状态和方法
   const isSendingMessage = useChatStore((state) => state.isSendingMessage)
   const sendMessage = useChatStore((state) => state.sendMessage)
   const stopStreaming = useChatStore((state) => state.stopStreaming)
+
+  // 语音录制
+  const {
+    isRecording,
+    audioBlob,
+    startRecording: startAudioRecording,
+    stopRecording: stopAudioRecording,
+    cancelRecording,
+    clearAudio,
+  } = useAudioRecorder()
 
   /**
    * 提交消息
@@ -92,6 +107,66 @@ export function useChatInput() {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index))
   }, [])
 
+  /**
+   * 开始录音
+   */
+  const handleStartRecording = useCallback(async () => {
+    try {
+      await startAudioRecording()
+    } catch {
+      toast({
+        title: '无法访问麦克风',
+        description: '请检查麦克风权限设置',
+        variant: 'destructive',
+      })
+    }
+  }, [startAudioRecording, toast])
+
+  /**
+   * 停止录音
+   */
+  const handleStopRecording = useCallback(() => {
+    stopAudioRecording()
+  }, [stopAudioRecording])
+
+  /**
+   * 取消录音
+   */
+  const handleCancelRecording = useCallback(() => {
+    cancelRecording()
+  }, [cancelRecording])
+
+  /**
+   * 当录音完成时，自动转文字
+   */
+  useEffect(() => {
+    if (!audioBlob) return
+
+    const transcribe = async () => {
+      setIsTranscribing(true)
+      try {
+        const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' })
+        const result = await ChatAPI.speechToText(audioFile)
+
+        if (result.text) {
+          setInput(result.text)
+        }
+
+        clearAudio()
+      } catch {
+        toast({
+          title: '语音识别失败',
+          description: '请重试或手动输入',
+          variant: 'destructive',
+        })
+      } finally {
+        setIsTranscribing(false)
+      }
+    }
+
+    transcribe()
+  }, [audioBlob, clearAudio, toast])
+
   return {
     input,
     setInput: handleInputChange,
@@ -101,11 +176,12 @@ export function useChatInput() {
     uploadedFiles,
     handleFileUpload,
     handleRemoveFile,
-    // 语音功能暂时禁用
-    isRecording: false,
-    isTranscribing: false,
-    startRecording: async () => {},
-    stopRecording: () => {},
+    // 语音功能
+    isRecording,
+    isTranscribing,
+    startRecording: handleStartRecording,
+    stopRecording: handleStopRecording,
+    cancelRecording: handleCancelRecording,
   }
 }
 

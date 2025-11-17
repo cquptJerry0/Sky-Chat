@@ -38,13 +38,14 @@ interface ChatInputUIProps {
   onThinkingToggle: (enabled: boolean) => void
   onStartRecording: () => void
   onStopRecording: () => void
+  onCancelRecording: () => void
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
   onRemoveFile: (index: number) => void
 }
 
 /**
  * 输入框 UI 组件
- * 
+ *
  * 纯展示组件，不包含任何业务逻辑
  */
 export function ChatInputUI({
@@ -62,6 +63,7 @@ export function ChatInputUI({
   onThinkingToggle,
   onStartRecording,
   onStopRecording,
+  onCancelRecording,
   onFileUpload,
   onRemoveFile,
 }: ChatInputUIProps) {
@@ -142,6 +144,74 @@ export function ChatInputUI({
       )}
 
       <div className="mx-auto max-w-4xl px-6 py-4">
+        {/* 录音状态浮层 */}
+        {isRecording && (
+          <div className="mb-4 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-950/30 dark:to-pink-950/30 rounded-2xl p-4 border border-red-200 dark:border-red-800 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {/* 录音动画 */}
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute w-12 h-12 bg-red-500/20 rounded-full animate-ping" />
+                  <div className="relative w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
+                    <Mic className="h-5 w-5 text-white" />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-red-900 dark:text-red-100">
+                    正在录音...
+                  </p>
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    点击停止完成录音，或点击取消
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* 取消按钮 */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onCancelRecording}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/30"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  取消
+                </Button>
+
+                {/* 停止录音按钮 */}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={onStopRecording}
+                  className="bg-red-500 hover:bg-red-600 text-white"
+                >
+                  <Square className="h-4 w-4 mr-1 fill-current" />
+                  停止
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 转录状态提示 */}
+        {isTranscribing && (
+          <div className="mb-4 bg-blue-50 dark:bg-blue-950/30 rounded-2xl p-4 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  正在转录语音...
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  请稍候，正在将语音转换为文字
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 统一的输入模块容器 */}
         <div className="bg-background rounded-3xl p-3 shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.12)] transition-shadow">
           {/* 第一层：纯输入框 */}

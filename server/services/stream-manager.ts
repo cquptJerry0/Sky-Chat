@@ -59,11 +59,7 @@ class StreamManager {
     if (!messageId || !userId || !conversationId) {
       throw new Error('messageId, userId, and conversationId are required')
     }
-    
-    if (this.tasks.has(messageId)) {
-      console.warn(`[StreamManager] Task ${messageId} already exists, overwriting`)
-    }
-    
+
     const task: GenerationTask = {
       id: messageId,
       userId,
@@ -105,15 +101,14 @@ class StreamManager {
     
     const task = this.tasks.get(messageId)
     if (!task) {
-      console.warn(`[StreamManager] Task ${messageId} not found, cannot update fullContent`)
       return
     }
-    
+
     task.fullThinking = thinking || ''
     task.fullContent = content || ''
     task.updatedAt = new Date()
   }
-  
+
   /**
    * 更新任务 - 已发送给前端的内容
    */
@@ -126,18 +121,17 @@ class StreamManager {
       console.error('[StreamManager] updateSentContent: messageId is required')
       return
     }
-    
+
     const task = this.tasks.get(messageId)
     if (!task) {
-      console.warn(`[StreamManager] Task ${messageId} not found, cannot update sentContent`)
       return
     }
-    
+
     task.sentThinking = thinking || ''
     task.sentContent = content || ''
     task.updatedAt = new Date()
   }
-  
+
   /**
    * 暂停任务（前端中断，但后端继续收集）
    */
@@ -146,21 +140,18 @@ class StreamManager {
       console.error('[StreamManager] pauseTask: messageId is required')
       return
     }
-    
+
     const task = this.tasks.get(messageId)
     if (!task) {
-      console.warn(`[StreamManager] Task ${messageId} not found, cannot pause`)
       return
     }
-    
+
     if (task.status === 'running') {
       task.status = 'paused'
       task.updatedAt = new Date()
-    } else {
-      console.warn(`[StreamManager] Task ${messageId} is in ${task.status} state, cannot pause`)
     }
   }
-  
+
   /**
    * 恢复任务（续传）
    */
@@ -169,18 +160,15 @@ class StreamManager {
       console.error('[StreamManager] resumeTask: messageId is required')
       return
     }
-    
+
     const task = this.tasks.get(messageId)
     if (!task) {
-      console.warn(`[StreamManager] Task ${messageId} not found, cannot resume`)
       return
     }
-    
+
     if (task.status === 'paused') {
       task.status = 'running'
       task.updatedAt = new Date()
-    } else {
-      console.warn(`[StreamManager] Task ${messageId} is in ${task.status} state, cannot resume`)
     }
   }
   
@@ -195,14 +183,13 @@ class StreamManager {
     
     const task = this.tasks.get(messageId)
     if (!task) {
-      console.warn(`[StreamManager] Task ${messageId} not found, cannot complete`)
       return
     }
-    
+
     task.status = 'completed'
     task.updatedAt = new Date()
   }
-  
+
   /**
    * 标记任务错误
    */
@@ -211,13 +198,12 @@ class StreamManager {
       console.error('[StreamManager] errorTask: messageId is required')
       return
     }
-    
+
     const task = this.tasks.get(messageId)
     if (!task) {
-      console.warn(`[StreamManager] Task ${messageId} not found, cannot mark as error`)
       return
     }
-    
+
     task.status = 'error'
     task.updatedAt = new Date()
   }
@@ -399,7 +385,6 @@ class StreamManager {
       }
       // 清理2小时前暂停的任务（可能是前端永久断开）
       else if (task.status === 'paused' && task.updatedAt < twoHoursAgo) {
-        console.warn(`[StreamManager] Cleaning up old paused task: ${messageId}`)
         this.deleteTask(messageId)
         cleanedCount++
       }

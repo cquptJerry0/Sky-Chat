@@ -45,6 +45,7 @@ export function ChatInput() {
     handleRemoveFile,
     startRecording,
     stopRecording,
+    cancelRecording,
   } = useChatInput()
 
   // 将所有状态和方法传递给 UI 组件
@@ -64,6 +65,7 @@ export function ChatInput() {
       onThinkingToggle={toggleThinking}
       onStartRecording={startRecording}
       onStopRecording={stopRecording}
+      onCancelRecording={cancelRecording}
       onFileUpload={handleFileUpload}
       onRemoveFile={handleRemoveFile}
     />

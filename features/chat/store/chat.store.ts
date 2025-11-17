@@ -65,12 +65,9 @@ interface ChatState {
   // ============ 流式传输状态 ============
   /** 当前正在流式传输的消息 ID */
   streamingMessageId: string | null
-  
+
   /** 当前流式传输阶段（thinking/answer） */
   streamingPhase: StreamingPhase
-  
-  /** 续传请求的AbortController */
-  continueAbortController: AbortController | null
 
   /** 中断原因（用于标记消息被中断的原因） */
   abortReason: AbortReason | null
@@ -216,13 +213,7 @@ interface ChatState {
    * 删除该消息之后的所有消息，更新该消息内容，然后重新发送
    */
   editAndResend: (messageId: string, newContent: string) => Promise<void>
-  
-  /**
-   * 继续生成（断点续传）
-   * 让AI继续生成当前消息的后续内容
-   */
-  continueGeneration: (messageId: string) => Promise<void>
-  
+
   /**
    * 加载更早的消息（向上滚动加载历史）
    */
@@ -277,7 +268,6 @@ const initialState = {
   conversationsLoading: false,
   streamingMessageId: null,
   streamingPhase: null as StreamingPhase,
-  continueAbortController: null,
   abortReason: null as AbortReason | null,
   hasOlderMessages: true,
   isLoadingOlder: false,
@@ -333,20 +323,9 @@ export const useChatStore = create<ChatState>()((set) => ({
     }),
   
   stopStreaming: (reason?: AbortReason) => {
-    // 中止续传请求（如果存在）
-    const state = useChatStore.getState()
-    if (state.continueAbortController) {
-      state.continueAbortController.abort(
-        new DOMException('Generation stopped', 'AbortError')
-      )
-    }
-
-    // 中断原因已移除，不再需要标记暂停状态
-    
-    set({ 
-      streamingMessageId: null, 
+    set({
+      streamingMessageId: null,
       streamingPhase: null,
-      continueAbortController: null, // 清理引用
       abortReason: reason || null,
     })
   },
@@ -376,17 +355,6 @@ export const useChatStore = create<ChatState>()((set) => ({
     set({ conversationsLoading: true })
     try {
       const { conversations } = await ConversationAPI.list()
-
-      // 安全检查：确保所有会话都有 userId（开发环境下）
-      if (process.env.NODE_ENV === 'development') {
-        const invalidConversations = conversations.filter((c) => !c.userId)
-        if (invalidConversations.length > 0) {
-          console.warn(
-            '[ChatStore] Found conversations without userId:',
-            invalidConversations
-          )
-        }
-      }
 
       // 排序：置顶的在前，按 pinnedAt 或 updatedAt 排序
       const sortedConversations = [...conversations].sort((a, b) => {
@@ -679,6 +647,7 @@ export const useChatStore = create<ChatState>()((set) => ({
           thinkingBudget: 4096,
           userMessageId,
           aiMessageId,
+          attachments,
         }),
       })
 
@@ -817,92 +786,6 @@ export const useChatStore = create<ChatState>()((set) => ({
 
     // 发送新消息（创建新的 user 消息）
     state.sendMessage(newContent, { createUserMessage: true })
-  },
-  
-  continueGeneration: async (messageId) => {
-    const state = useChatStore.getState()
-    const message = state.messages.find((m) => m.id === messageId)
-
-    if (!message || message.role !== 'assistant') {
-      return
-    }
-
-    const conversationId = state.currentConversationId
-    if (!conversationId) {
-      return
-    }
-
-    // 创建AbortController用于中断续传
-    const abortController = new AbortController()
-    set({ continueAbortController: abortController })
-
-    // 开始流式传输
-    state.startStreaming(messageId, 'answer')
-    state.setSendingMessage(true)
-
-    try {
-      const response = await fetch('/api/chat/continue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageId, conversationId }),
-        signal: abortController.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('No reader available')
-      }
-
-      // 使用 SSEParser 处理流
-      const { SSEParser } = await import('@/lib/services/sse-parser')
-      SSEParser.parseStream(reader).subscribe({
-        next: (data) => {
-          if (data.type === 'thinking' && data.content) {
-            // 处理thinking内容
-            if (state.streamingPhase !== 'thinking') {
-              state.startStreaming(messageId, 'thinking')
-            }
-            state.appendThinking(messageId, data.content)
-          } else if (data.type === 'answer' && data.content) {
-            // 处理answer内容
-            if (state.streamingPhase !== 'answer') {
-              state.startStreaming(messageId, 'answer')
-            }
-            state.appendContent(messageId, data.content)
-          } else if (data.type === 'complete') {
-            state.stopStreaming()
-            state.setSendingMessage(false)
-          }
-        },
-        error: (error) => {
-          // AbortError 是正常中断，不需要特殊处理
-          if (error.name === 'AbortError') {
-
-          } else {
-            console.error('Continue generation error:', error)
-            state.updateMessage(messageId, { hasError: true })
-          }
-          state.stopStreaming()
-          state.setSendingMessage(false)
-        },
-        complete: () => {
-          state.stopStreaming()
-          state.setSendingMessage(false)
-        },
-      })
-    } catch (error) {
-      // 忽略AbortError（用户主动中止）
-      if (error instanceof Error && error.name !== 'AbortError') {
-        console.error('Continue generation error:', error)
-        state.updateMessage(messageId, { hasError: true })
-      }
-      state.stopStreaming()
-      state.setSendingMessage(false)
-    }
   },
   
   // ============ Utility Actions ============

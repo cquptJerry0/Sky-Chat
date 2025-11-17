@@ -367,7 +367,6 @@ export async function POST(req: Request) {
         'X-Session-ID': sessionId,
         'X-Conversation-ID': conversation.id,
         'X-Conversation-Title': encodeURIComponent(updatedTitle),
-        'X-Can-Continue': 'true', // 后端会持续收集内容，支持续传
       },
     })
   } catch (error) {
