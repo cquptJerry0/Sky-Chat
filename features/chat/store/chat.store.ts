@@ -15,12 +15,8 @@
 import { create } from 'zustand'
 import type { Message, AbortReason } from '@/features/chat/types/chat'
 import { getDefaultModel, getModelById } from '@/features/chat/constants/models'
-import {
-  ConversationAPI,
-  type Conversation,
-} from '@/lib/services/conversation-api'
+import { ConversationAPI } from '@/lib/services/conversation-api'
 import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
-import { sortConversations } from '@/features/conversation/utils/sort-conversations'
 import { useConversationStore } from '@/features/conversation/store/conversation-store'
 
 /**
@@ -42,28 +38,15 @@ interface ChatState {
   /** 消息发送加载状态 */
   isSendingMessage: boolean
 
-  /** 会话切换加载状态 */
-  isSwitchingConversation: boolean
-
   /** 当前选中的模型 ID */
   selectedModel: string
 
   /** 是否启用思考模式（支持的模型） */
   enableThinking: boolean
-  
-  // ============ 会话管理 ============
-  /** 当前会话 ID */
+
+  /** 当前会话 ID（从 ConversationStore 同步） */
   currentConversationId: string | null
-  
-  /** 会话列表 */
-  conversations: Conversation[]
-  
-  /** 过滤后的会话列表（用于搜索） */
-  filteredConversations: Conversation[]
-  
-  /** 会话列表加载状态 */
-  conversationsLoading: boolean
-  
+
   // ============ 流式传输状态 ============
   /** 当前正在流式传输的消息 ID */
   streamingMessageId: string | null
@@ -137,50 +120,9 @@ interface ChatState {
   setSendingMessage: (loading: boolean) => void
 
   /**
-   * 设置会话切换加载状态
-   */
-  setSwitchingConversation: (loading: boolean) => void
-  
-  // ============ 会话管理操作 ============
-  /**
-   * 设置当前会话ID
+   * 设置当前会话ID（从 ConversationStore 同步）
    */
   setConversationId: (id: string | null) => void
-  
-  /**
-   * 加载会话列表
-   */
-  loadConversations: () => Promise<void>
-  
-  /**
-   * 设置过滤后的会话列表（用于搜索）
-   */
-  setFilteredConversations: (conversations: Conversation[]) => void
-  
-  /**
-   * 创建新会话并切换
-   */
-  createNewConversation: () => Promise<void>
-  
-  /**
-   * 切换到指定会话（加载消息）
-   */
-  switchConversation: (id: string) => Promise<void>
-  
-  /**
-   * 删除会话
-   */
-  deleteConversation: (id: string) => Promise<void>
-  
-  /**
-   * 更新会话标题
-   */
-  updateConversationTitle: (id: string, title: string) => Promise<void>
-
-  /**
-   * 置顶/取消置顶会话
-   */
-  toggleConversationPin: (id: string, isPinned: boolean) => Promise<void>
 
   /**
    * 清空当前消息列表
@@ -261,13 +203,9 @@ const getInitialModel = (): string => {
 const initialState = {
   messages: [],
   isSendingMessage: false,
-  isSwitchingConversation: false,
   selectedModel: getInitialModel(),
   enableThinking: false,
   currentConversationId: null,
-  conversations: [],
-  filteredConversations: [],
-  conversationsLoading: false,
   streamingMessageId: null,
   streamingPhase: null as StreamingPhase,
   abortReason: null as AbortReason | null,
@@ -348,161 +286,8 @@ export const useChatStore = create<ChatState>()((set) => ({
 
   setSendingMessage: (loading) => set({ isSendingMessage: loading }),
 
-  setSwitchingConversation: (loading) => set({ isSwitchingConversation: loading }),
-  
   // ============ Conversation Actions ============
   setConversationId: (id) => set({ currentConversationId: id }),
-  
-  loadConversations: async () => {
-    set({ conversationsLoading: true })
-    try {
-      const { conversations } = await ConversationAPI.list()
-      const sortedConversations = sortConversations(conversations)
-
-      set({
-        conversations: sortedConversations,
-        filteredConversations: sortedConversations,
-        conversationsLoading: false,
-      })
-    } catch (error) {
-      // 静默处理未登录错误（401），避免控制台报错
-      const errorMessage =
-        error instanceof Error ? error.message : String(error)
-      if (
-        !errorMessage.includes('Unauthorized') &&
-        !errorMessage.includes('401')
-      ) {
-        console.error('Failed to load conversations:', error)
-      }
-      set({
-        conversationsLoading: false,
-        conversations: [],
-        filteredConversations: [],
-      })
-    }
-  },
-  
-  setFilteredConversations: (conversations: Conversation[]) =>
-    set({ filteredConversations: conversations }),
-  
-  createNewConversation: async () => {
-    try {
-      const { conversation } = await ConversationAPI.create()
-      set((state) => ({
-        conversations: [conversation, ...state.conversations],
-        filteredConversations: [conversation, ...state.filteredConversations],
-        currentConversationId: conversation.id,
-        messages: [],
-      }))
-    } catch (error) {
-      console.error('Failed to create conversation:', error)
-    }
-  },
-  
-  switchConversation: async (id) => {
-    const startTime = Date.now()
-    const MIN_LOADING_TIME = 600
-
-    set({ isSwitchingConversation: true, currentConversationId: id })
-
-    try {
-      const { messages } = await ConversationAPI.getMessages(id)
-
-      const elapsed = Date.now() - startTime
-      const remaining = MIN_LOADING_TIME - elapsed
-
-      if (remaining > 0) {
-        await new Promise(resolve => setTimeout(resolve, remaining))
-      }
-
-      set({
-        messages: messages as Message[],
-        isSwitchingConversation: false,
-        hasOlderMessages: messages.length >= 50,
-        oldestMessageId: messages[0]?.id || null,
-        newestMessageId: messages[messages.length - 1]?.id || null,
-      })
-    } catch (error) {
-      console.error('Failed to switch conversation:', error)
-
-      const elapsed = Date.now() - startTime
-      const remaining = MIN_LOADING_TIME - elapsed
-      if (remaining > 0) {
-        await new Promise(resolve => setTimeout(resolve, remaining))
-      }
-
-      set({ isSwitchingConversation: false, messages: [] })
-      throw error
-    }
-  },
-  
-  deleteConversation: async (id) => {
-    try {
-      // 先调用 API 删除
-      const result = await ConversationAPI.delete(id)
-      
-      // 验证删除成功
-      if (!result.success) {
-        throw new Error('Delete operation failed')
-      }
-      
-      // 只有确认删除成功才更新本地状态
-      set((state) => ({
-        conversations: state.conversations.filter((c) => c.id !== id),
-        filteredConversations: state.filteredConversations.filter(
-          (c) => c.id !== id
-        ),
-        // 如果删除的是当前会话，清空
-        currentConversationId:
-          state.currentConversationId === id
-            ? null
-            : state.currentConversationId,
-        messages: state.currentConversationId === id ? [] : state.messages,
-      }))
-
-
-    } catch (error) {
-      console.error('Failed to delete conversation:', error)
-    }
-  },
-  
-  updateConversationTitle: async (id, title) => {
-    try {
-      await ConversationAPI.updateTitle(id, title)
-      set((state) => ({
-        conversations: state.conversations.map((c) =>
-          c.id === id ? { ...c, title } : c
-        ),
-        filteredConversations: state.filteredConversations.map((c) =>
-          c.id === id ? { ...c, title } : c
-        ),
-      }))
-    } catch (error) {
-      console.error('Failed to update conversation title:', error)
-    }
-  },
-
-  toggleConversationPin: async (id, isPinned) => {
-    try {
-      const { conversation } = await ConversationAPI.togglePin(id, isPinned)
-
-      // 更新本地状态并重新排序
-      set((state) => {
-        const updateConversation = (c: Conversation) =>
-          c.id === id ? { ...c, isPinned: conversation.isPinned, pinnedAt: conversation.pinnedAt } : c
-
-        const updatedConversations = state.conversations.map(updateConversation)
-        const updatedFiltered = state.filteredConversations.map(updateConversation)
-
-        return {
-          conversations: sortConversations(updatedConversations),
-          filteredConversations: sortConversations(updatedFiltered),
-        }
-      })
-    } catch (error) {
-      console.error('Failed to toggle conversation pin:', error)
-    }
-  },
   
   clearMessages: () => set({ messages: [], hasOlderMessages: true, oldestMessageId: null, newestMessageId: null }),
   
@@ -606,17 +391,6 @@ export const useChatStore = create<ChatState>()((set) => ({
 
         // 添加到 ConversationStore
         useConversationStore.getState().addConversation(conversation)
-
-        // 同步到 ChatStore（临时保留，后续会删除）
-        set((state) => {
-          const updatedConversations = [conversation, ...state.conversations]
-          const updatedFiltered = [conversation, ...state.filteredConversations]
-
-          return {
-            conversations: sortConversations(updatedConversations),
-            filteredConversations: sortConversations(updatedFiltered),
-          }
-        })
       }
 
       // 调用 API
