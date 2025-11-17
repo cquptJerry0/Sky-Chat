@@ -120,7 +120,8 @@ model Message {
   content        String       @db.Text
   thinking       String?      @db.Text
   toolCalls      Json?
+  attachments    Json?        // 文件附件列表 [{ name, type, size }]
   createdAt      DateTime     @default(now())
-  
+
   @@index([conversationId, createdAt])
 }

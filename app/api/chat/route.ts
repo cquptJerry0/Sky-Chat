@@ -38,6 +38,7 @@ export async function POST(req: Request) {
     tools,
     userMessageId,  // 前端传来的 user 消息 ID（如果为 undefined，说明是重试）
     aiMessageId,    // 前端传来的 AI 消息 ID
+    attachments,    // 文件附件列表
   } = await req.json()
 
   if (!content?.trim()) {
@@ -78,6 +79,7 @@ export async function POST(req: Request) {
             conversationId: conversation.id,
             role: 'user',
             content,
+            attachments: attachments || undefined, // 存储文件附件
             createdAt: userMessageTime,
           },
         }),
