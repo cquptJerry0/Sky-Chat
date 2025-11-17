@@ -36,6 +36,10 @@ export async function POST(req: Request) {
     enableThinking = false,
     thinkingBudget = 4096,
     tools,
+    isRetry = false,
+    isEdit = false,
+    userMessageId,  // 前端传来的 user 消息 ID
+    aiMessageId,    // 前端传来的 AI 消息 ID
   } = await req.json()
 
   if (!message?.trim()) {
@@ -58,34 +62,71 @@ export async function POST(req: Request) {
       conversation = await ConversationRepository.create(userId)
     }
 
-    // 使用更安全的ID生成方式：时间戳 + 随机数
-    const messageId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+    // 使用前端传来的 AI 消息 ID，如果没有则生成
+    const messageId = aiMessageId || `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
 
     // 创建时间戳，确保 assistant 消息在 user 消息之后
     const now = new Date()
     const userMessageTime = now
     const assistantMessageTime = new Date(now.getTime() + 1) // 加 1 毫秒
 
-    // 使用事务创建用户消息和AI消息（确保原子性和顺序）
-    await prisma.$transaction([
-      prisma.message.create({
-        data: {
-          conversationId: conversation.id,
-          role: 'user',
-          content: message,
-          createdAt: userMessageTime,
-        },
-      }),
-      prisma.message.create({
+    // 根据操作类型决定是否创建用户消息
+    if (isRetry) {
+      // 重试：只创建 AI 消息（user 消息已存在）
+      await prisma.message.create({
         data: {
           id: messageId,
           conversationId: conversation.id,
           role: 'assistant',
           content: '',
-          createdAt: assistantMessageTime, // 确保在 user 消息之后
+          createdAt: assistantMessageTime,
         },
-      }),
-    ])
+      })
+    } else if (isEdit) {
+      // 编辑重发：创建新的 user 消息和 AI 消息（使用前端传来的 ID）
+      await prisma.$transaction([
+        prisma.message.create({
+          data: {
+            id: userMessageId,  // 使用前端传来的 ID
+            conversationId: conversation.id,
+            role: 'user',
+            content: message,
+            createdAt: userMessageTime,
+          },
+        }),
+        prisma.message.create({
+          data: {
+            id: messageId,
+            conversationId: conversation.id,
+            role: 'assistant',
+            content: '',
+            createdAt: assistantMessageTime,
+          },
+        }),
+      ])
+    } else {
+      // 正常发送：创建 user 消息和 AI 消息（使用前端传来的 ID）
+      await prisma.$transaction([
+        prisma.message.create({
+          data: {
+            id: userMessageId,  // 使用前端传来的 ID
+            conversationId: conversation.id,
+            role: 'user',
+            content: message,
+            createdAt: userMessageTime,
+          },
+        }),
+        prisma.message.create({
+          data: {
+            id: messageId,
+            conversationId: conversation.id,
+            role: 'assistant',
+            content: '',
+            createdAt: assistantMessageTime, // 确保在 user 消息之后
+          },
+        }),
+      ])
+    }
     
     // 自动生成会话标题（如果是第一条消息且标题为"新对话"）
     const messageCount = await prisma.message.count({
