@@ -427,8 +427,8 @@ export const useChatStore = create<ChatState>()((set) => ({
       // 使用 SSEParser 处理流
       const { SSEParser } = await import('@/lib/services/sse-parser')
 
-      SSEParser.parseStream(reader).subscribe({
-        next: (data) => {
+      await SSEParser.parseStream(reader, {
+        onData: (data) => {
           if (data.type === 'thinking' && data.content) {
             if (state.streamingPhase !== 'thinking') {
               state.startStreaming(aiMessageId, 'thinking')
@@ -449,13 +449,13 @@ export const useChatStore = create<ChatState>()((set) => ({
             set({ isSendingMessage: false })
           }
         },
-        error: (error) => {
+        onError: (error) => {
           console.error('SSE stream error:', error)
           state.updateMessage(aiMessageId, { hasError: true, displayState: 'error' })
           state.stopStreaming()
           set({ isSendingMessage: false })
         },
-        complete: () => {
+        onComplete: () => {
           state.stopStreaming()
           state.updateMessage(aiMessageId, { displayState: 'idle' })
           set({ isSendingMessage: false })

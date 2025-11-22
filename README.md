@@ -39,7 +39,7 @@ AI 聊天应用，支持多模型对话、语音交互、文件上传。
 
 ### 环境要求
 
-- Node.js 18+
+- Node.js v22.20.0
 - PostgreSQL
 - pnpm
 
@@ -142,16 +142,6 @@ server/                # 服务端代码
 prisma/                # Prisma 配置
 └── schema.prisma     # 数据库模型
 ```
-
-## 编码规范
-
-参考 `.augment/rules/imported/common.md`：
-
-- 不提前封装（2-3 次重复后再抽象）
-- 最小化日志（只记录关键错误）
-- 代码中不使用 emoji
-- 注释解释"为什么"而非"做什么"
-- 组件命名：自定义组件用 PascalCase 文件夹，UI 库用 kebab-case
 
 ## License
 

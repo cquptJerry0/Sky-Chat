@@ -3,7 +3,6 @@ import { getCurrentUserId } from '@/server/auth/utils'
 import { ConversationRepository } from '@/server/repositories/conversation.repository'
 import { MessageRepository } from '@/server/repositories/message.repository'
 import { UserRepository } from '@/server/repositories/user.repository'
-import { streamManager } from '@/server/services/stream-manager'
 import { prisma } from '@/server/db/client'
 
 export async function POST(req: Request) {
@@ -205,23 +204,6 @@ export async function POST(req: Request) {
     const decoder = new TextDecoder()
     const encoder = new TextEncoder()
 
-    // 创建StreamManager任务
-    streamManager.createTask(messageId, userId, conversation.id)
-    
-    // 前端是否已断开
-    let frontendDisconnected = false
-    
-    // 超时定时器 - 30秒无数据则清理
-    let lastDataTime = Date.now()
-    const timeoutDuration = 30000 // 30秒
-    const timeoutInterval = setInterval(() => {
-      if (Date.now() - lastDataTime > timeoutDuration) {
-        clearInterval(timeoutInterval)
-        reader.cancel().catch(() => {})
-        streamManager.errorTask(messageId)
-      }
-    }, 5000) // 每5秒检查一次
-
     // 实时转发流
     const stream = new ReadableStream({
       async start(controller) {
@@ -232,40 +214,29 @@ export async function POST(req: Request) {
           let toolCallsData = null
 
           while (true) {
-            lastDataTime = Date.now() // 更新最后数据时间
             const { done, value } = await reader.read()
             if (done) {
-              // 清理超时定时器
-              clearInterval(timeoutInterval)
-              
-              // 更新fullContent到StreamManager
-              streamManager.updateFullContent(messageId, thinkingContent, answerContent)
-              streamManager.completeTask(messageId)
-              
-              // 更新数据库中的消息（而非创建新消息）
+              // 更新数据库中的消息
               try {
                 await MessageRepository.update(messageId, {
                   content: answerContent,
                   thinking: thinkingContent || undefined,
                   toolCalls: toolCallsData || undefined,
                 })
-                
+
                 await ConversationRepository.touch(conversation.id, userId)
               } catch (error) {
                 console.error('[Chat API] Failed to update message on completion:', error)
-                // 不抛出错误，因为流已经发送给前端
               }
 
-              // 如果前端还在连接，发送完成信号
-              if (!frontendDisconnected) {
-                const completeData = JSON.stringify({
-                  type: 'complete',
-                  sessionId,
-                })
-                controller.enqueue(encoder.encode(`data: ${completeData}\n\n`))
-                controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-                controller.close()
-              }
+              // 发送完成信号
+              const completeData = JSON.stringify({
+                type: 'complete',
+                sessionId,
+              })
+              controller.enqueue(encoder.encode(`data: ${completeData}\n\n`))
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+              controller.close()
               break
             }
 
@@ -290,50 +261,36 @@ export async function POST(req: Request) {
                   // 处理 reasoning_content (thinking)
                   if (delta?.reasoning_content) {
                     thinkingContent += delta.reasoning_content
-                    
-                    // 更新fullContent到StreamManager
-                    streamManager.updateFullContent(messageId, thinkingContent, answerContent)
 
-                    // 只有前端还在连接时才发送
-                    if (!frontendDisconnected) {
-                      const thinkingData = JSON.stringify({
-                        type: 'thinking',
-                        content: delta.reasoning_content,
-                        sessionId,
-                      })
-                      controller.enqueue(encoder.encode(`data: ${thinkingData}\n\n`))
-                    }
+                    const thinkingData = JSON.stringify({
+                      type: 'thinking',
+                      content: delta.reasoning_content,
+                      sessionId,
+                    })
+                    controller.enqueue(encoder.encode(`data: ${thinkingData}\n\n`))
                   }
 
                   // 处理 content (answer)
                   if (delta?.content) {
                     answerContent += delta.content
-                    
-                    // 更新fullContent到StreamManager
-                    streamManager.updateFullContent(messageId, thinkingContent, answerContent)
 
-                    // 只有前端还在连接时才发送
-                    if (!frontendDisconnected) {
-                      const answerData = JSON.stringify({
-                        type: 'answer',
-                        content: delta.content,
-                        sessionId,
-                      })
-                      controller.enqueue(encoder.encode(`data: ${answerData}\n\n`))
-                    }
+                    const answerData = JSON.stringify({
+                      type: 'answer',
+                      content: delta.content,
+                      sessionId,
+                    })
+                    controller.enqueue(encoder.encode(`data: ${answerData}\n\n`))
                   }
 
                   // 处理 tool_calls
                   if (delta?.tool_calls) {
                     toolCallsData = delta.tool_calls
-                    if (!frontendDisconnected) {
-                      const toolData = JSON.stringify({
-                        type: 'tool_calls',
-                        tool_calls: delta.tool_calls,
-                        sessionId,
-                      })
-                      controller.enqueue(encoder.encode(`data: ${toolData}\n\n`))
-                    }
+                    const toolData = JSON.stringify({
+                      type: 'tool_calls',
+                      tool_calls: delta.tool_calls,
+                      sessionId,
+                    })
+                    controller.enqueue(encoder.encode(`data: ${toolData}\n\n`))
                   }
                 } catch {
                   // 忽略解析错误
@@ -342,31 +299,8 @@ export async function POST(req: Request) {
             }
           }
         } catch (error) {
-          clearInterval(timeoutInterval)
-          streamManager.errorTask(messageId)
-          if (!frontendDisconnected) {
-            controller.error(error)
-          }
+          controller.error(error)
         }
-      },
-      cancel() {
-        // 清理超时定时器
-        clearInterval(timeoutInterval)
-
-        // 前端断开连接，继续收集后端内容
-        frontendDisconnected = true
-
-        // 立即保存当前进度到数据库（防止服务器重启丢失）
-        const task = streamManager.getTask(messageId)
-        if (task && (task.fullContent || task.fullThinking)) {
-          MessageRepository.update(messageId, {
-            content: task.fullContent,
-            thinking: task.fullThinking || undefined,
-          }).catch((error) => {
-            console.error('[Chat API] Failed to save progress on disconnect:', error)
-          })
-        }
-        // 不要取消硅基流动的reader，让它继续收集
       },
     })
 

@@ -34,6 +34,7 @@ interface ChatInputUIProps {
   // 方法
   onSubmit: (e: React.FormEvent) => void
   onStop: () => void
+  onModelChange: (model: string) => void
   onThinkingToggle: (enabled: boolean) => void
   onStartRecording: () => void
   onStopRecording: () => void
@@ -58,6 +59,7 @@ export function ChatInputUI({
   uploadedFiles,
   onSubmit,
   onStop,
+  onModelChange,
   onThinkingToggle,
   onStartRecording,
   onStopRecording,

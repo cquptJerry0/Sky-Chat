@@ -1,3 +1,6 @@
+# Sky Chat 开发环境 .dockerignore
+# 用于开发环境 Docker 构建（如果需要）
+
 # Dependencies
 node_modules
 npm-debug.log*
@@ -10,9 +13,6 @@ pnpm-debug.log*
 out
 dist
 
-# Production
-build
-
 # Misc
 .DS_Store
 *.pem
@@ -21,15 +21,7 @@ build
 *.log
 
 # Local env files
-.env
-.env.local
-.env.development
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Vercel
-.vercel
+.env*
 
 # TypeScript
 *.tsbuildinfo
@@ -49,7 +41,6 @@ next-env.d.ts
 # Documentation
 README.md
 docs
-*.md
 
 # Tests
 __tests__
@@ -58,17 +49,10 @@ __tests__
 *.spec.ts
 *.spec.tsx
 
-# Scripts (除了必要的)
-scripts
-
 # Docker
 Dockerfile
 docker-compose.yml
 .dockerignore
-
-# CI/CD
-.github
-.gitlab-ci.yml
 
 # Cursor/Windsurf
 .cursor

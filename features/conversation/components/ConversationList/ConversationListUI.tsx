@@ -24,6 +24,7 @@ import {
 interface ConversationListUIProps {
   conversations: Conversation[]
   currentConversationId: string | null
+  loading: boolean
   onDelete: (id: string) => void
   onRename: (id: string, newTitle: string) => void
   onTogglePin: (id: string, isPinned: boolean) => void
@@ -32,6 +33,7 @@ interface ConversationListUIProps {
 export function ConversationListUI({
   conversations,
   currentConversationId,
+  loading,
   onDelete,
   onRename,
   onTogglePin,
