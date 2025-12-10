@@ -7,6 +7,7 @@ import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/server/db/client'
 import { SharePageContent } from '@/features/share/components/SharePageContent'
+import { renderMarkdownToHtml } from '@/lib/utils/markdown-server'
 
 /**
  * 生成页面元数据（SEO优化）
@@ -77,7 +78,29 @@ export default async function SharePageSSR({
   // 记录访问（异步，不阻塞渲染）- 暂时注释，等数据库迁移后启用
   // recordView(conversation.id).catch(console.error)
   
-  // 格式化数据
+  // 格式化数据并预渲染 Markdown
+  // 注意：这是服务端操作，大幅减少了客户端 Bundle 体积
+  const messages = await Promise.all(conversation.messages.map(async (msg: {
+    id: string
+    role: string
+    content: string
+    thinking: string | null
+    createdAt: Date
+  }) => {
+    const [contentHtml, thinkingHtml] = await Promise.all([
+      renderMarkdownToHtml(msg.content),
+      msg.thinking ? renderMarkdownToHtml(msg.thinking) : Promise.resolve('')
+    ])
+
+    return {
+      id: msg.id,
+      role: msg.role,
+      content: contentHtml, // 发送 HTML 而不是 Markdown
+      thinking: thinkingHtml || null, // 发送 HTML 而不是 Markdown
+      createdAt: msg.createdAt.toISOString()
+    }
+  }))
+
   const formattedConversation = {
     id: conversation.id,
     title: conversation.title,
@@ -85,19 +108,7 @@ export default async function SharePageSSR({
     createdAt: conversation.createdAt.toISOString(),
     sharedAt: conversation.sharedAt?.toISOString() || conversation.createdAt.toISOString(),
     // viewCount: conversation.viewCount || 0, // 等数据库迁移后启用
-    messages: conversation.messages.map((msg: {
-      id: string
-      role: string
-      content: string
-      thinking: string | null
-      createdAt: Date
-    }) => ({
-      id: msg.id,
-      role: msg.role,
-      content: msg.content,
-      thinking: msg.thinking,
-      createdAt: msg.createdAt.toISOString()
-    }))
+    messages
   }
   
   return <SharePageContent conversation={formattedConversation} />
@@ -156,42 +167,3 @@ async function getSharedConversation(token: string) {
 //     console.error('Failed to record view:', error)
 //   }
 // }
-
-/**
- * 静态参数生成（可选，用于预渲染常访问的分享）
- */
-export async function generateStaticParams() {
-  // 获取最近7天内的分享
-  const sevenDaysAgo = new Date()
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-  
-  try {
-    const shares = await prisma.conversation.findMany({
-      where: {
-        isShared: true,
-        sharedAt: {
-          gte: sevenDaysAgo
-        }
-        // viewCount: {
-        //   gte: 10 // 访问量大于10的
-        // }
-      },
-      select: {
-        shareToken: true
-      },
-      // orderBy: {
-      //   viewCount: 'desc'
-      // },
-      take: 20 // 预渲染前20个分享
-    })
-    
-    return shares
-      .filter((share: { shareToken: string | null }) => share.shareToken)
-      .map((share: { shareToken: string | null }) => ({
-        token: share.shareToken!
-      }))
-  } catch (error) {
-    console.error('Failed to generate static params:', error)
-    return []
-  }
-}

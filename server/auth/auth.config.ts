@@ -1,20 +1,17 @@
 /**
- * NextAuth.js Configuration
+ * NextAuth.js Configuration (Edge Compatible)
  *
- * OAuth2认证配置：
- * - Google OAuth
- * - GitHub OAuth
- * - Credentials (邮箱/密码备选)
+ * 此文件仅包含纯 JS 配置，不依赖 Node.js API 或 Prisma。
+ * 用于 Middleware 和其他 Edge Runtime 环境。
  *
- * @see https://authjs.dev/getting-started/installation
+ * 注意：Credentials Provider 的 authorize 逻辑因依赖 bcrypt 和 prisma，
+ * 已移动到 server/auth/auth.ts 中。
  */
 
 import type { NextAuthConfig } from 'next-auth'
 import Google from 'next-auth/providers/google'
 import GitHub from 'next-auth/providers/github'
 import Credentials from 'next-auth/providers/credentials'
-import bcrypt from 'bcryptjs'
-import { prisma } from '@/server/db/client'
 
 export const authConfig = {
   trustHost: true, // 修复 NextAuth 5.0 beta 与 Next.js 16 的兼容性问题
@@ -44,41 +41,17 @@ export const authConfig = {
       },
     }),
     
-    // 邮箱密码登录（备选）
+    // 邮箱密码登录（仅配置骨架，逻辑在 auth.ts 中合并）
     Credentials({
       name: 'credentials',
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+      // 这里是一个空的 authorize 函数，实际逻辑会在 auth.ts 中被覆盖
+      // Middleware 不需要执行 authorize，所以这是安全的
+      async authorize() {
           return null
-        }
-
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        })
-
-        if (!user || !user.password) {
-          return null
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        )
-
-        if (!isPasswordValid) {
-          return null
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-        }
       },
     }),
   ],
@@ -87,74 +60,18 @@ export const authConfig = {
     signIn: '/',
   },
   
+  // Middleware 需要的回调，这里不涉及数据库操作
   callbacks: {
-    async signIn({ user, account }) {
-      if (!user.email) {
-        return true
+    authorized({ auth, request: { nextUrl } }) {
+      const isLoggedIn = !!auth?.user
+      const isOnChat = nextUrl.pathname.startsWith('/chat')
+      
+      // 这里只做简单的路由保护逻辑，更复杂的逻辑在 middleware.ts 中处理
+      if (isOnChat) {
+        if (isLoggedIn) return true
+        return false // Redirect unauthenticated users to login page
       }
-
-      const existingUser = await prisma.user.findUnique({
-        where: { email: user.email },
-        include: { accounts: true },
-      })
-
-      if (!existingUser) {
-        return true
-      }
-
-      const accountAlreadyLinked = existingUser.accounts.some(
-        (acc: { provider: string }) => acc.provider === account?.provider
-      )
-
-      if (accountAlreadyLinked) {
-        return true
-      }
-
-      if (account?.provider === 'credentials') {
-        user.id = existingUser.id
-        return true
-      }
-
-      const canAutoLink =
-        existingUser.emailVerified ||
-        account?.provider === 'google' ||
-        account?.provider === 'github'
-
-      if (canAutoLink && account) {
-        try {
-          await prisma.account.create({
-            data: {
-              userId: existingUser.id,
-              type: account.type,
-              provider: account.provider,
-              providerAccountId: account.providerAccountId,
-              access_token: account.access_token,
-              refresh_token: account.refresh_token,
-              expires_at: account.expires_at,
-              token_type: account.token_type,
-              scope: account.scope,
-              id_token: account.id_token,
-              session_state: account.session_state as string | null,
-            },
-          })
-
-          user.id = existingUser.id
-
-          if (!existingUser.emailVerified) {
-            await prisma.user.update({
-              where: { id: existingUser.id },
-              data: { emailVerified: new Date() },
-            })
-          }
-
           return true
-        } catch (error) {
-          console.error('[Auth] Failed to link account:', error)
-          return false
-        }
-      }
-
-      return false
     },
     
     async session({ session, token }) {
@@ -176,67 +93,5 @@ export const authConfig = {
     strategy: 'jwt',
     maxAge: 7 * 24 * 60 * 60,
   },
-
-  // 修复 NextAuth 5.0 beta 与 Next.js 16 的 cookie 解析问题
-  cookies: {
-    sessionToken: {
-      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}authjs.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
-    callbackUrl: {
-      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}authjs.callback-url`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
-    csrfToken: {
-      name: `${process.env.NODE_ENV === 'production' ? '__Host-' : ''}authjs.csrf-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
-    state: {
-      name: 'authjs.state',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 900,
-      },
-    },
-    pkceCodeVerifier: {
-      name: 'authjs.pkce.code_verifier',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 900,
-      },
-    },
-    nonce: {
-      name: 'authjs.nonce',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-      },
-    },
-  },
-
   debug: process.env.NODE_ENV === 'development',
 } satisfies NextAuthConfig
-

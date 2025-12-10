@@ -34,9 +34,9 @@ export async function POST(req: Request) {
       },
     })
 
-    // 检查权限
+    // 检查权限 - 添加类型注解
     const unauthorizedMessages = messages.filter(
-      (msg) => msg.conversation.userId !== userId
+      (msg: { conversation: { userId: string } }) => msg.conversation.userId !== userId
     )
 
     if (unauthorizedMessages.length > 0) {
@@ -65,4 +65,3 @@ export async function POST(req: Request) {
     )
   }
 }
-
