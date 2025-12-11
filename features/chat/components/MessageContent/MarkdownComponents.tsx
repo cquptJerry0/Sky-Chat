@@ -1,11 +1,29 @@
+import { Suspense } from 'react'
 import { CodeBlock } from './CodeBlock'
+import { isMediaBlock, mediaRegistry } from './blocks/registry'
 import type { Components } from 'react-markdown'
 
 export const markdownComponents: Components = {
-  code: ({ className, children, ...props }) => {
+  code: ({ className, children }) => {
+    // 提取语言标识
+    const match = /language-(\w+)/.exec(className || '')
+    const language = match?.[1] || ''
+    const content = String(children).replace(/\n$/, '')
+
+    // 检查是否是媒体块
+    if (language && isMediaBlock(language)) {
+      const MediaComponent = mediaRegistry[language]
+      return (
+        <Suspense fallback={<div className="my-4 h-32 animate-pulse rounded-lg bg-muted" />}>
+          <MediaComponent data={content} />
+        </Suspense>
+      )
+    }
+
+    // 普通代码块
     const isInline = !className
     return (
-      <CodeBlock inline={isInline} className={className} {...props}>
+      <CodeBlock inline={isInline} className={className}>
         {children}
       </CodeBlock>
     )

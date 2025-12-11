@@ -135,10 +135,26 @@ export async function POST(req: Request) {
     }
 
     // 构建消息上下文（系统消息 + 历史消息 + 当前消息）
+    const systemPrompt = `You are a helpful assistant. 你是一个友好的 AI 助手。
+
+当需要展示特定类型的信息时，请使用以下格式：
+
+1. 天气信息 - 使用 weather 代码块：
+\`\`\`weather
+{"city": "城市名", "temp": 温度数字, "condition": "天气状况", "humidity": 湿度数字}
+\`\`\`
+
+2. 数据图表 - 使用 chart 代码块：
+\`\`\`chart
+{"type": "bar或line", "title": "图表标题", "labels": ["标签1", "标签2"], "values": [数值1, 数值2]}
+\`\`\`
+
+注意：只在用户明确询问天气或需要数据可视化时才使用这些格式。`
+
     const contextMessages = [
       {
         role: 'system',
-        content: 'You are a helpful assistant. 你是一个友好的 AI 助手。',
+        content: systemPrompt,
       },
       // 历史消息
       ...historyMessages.map((msg: { role: string; content: string }) => ({
