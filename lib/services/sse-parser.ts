@@ -1,4 +1,5 @@
 import type { SSEData } from '@/features/chat/types/chat'
+import { parseSSELine, splitSSEBuffer } from '@/lib/utils/sse'
 
 /**
  * SSE 消息解析器
@@ -20,10 +21,13 @@ export class SSEParser {
    * 解析单行 SSE 数据
    */
   static parseLine(line: string): SSEData | null {
-    if (!line.startsWith('data: ')) return null
+    // 特殊处理 [DONE]
+    if (line.startsWith('data: ') && line.slice(6).trim() === '[DONE]') {
+      return { type: 'complete' }
+    }
 
-    const data = line.slice(6).trim()
-    if (data === '[DONE]') return { type: 'complete' }
+    const data = parseSSELine(line)
+    if (!data) return null
 
     try {
       return JSON.parse(data) as SSEData
@@ -41,7 +45,7 @@ export class SSEParser {
     callbacks: SSECallbacks
   ): Promise<void> {
     const decoder = new TextDecoder()
-    let buffer = '' // 用于存储跨 chunk 的不完整数据
+    let buffer = ''
 
     try {
       while (true) {
@@ -50,12 +54,10 @@ export class SSEParser {
         if (done) {
           // 处理剩余的 buffer
           if (buffer.trim()) {
-            const lines = buffer.split('\n')
+            const { lines } = splitSSEBuffer(buffer + '\n')
             for (const line of lines) {
-              if (line.trim().startsWith('data: ')) {
-                const parsed = SSEParser.parseLine(line)
-                if (parsed) callbacks.onData(parsed)
-              }
+              const parsed = SSEParser.parseLine(line)
+              if (parsed) callbacks.onData(parsed)
             }
           }
           callbacks.onComplete?.()
@@ -66,14 +68,12 @@ export class SSEParser {
         buffer += chunk
 
         // 按行分割，但保留最后一行（可能不完整）
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || '' // 保留最后一行到 buffer
+        const { lines, remaining } = splitSSEBuffer(buffer)
+        buffer = remaining
 
         for (const line of lines) {
-          if (line.trim().startsWith('data: ')) {
-            const parsed = SSEParser.parseLine(line)
-            if (parsed) callbacks.onData(parsed)
-          }
+          const parsed = SSEParser.parseLine(line)
+          if (parsed) callbacks.onData(parsed)
         }
       }
     } catch (error) {

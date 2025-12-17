@@ -6,6 +6,7 @@
 
 import { MessageRepository } from '@/server/repositories/message.repository'
 import { ConversationRepository } from '@/server/repositories/conversation.repository'
+import { parseSSELine, splitSSEBuffer } from '@/lib/utils/sse'
 
 export interface StreamContext {
   messageId: string
@@ -61,14 +62,12 @@ export function createSSEStream(
           buffer += chunk
 
           // 按行分割，但保留最后一行（可能不完整）
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
+          const { lines, remaining } = splitSSEBuffer(buffer)
+          buffer = remaining
 
           for (const line of lines) {
-            if (!line.startsWith('data: ')) continue
-            
-            const data = line.slice(6).trim()
-            if (data === '[DONE]') continue
+            const data = parseSSELine(line)
+            if (!data) continue
 
             try {
               const parsed = JSON.parse(data)
