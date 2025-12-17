@@ -10,7 +10,7 @@
  */
 
 import * as React from 'react'
-import { useConversationStore } from '@/features/conversation'
+import { useChatStore } from '@/features/chat/store/chat.store'
 import { Loader2 } from 'lucide-react'
 
 interface MainLayoutProps {
@@ -28,7 +28,7 @@ interface MainLayoutProps {
  * 用于所有聊天相关页面的统一布局
  */
 export function MainLayout({ sidebar, header, children }: MainLayoutProps) {
-  const isSwitchingConversation = useConversationStore((s) => s.isSwitchingConversation)
+  const isLoadingMessages = useChatStore((s) => s.isLoadingMessages)
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -44,9 +44,9 @@ export function MainLayout({ sidebar, header, children }: MainLayoutProps) {
         <div className="flex flex-1 flex-col overflow-hidden relative">
           {children}
 
-          {/* 切换会话时的 loading 遮罩（只覆盖消息列表和输入框） */}
+          {/* 加载消息时的 loading 遮罩（只覆盖消息列表和输入框） */}
           {/* 放在 children 后面确保遮罩在最上层 */}
-          {isSwitchingConversation && (
+          {isLoadingMessages && (
             <div className="absolute inset-0 flex items-center justify-center bg-[hsl(var(--background))] z-50 backdrop-blur-sm">
               <div className="flex items-center gap-3 text-[hsl(var(--text-secondary))]">
                 <Loader2 className="h-6 w-6 animate-spin" />

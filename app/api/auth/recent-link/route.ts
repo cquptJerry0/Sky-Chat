@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/server/auth'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/server/auth/auth'
 import { prisma } from '@/server/db/client'
 
 export async function GET() {
   try {
-    const session = await auth()
+    const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
       return NextResponse.json({ recentLink: null })

@@ -1,25 +1,40 @@
 /**
- * NextAuth.js Core (Node.js Environment)
+ * NextAuth.js v4 配置
  * 
- * 导出 NextAuth 实例。
- * 这里合并了 Edge 兼容的配置 (auth.config.ts) 和需要 Node.js 环境的逻辑 (Prisma, bcrypt)。
+ * 统一的认证配置文件，包含所有 providers 和 callbacks
  */
 
+import type { NextAuthOptions } from 'next-auth'
 import NextAuth from 'next-auth'
-import { PrismaAdapter } from '@auth/prisma-adapter'
-import Credentials from 'next-auth/providers/credentials'
+import { PrismaAdapter } from '@next-auth/prisma-adapter'
+import GoogleProvider from 'next-auth/providers/google'
+import GitHubProvider from 'next-auth/providers/github'
+import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/server/db/client'
-import { authConfig } from './auth.config'
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  ...authConfig,
+  
   providers: [
-    ...authConfig.providers.filter((p) => p.id !== 'credentials'), // 移除配置中的空 Credentials
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: 'consent',
+          access_type: 'offline',
+          response_type: 'code',
+        },
+      },
+    }),
     
-    // 重新添加带有完整逻辑的 Credentials Provider
-    Credentials({
+    GitHubProvider({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    }),
+    
+    CredentialsProvider({
       name: 'credentials',
       credentials: {
         email: { label: 'Email', type: 'email' },
@@ -31,7 +46,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+          where: { email: credentials.email },
         })
 
         if (!user || !user.password) {
@@ -39,7 +54,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const isPasswordValid = await bcrypt.compare(
-          credentials.password as string,
+          credentials.password,
           user.password
         )
 
@@ -56,36 +71,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
+  
+  pages: {
+    signIn: '/',
+    error: '/auth/error',
+  },
+  
+  session: {
+    strategy: 'jwt',
+    maxAge: 7 * 24 * 60 * 60, // 7 days
+  },
+  
   callbacks: {
-    ...authConfig.callbacks,
-    // 这里的 signIn 回调包含数据库操作，必须放在 auth.ts 中
     async signIn({ user, account }) {
-      if (!user.email) {
-        return true
-      }
+      if (!user.email) return true
 
       const existingUser = await prisma.user.findUnique({
         where: { email: user.email },
         include: { accounts: true },
       })
 
-      if (!existingUser) {
-        return true
-      }
+      if (!existingUser) return true
 
+      // 检查账号是否已关联
       const accountAlreadyLinked = existingUser.accounts.some(
-        (acc: { provider: string }) => acc.provider === account?.provider
+        (acc) => acc.provider === account?.provider
       )
+      if (accountAlreadyLinked) return true
 
-      if (accountAlreadyLinked) {
-        return true
-      }
-
+      // Credentials 登录
       if (account?.provider === 'credentials') {
         user.id = existingUser.id
         return true
       }
 
+      // OAuth 自动关联
       const canAutoLink =
         existingUser.emailVerified ||
         account?.provider === 'google' ||
@@ -105,7 +125,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               token_type: account.token_type,
               scope: account.scope,
               id_token: account.id_token,
-              session_state: account.session_state as string | null,
+              session_state: account.session_state,
             },
           })
 
@@ -127,5 +147,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       return false
     },
-  }
-})
+    
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id
+      }
+      return token
+    },
+    
+    async session({ session, token }) {
+      if (token.sub && session.user) {
+        session.user.id = token.sub
+      }
+      return session
+    },
+  },
+  
+  debug: process.env.NODE_ENV === 'development',
+}
+
+export default NextAuth(authOptions)

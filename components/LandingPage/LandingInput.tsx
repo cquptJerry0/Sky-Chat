@@ -12,6 +12,7 @@
  */
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoginDialog } from '@/features/auth/components/LoginDialog'
@@ -23,6 +24,7 @@ import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
  * 处理所有交互逻辑，保持简洁风格
  */
 export function LandingInput() {
+  const router = useRouter()
   const [message, setMessage] = React.useState('')
   const [showLogin, setShowLogin] = React.useState(false)
 
@@ -81,7 +83,15 @@ export function LandingInput() {
       </p>
 
       {/* 登录对话框 */}
-      <LoginDialog open={showLogin} onOpenChange={setShowLogin} />
+      <LoginDialog 
+        open={showLogin} 
+        onOpenChange={setShowLogin}
+        onSuccess={() => {
+          // 登录成功后跳转到 /chat，pending message 会在那里被读取并发送
+          setShowLogin(false)
+          router.push('/chat')
+        }}
+      />
     </>
   )
 }

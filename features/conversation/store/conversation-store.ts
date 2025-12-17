@@ -1,7 +1,8 @@
 /**
- * Conversation Store - 会话管理
+ * Conversation Store - 会话列表管理
  *
- * 负责会话列表、切换、创建、删除等操作
+ * 只负责会话列表的 CRUD 操作
+ * currentConversationId 由 URL 驱动，不在此 store 中维护
  */
 
 import { create } from 'zustand'
@@ -12,9 +13,6 @@ import {
 import { sortConversations } from '@/features/conversation/utils/sort-conversations'
 
 export interface ConversationState {
-  // 当前会话
-  currentConversationId: string | null
-
   // 会话列表
   conversations: Conversation[]
   filteredConversations: Conversation[]
@@ -23,39 +21,27 @@ export interface ConversationState {
   // 搜索
   searchQuery: string
 
-  // 切换状态
-  isSwitchingConversation: boolean
-
   // Actions
-  setConversationId: (id: string | null) => void
   loadConversations: () => Promise<void>
   setFilteredConversations: (conversations: Conversation[]) => void
   setSearchQuery: (query: string) => void
   addConversation: (conversation: Conversation) => void
-  createNewConversation: () => Promise<void>
-  switchConversation: (id: string) => Promise<void>
+  createConversation: () => Promise<string>
   deleteConversation: (id: string) => Promise<void>
   updateConversationTitle: (id: string, title: string) => Promise<void>
   toggleConversationPin: (id: string, isPinned: boolean) => Promise<void>
-  setSwitchingConversation: (loading: boolean) => void
   reset: () => void
 }
 
 const initialState = {
-  currentConversationId: null,
   conversations: [],
   filteredConversations: [],
   conversationsLoading: false,
   searchQuery: '',
-  isSwitchingConversation: false,
 }
 
 export const useConversationStore = create<ConversationState>((set, get) => ({
   ...initialState,
-
-  setConversationId: (id) => {
-    set({ currentConversationId: id })
-  },
 
   loadConversations: async () => {
     set({ conversationsLoading: true })
@@ -104,26 +90,34 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     })
   },
 
-  createNewConversation: async () => {
-    set({ currentConversationId: null })
-  },
-
-  switchConversation: async (id) => {
-    set({ isSwitchingConversation: true, currentConversationId: id })
-    set({ isSwitchingConversation: false })
+  /**
+   * 创建新会话并返回会话 ID
+   */
+  createConversation: async () => {
+    const { conversation } = await ConversationAPI.create()
+    
+    // 添加到会话列表
+    set((state) => {
+      const updated = [conversation, ...state.conversations]
+      const sorted = sortConversations(updated)
+      return {
+        conversations: sorted,
+        filteredConversations: sorted,
+      }
+    })
+    
+    return conversation.id
   },
 
   deleteConversation: async (id) => {
     try {
       await ConversationAPI.delete(id)
-      const { conversations, currentConversationId } = get()
+      const { conversations } = get()
       const updated = conversations.filter((c) => c.id !== id)
       
       set({
         conversations: updated,
         filteredConversations: updated,
-        currentConversationId:
-          currentConversationId === id ? null : currentConversationId,
       })
     } catch (error) {
       console.error('Failed to delete conversation:', error)
@@ -170,8 +164,5 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     }
   },
 
-  setSwitchingConversation: (loading) => set({ isSwitchingConversation: loading }),
-
   reset: () => set(initialState),
 }))
-

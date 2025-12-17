@@ -1,27 +1,32 @@
 /**
- * 简化版的 ChatInput Hook
- * 所有消息发送逻辑都在 Store 中处理
+ * ChatInput Hook
+ * 处理输入逻辑，接收 conversationId 参数
  */
 
-import { useCallback, useState, useEffect } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import { useChatStore } from '@/features/chat/store/chat.store'
+import { ChatService } from '@/features/chat/services/chat.service'
 import { useAudioRecorder } from '@/features/voice/hooks/use-audio-recorder'
 import { ChatAPI } from '@/lib/services/chat-api'
 import { useToast } from '@/lib/hooks/use-toast'
+import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
 import type { FileAttachment } from '@/features/chat/types/chat'
 
-export function useChatInput() {
+interface UseChatInputOptions {
+  conversationId: string
+}
+
+export function useChatInput({ conversationId }: UseChatInputOptions) {
   const [input, setInput] = useState('')
+  const pendingMessageSentRef = useRef(false)
+  const autoSendRef = useRef(false)
   const [uploadedFiles, setUploadedFiles] = useState<FileAttachment[]>([])
   const [isTranscribing, setIsTranscribing] = useState(false)
   const { toast } = useToast()
 
-  // 从 Store 获取状态和方法
-  const isSendingMessage = useChatStore((state) => state.isSendingMessage)
-  const sendMessage = useChatStore((state) => state.sendMessage)
-  const stopStreaming = useChatStore((state) => state.stopStreaming)
+  const isSendingMessage = useChatStore((s) => s.isSendingMessage)
+  const stopStreaming = useChatStore((s) => s.stopStreaming)
 
-  // 语音录制
   const {
     isRecording,
     audioBlob,
@@ -31,16 +36,11 @@ export function useChatInput() {
     clearAudio,
   } = useAudioRecorder()
 
-  /**
-   * 提交消息
-   */
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
 
-      if (!input.trim() || isSendingMessage) {
-        return
-      }
+      if (!input.trim() || isSendingMessage) return
 
       const content = input.trim()
       const attachments = uploadedFiles.length > 0 ? [...uploadedFiles] : undefined
@@ -48,38 +48,26 @@ export function useChatInput() {
       setInput('')
       setUploadedFiles([])
 
-      // 调用 Store 的 sendMessage 方法，传递附件
-      await sendMessage(content, { createUserMessage: true, attachments })
+      await ChatService.sendMessage(conversationId, content, { createUserMessage: true, attachments })
     },
-    [input, isSendingMessage, sendMessage, uploadedFiles]
+    [input, isSendingMessage, uploadedFiles, conversationId]
   )
 
-  /**
-   * 停止生成
-   */
   const handleStop = useCallback(() => {
     stopStreaming('user_stop')
   }, [stopStreaming])
 
-  /**
-   * 处理输入变化
-   */
   const handleInputChange = useCallback((value: string) => {
     setInput(value)
   }, [])
 
-  /**
-   * 处理文件上传
-   */
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // 重置 input（提前重置，避免重复上传）
     e.target.value = ''
 
     try {
-      // 上传文件到后端
       const formData = new FormData()
       formData.append('file', file)
 
@@ -94,8 +82,6 @@ export function useChatInput() {
       }
 
       const fileData = await response.json()
-
-      // 添加文件到列表
       setUploadedFiles(prev => [...prev, fileData])
 
       toast({
@@ -112,16 +98,10 @@ export function useChatInput() {
     }
   }, [toast])
 
-  /**
-   * 移除文件
-   */
   const handleRemoveFile = useCallback((index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index))
   }, [])
 
-  /**
-   * 开始录音
-   */
   const handleStartRecording = useCallback(async () => {
     try {
       await startAudioRecording()
@@ -134,23 +114,43 @@ export function useChatInput() {
     }
   }, [startAudioRecording, toast])
 
-  /**
-   * 停止录音
-   */
   const handleStopRecording = useCallback(() => {
     stopAudioRecording()
   }, [stopAudioRecording])
 
-  /**
-   * 取消录音
-   */
   const handleCancelRecording = useCallback(() => {
     cancelRecording()
   }, [cancelRecording])
 
-  /**
-   * 当录音完成时，自动转文字
-   */
+  // 处理登录后的 pending message
+  // 填充到输入框并标记自动发送
+  useEffect(() => {
+    if (pendingMessageSentRef.current) return
+    if (!conversationId) return
+    
+    const pendingMessage = StorageManager.get<string>(STORAGE_KEYS.USER.PENDING_MESSAGE)
+    if (!pendingMessage) return
+
+    pendingMessageSentRef.current = true
+    StorageManager.remove(STORAGE_KEYS.USER.PENDING_MESSAGE)
+    
+    // 填充到输入框并标记需要自动发送
+    setInput(pendingMessage)
+    autoSendRef.current = true
+  }, [conversationId])
+
+  // 自动发送：当 input 被填充且标记了自动发送时触发
+  useEffect(() => {
+    if (!autoSendRef.current) return
+    if (!input.trim() || isSendingMessage) return
+    
+    autoSendRef.current = false
+    
+    const content = input.trim()
+    setInput('')
+    ChatService.sendMessage(conversationId, content, { createUserMessage: true })
+  }, [input, isSendingMessage, conversationId])
+
   useEffect(() => {
     if (!audioBlob) return
 
@@ -188,7 +188,6 @@ export function useChatInput() {
     uploadedFiles,
     handleFileUpload,
     handleRemoveFile,
-    // 语音功能
     isRecording,
     isTranscribing,
     startRecording: handleStartRecording,
@@ -196,4 +195,3 @@ export function useChatInput() {
     cancelRecording: handleCancelRecording,
   }
 }
-

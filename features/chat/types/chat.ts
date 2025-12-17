@@ -188,6 +188,14 @@ export interface SSEData {
 export type AbortReason = 'user_stop' | 'user_retry' | 'tab_hidden' | 'network_error'
 
 /**
+ * 流式传输阶段
+ * - thinking: 正在生成思考内容
+ * - answer: 正在生成回答内容
+ * - null: 未在流式传输
+ */
+export type StreamingPhase = 'thinking' | 'answer' | null
+
+/**
  * 管道状态
  * @description 聊天管道的全局状态
  * @remarks 用于 useChatPipeline hook

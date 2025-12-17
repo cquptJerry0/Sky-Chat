@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
+import { useParams } from 'next/navigation'
 import { Info, UserCircle2, LogOut, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ModelSelector } from '@/features/chat/components/ModelSelector'
@@ -28,10 +29,12 @@ import {
 } from '@/components/ui/dialog'
 
 export function Header() {
+  const params = useParams()
+  const conversationId = params.conversationId as string | undefined
+  
   const selectedModel = useChatStore((s) => s.selectedModel)
   const setModel = useChatStore((s) => s.setModel)
   const reset = useChatStore((s) => s.reset)
-  const currentConversationId = useChatStore((s) => s.currentConversationId)
   const { data: session } = useSession()
   const { theme, setTheme } = useTheme()
   const [aboutDialogOpen, setAboutDialogOpen] = React.useState(false)
@@ -61,17 +64,17 @@ export function Header() {
       {/* 右侧：操作按钮 */}
       <div className="flex items-center gap-2">
         {/* 当前会话导出按钮 - 仅当有会话时显示 */}
-        {currentConversationId && (
+        {conversationId && (
           <ExportButton
-            conversationId={currentConversationId}
+            conversationId={conversationId}
             className="h-9"
           />
         )}
 
         {/* 当前会话分享按钮 - 仅当有会话时显示 */}
-        {currentConversationId && (
+        {conversationId && (
           <ShareButton
-            conversationId={currentConversationId}
+            conversationId={conversationId}
             className="h-9"
           />
         )}

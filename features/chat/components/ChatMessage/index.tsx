@@ -6,73 +6,50 @@
  * Container Component（容器组件）
  * 连接 Store，最小化 props（只接收 messageId）
  * 
- * 架构：
- * - useChatStore: 获取消息数据和流式状态
- * - ChatMessageUI: 纯 UI 组件
- * 
  * @module modules/chat-message
  */
 
+import { useParams } from 'next/navigation'
 import { useChatStore } from '@/features/chat/store/chat.store'
+import { ChatService } from '@/features/chat/services/chat.service'
 import { ChatMessageUI } from './ChatMessageUI'
 
 interface ChatMessageProps {
-  /** 消息 ID（唯一 prop） */
   messageId: string
 }
 
-/**
- * 消息模块容器组件
- * 
- * 最小化 props 设计，只接收 messageId
- * 所有数据从 store 中根据 ID 获取
- */
 export function ChatMessage({ messageId }: ChatMessageProps) {
-  // 从 store 获取消息数据
-  const message = useChatStore((s) =>
-    s.messages.find((m) => m.id === messageId)
-  )
+  const params = useParams()
+  const conversationId = params.conversationId as string
 
-  // 从 store 获取流式状态
+  // Store 数据
+  const message = useChatStore((s) => s.messages.find((m) => m.id === messageId))
   const streamingMessageId = useChatStore((s) => s.streamingMessageId)
   const streamingPhase = useChatStore((s) => s.streamingPhase)
   const isSendingMessage = useChatStore((s) => s.isSendingMessage)
   const messages = useChatStore((s) => s.messages)
 
-  // 获取重试和编辑方法
-  const retryMessage = useChatStore((s) => s.retryMessage)
-  const editAndResend = useChatStore((s) => s.editAndResend)
+  if (!message) return null
 
-  // 如果消息不存在，不渲染
-  if (!message) {
-    return null
-  }
-
-  // 判断当前消息是否正在流式传输
+  // 流式状态
   const isStreaming = streamingMessageId === messageId
   const isStreamingThinking = isStreaming && streamingPhase === 'thinking'
   const isStreamingAnswer = isStreaming && streamingPhase === 'answer'
 
-  // 判断是否是最新的AI消息且正在loading
+  // 位置判断
   const isLastMessage = messages[messages.length - 1]?.id === messageId
   const isAIMessage = message.role === 'assistant'
   const isWaitingForResponse = isSendingMessage && isLastMessage && isAIMessage
-  
-  // 判断是否是最后一条助手消息（用于智能续传按钮）
   const isLastAssistantMessage = isAIMessage && isLastMessage
   
-  // 重试逻辑 - 所有 assistant 消息都可以重试
-  const handleRetry = isAIMessage ? () => {
-
-    // 调用 store 的 retryMessage 方法
-    // 这个方法会找到对应的用户消息并重新发送
-    retryMessage(messageId)
-  } : undefined
+  // 操作回调
+  const handleRetry = isAIMessage 
+    ? () => ChatService.retryMessage(conversationId, messageId) 
+    : undefined
   
-  // 编辑逻辑（仅用户消息）
-  const handleEdit = message.role === 'user' ? (newContent: string) => {
-    editAndResend(messageId, newContent)
-  } : undefined
+  const handleEdit = message.role === 'user' 
+    ? (newContent: string) => ChatService.editAndResend(conversationId, messageId, newContent) 
+    : undefined
 
   return (
     <ChatMessageUI

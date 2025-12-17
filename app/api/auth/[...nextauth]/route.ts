@@ -1,12 +1,14 @@
 /**
- * NextAuth.js API Routes
+ * NextAuth.js v4 API Routes
  * 
- * 处理所有OAuth2认证相关的API请求
+ * 处理所有 OAuth2 认证相关的 API 请求
  * 
  * @route GET/POST /api/auth/*
  */
 
-import { handlers } from '@/server/auth/auth'
+import NextAuth from 'next-auth'
+import { authOptions } from '@/server/auth/auth'
 
-export const { GET, POST } = handlers
+const handler = NextAuth(authOptions)
 
+export { handler as GET, handler as POST }

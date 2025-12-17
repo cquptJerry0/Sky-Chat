@@ -8,6 +8,7 @@
  * - GFM (GitHub Flavored Markdown)
  * - 代码高亮
  * - 流式传输时的光标显示（智能避开代码块）
+ * - 流式传输时延迟渲染未闭合的代码块
  * 
  * @module components/MessageContent
  */
@@ -32,6 +33,33 @@ interface MessageContentProps {
 }
 
 /**
+ * 预处理流式内容
+ * 
+ * 检测未闭合的代码块，补上闭合标记让 ReactMarkdown 能正常解析
+ * 这样 ChartBlock/WeatherBlock 的占位逻辑就能生效
+ * 
+ * @param content - 原始内容
+ * @param isStreaming - 是否正在流式传输
+ * @returns 处理后的内容
+ */
+function preprocessStreamingContent(content: string, isStreaming: boolean): string {
+  if (!isStreaming || !content) return content
+  
+  // 统计代码块的开始和结束
+  const codeBlockPattern = /```/g
+  const matches = content.match(codeBlockPattern)
+  const count = matches?.length || 0
+  
+  // 如果没有代码块或代码块数量是偶数（都闭合了），直接返回
+  if (count === 0 || count % 2 === 0) {
+    return content
+  }
+  
+  // 有未闭合的代码块，在末尾补上闭合标记
+  return content + '\n```'
+}
+
+/**
  * 消息内容组件
  * 
  * 渲染 Markdown 内容，支持流式传输时显示光标
@@ -42,6 +70,16 @@ export function MessageContent({
   isStreaming = false,
   showCursor = true,
 }: MessageContentProps) {
+  // 渲染计数器（开发环境统计用，暂时注释）
+  // const renderCount = useRef(0)
+  // renderCount.current++
+  // 
+  // useEffect(() => {
+  //   if (process.env.NODE_ENV === 'development') {
+  //     console.log(`[MessageContent] render #${renderCount.current}, content length: ${content.length}, isStreaming: ${isStreaming}`)
+  //   }
+  // })
+  
   // 只在流式传输且需要显示光标时添加 cursor 插件
   const shouldShowCursor = isStreaming && showCursor
   
@@ -49,6 +87,12 @@ export function MessageContent({
   const markdownComponents = useMemo(
     () => createMarkdownComponents(isStreaming),
     [isStreaming]
+  )
+  
+  // 预处理内容：流式时延迟渲染未闭合的代码块
+  const processedContent = useMemo(
+    () => preprocessStreamingContent(content, isStreaming),
+    [content, isStreaming]
   )
   
   return (
@@ -63,7 +107,7 @@ export function MessageContent({
         ]}
         components={markdownComponents}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
     </div>
   )

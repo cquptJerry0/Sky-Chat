@@ -4,40 +4,45 @@
  * OAuth2 Login Buttons Component
  * 
  * 提供OAuth2登录按钮（Google、GitHub）
- * - Google 按钮使用官方蓝色
+ * - 使用弹窗方式进行 OAuth 登录，避免全页面跳转
+ * - Google 按钮使用官方白色样式
  * - GitHub 按钮使用官方黑色
  * - 首次登录自动创建账号（无需单独注册）
  */
 
 import * as React from 'react'
-import { signIn } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/lib/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
+import { useOAuthPopup } from '@/features/auth/hooks/use-oauth-popup'
 
-export function OAuth2Login() {
-  const [isLoading, setIsLoading] = React.useState<string | null>(null)
+interface OAuth2LoginProps {
+  onSuccess?: () => void
+}
+
+export function OAuth2Login({ onSuccess }: OAuth2LoginProps) {
   const { toast } = useToast()
 
-  const handleOAuthSignIn = async (provider: 'google' | 'github') => {
-    setIsLoading(provider)
-    
-    try {
-      await signIn(provider, {
-        callbackUrl: '/',
-        redirect: true,
+  const { openPopup, isLoading } = useOAuthPopup({
+    onSuccess: () => {
+      toast({
+        title: '登录成功',
+        description: '欢迎回来！',
       })
-    } catch (error) {
-      console.error(`${provider} sign in error:`, error)
+      if (onSuccess) {
+        onSuccess()
+      } else {
+        window.location.reload()
+      }
+    },
+    onError: (error) => {
       toast({
         title: '登录失败',
-        description: '请稍后重试',
+        description: error || '请稍后重试',
         variant: 'destructive',
       })
-    } finally {
-      setIsLoading(null)
-    }
-  }
+    },
+  })
 
   return (
     <div className="space-y-3">
@@ -45,7 +50,7 @@ export function OAuth2Login() {
       <Button
         type="button"
         className="w-full bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-medium"
-        onClick={() => handleOAuthSignIn('google')}
+        onClick={() => openPopup('google')}
         disabled={!!isLoading}
       >
         {isLoading === 'google' ? (
@@ -66,7 +71,7 @@ export function OAuth2Login() {
       <Button
         type="button"
         className="w-full bg-[#24292f] hover:bg-[#1b1f23] text-white"
-        onClick={() => handleOAuthSignIn('github')}
+        onClick={() => openPopup('github')}
         disabled={!!isLoading}
       >
         {isLoading === 'github' ? (

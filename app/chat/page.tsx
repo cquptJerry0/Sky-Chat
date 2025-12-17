@@ -1,81 +1,52 @@
 'use client'
 
 /**
- * New Chat Page - 空白聊天页
+ * Chat Redirect Page - 聊天重定向页面
  * 
- * 已登录用户的空白对话页面
- * - 不预先创建会话
- * - 用户发送第一条消息时才创建会话
- * - 会话创建后自动更新URL
+ * 访问 /chat 时自动创建新会话并重定向到 /chat/{conversationId}
  * 
  * @module app/chat/page
  */
 
-import * as React from 'react'
-import { Sidebar } from '@/components/Sidebar'
-import { Header } from '@/components/Header'
-import { MessageList } from '@/features/chat/components/MessageList'
-import { ChatInput } from '@/features/chat/components/ChatInput'
-import { ConversationList } from '@/features/conversation/components/ConversationList'
-import { NewChatButton } from '@/features/conversation/components/NewChatButton'
-import { ConversationSearch } from '@/features/conversation/components/ConversationSearch'
-import { MainLayout } from '@/components/MainLayout'
-import { AuthGuard } from '@/features/auth/components/AuthGuard'
+import { useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useConversationStore } from '@/features/conversation/store/conversation-store'
-import { useChatStore } from '@/features/chat/store/chat.store'
+import { AuthGuard } from '@/features/auth/components/AuthGuard'
 
-// 提升Sidebar到外层，避免重新渲染
-const ChatSidebar = React.memo(() => (
-  <Sidebar>
-    <div className="space-y-2">
-      {/* 新建对话按钮模块 */}
-      <NewChatButton />
+function ChatRedirect() {
+  const router = useRouter()
+  const isCreatingRef = useRef(false)
 
-      {/* 会话搜索模块 */}
-      <ConversationSearch />
+  useEffect(() => {
+    // 使用 ref 防止重复创建，比 state 更可靠
+    if (isCreatingRef.current) return
+    isCreatingRef.current = true
 
-      {/* 会话列表模块 */}
-      <ConversationList />
-    </div>
-  </Sidebar>
-))
+    const createAndRedirect = async () => {
+      try {
+        const newId = await useConversationStore.getState().createConversation()
+        router.replace(`/chat/${newId}`)
+      } catch (error) {
+        console.error('[ChatRedirect] Failed to create conversation:', error)
+        isCreatingRef.current = false // 失败时重置，允许重试
+        router.push('/')
+      }
+    }
 
-ChatSidebar.displayName = 'ChatSidebar'
-
-/**
- * 新建聊天内容组件
- */
-function NewChatContent() {
-  const setConversationId = useConversationStore((s) => s.setConversationId)
-  const setChatConversationId = useChatStore((s) => s.setConversationId)
-  const clearMessages = useChatStore((s) => s.clearMessages)
-
-  // 进入新建对话页面时，清空当前会话ID
-  React.useEffect(() => {
-    setConversationId(null)
-    setChatConversationId(null)
-    clearMessages()
-  }, [setConversationId, setChatConversationId, clearMessages])
+    createAndRedirect()
+  }, [router])
 
   return (
-    <MainLayout sidebar={<ChatSidebar />} header={<Header />}>
-      {/* 虚拟滚动消息列表（包含空状态） */}
-      <MessageList />
-
-      {/* 输入框（固定在底部） */}
-      <ChatInput />
-    </MainLayout>
+    <div className="flex h-screen items-center justify-center">
+      <div className="text-muted-foreground">正在创建新会话...</div>
+    </div>
   )
 }
 
-/**
- * 新建聊天页面组件 - 使用 AuthGuard 保护
- */
-export default function NewChatPage() {
+export default function ChatPage() {
   return (
     <AuthGuard redirectTo="/">
-      <NewChatContent />
+      <ChatRedirect />
     </AuthGuard>
   )
 }
-

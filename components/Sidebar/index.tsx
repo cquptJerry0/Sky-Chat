@@ -16,6 +16,7 @@ import * as React from 'react'
 import { PanelLeftClose, PanelLeft } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useUIStore } from '@/lib/stores/ui.store'
 import { cn } from '@/lib/utils'
 import { SkyLogoIcon } from '@/components/icons/SkyLogo'
@@ -43,55 +44,38 @@ export function Sidebar({ children, isLeader, className }: SidebarProps) {
       )}
     >
       {/* 顶部：Logo和折叠按钮 */}
-      <div className="flex items-center justify-between p-3 px-4">
-        {!collapsed ? (
-          <>
-            {/* 展开状态：Logo + 文字 + 折叠按钮 */}
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <SkyLogoIcon width={32} height={32} className="shrink-0" />
-              {/* 使用条件渲染替代 opacity 动画，避免闪烁 */}
-              {!collapsed && (
-                <span className="font-semibold text-lg whitespace-nowrap animate-in fade-in duration-150 bg-gradient-to-r from-[#60A5FA] to-[#2563EB] bg-clip-text text-transparent">
-                  Sky Chat
-                </span>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleSidebar}
-              className="h-8 w-8 hover:bg-[hsl(var(--sidebar-hover))] shrink-0"
-              title="折叠侧边栏"
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </Button>
-          </>
-        ) : (
-          <>
-            {/* 折叠状态：仅Logo */}
-            <div className="flex flex-col items-center gap-3 w-full">
-              <SkyLogoIcon width={32} height={32} />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleSidebar}
-                className="h-8 w-8 hover:bg-[hsl(var(--sidebar-hover))]"
-                title="展开侧边栏"
-              >
-                <PanelLeft className="h-4 w-4" />
-              </Button>
-            </div>
-          </>
-        )}
+      <div className={cn(
+        "p-3",
+        collapsed ? "flex flex-col items-center gap-2" : "flex items-center justify-between px-4"
+      )}>
+        <div className={cn(
+          "flex items-center gap-2",
+          collapsed && "justify-center"
+        )}>
+          <SkyLogoIcon width={32} height={32} className="shrink-0" />
+          {!collapsed && (
+            <span className="font-semibold text-lg whitespace-nowrap bg-gradient-to-r from-[#60A5FA] to-[#2563EB] bg-clip-text text-transparent">
+              Sky Chat
+            </span>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleSidebar}
+          className="h-8 w-8 hover:bg-[hsl(var(--sidebar-hover))] shrink-0"
+          title={collapsed ? "展开侧边栏" : "折叠侧边栏"}
+        >
+          {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </Button>
       </div>
 
       {/* 中间：动态内容（会话列表等模块） */}
-      <div className={cn(
-        "flex-1 overflow-y-auto overflow-x-hidden px-3",  // 添加 overflow-x-hidden
-        collapsed && "hidden"
-      )}>
-        {children}
-      </div>
+      {!collapsed && (
+        <ScrollArea className="flex-1 px-3">
+          {children}
+        </ScrollArea>
+      )}
 
       {/* 底部：主标签页指示器 */}
       <div className="p-3 mt-auto">

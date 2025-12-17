@@ -184,7 +184,7 @@ export function LoginDialog({ open, onOpenChange, onSuccess }: LoginDialogProps)
           {!showEmailLogin ? (
             <>
               {/* OAuth2 登录 */}
-              <OAuth2Login />
+              <OAuth2Login onSuccess={onSuccess} />
               
               {/* 分隔线 */}
               <div className="relative">

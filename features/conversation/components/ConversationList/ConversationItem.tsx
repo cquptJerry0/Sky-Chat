@@ -21,6 +21,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { Conversation } from '@/lib/services/conversation-api'
 
@@ -112,14 +117,21 @@ export function ConversationItem({
         </div>
       ) : (
         <>
-          <Button
-            variant="ghost"
-            className="flex-1 justify-start gap-2 p-0 h-auto hover:bg-transparent"
-            onClick={handleSelect}
-          >
-            <MessageSquare className="h-4 w-4 shrink-0" />
-            <span className="truncate text-sm text-left">{conversation.title}</span>
-          </Button>
+          <Tooltip delayDuration={500}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                className="flex-1 justify-start gap-2 p-0 h-auto hover:bg-transparent min-w-0"
+                onClick={handleSelect}
+              >
+                <MessageSquare className="h-4 w-4 shrink-0" />
+                <span className="truncate text-sm text-left">{conversation.title}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-xs">
+              {conversation.title}
+            </TooltipContent>
+          </Tooltip>
           
           {/* 三点菜单（悬停或激活时显示） */}
           <DropdownMenu>
@@ -136,7 +148,7 @@ export function ConversationItem({
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-36 mr-2" sideOffset={8}>
+              <DropdownMenuContent align="end" side="right" className="w-36" sideOffset={8}>
                 <DropdownMenuItem onClick={handleSelect}>
                   <Eye className="mr-2 h-4 w-4" />
                   <span>查看全部</span>

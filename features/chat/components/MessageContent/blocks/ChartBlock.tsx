@@ -107,7 +107,7 @@ export function ChartBlock({ data, isStreaming }: MediaBlockProps) {
       {/* 标题 */}
       {chartData.title && (
         <div className="border-b bg-muted/30 px-4 py-2">
-          <span className="text-sm font-medium">{chartData.title}</span>
+          <span className="text-sm font-medium text-black">{chartData.title}</span>
         </div>
       )}
 

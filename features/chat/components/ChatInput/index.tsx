@@ -3,13 +3,7 @@
 /**
  * Chat Input Module - 输入模块
  * 
- * Container Component（容器组件）
- * 连接 Store 和 Logic Hook，零 props 设计
- * 
- * 架构：
- * - useChatStore: 获取全局状态
- * - use-chat-input: 封装输入逻辑
- * - ChatInputUI: 纯 UI 组件
+ * 接收 conversationId prop，传递给 useChatInput hook
  * 
  * @module modules/chat-input
  */
@@ -18,20 +12,16 @@ import { useChatStore } from '@/features/chat/store/chat.store'
 import { useChatInput } from './use-chat-input'
 import { ChatInputUI } from './ChatInputUI'
 
-/**
- * 输入模块容器组件
- * 
- * 零 props 设计，所有数据从 store 获取
- * 所有逻辑在 use-chat-input 中封装
- */
-export function ChatInput() {
-  // 从 store 获取配置状态
+interface ChatInputProps {
+  conversationId: string
+}
+
+export function ChatInput({ conversationId }: ChatInputProps) {
   const selectedModel = useChatStore((s) => s.selectedModel)
   const enableThinking = useChatStore((s) => s.enableThinking)
   const setModel = useChatStore((s) => s.setModel)
   const toggleThinking = useChatStore((s) => s.toggleThinking)
   
-  // 使用自定义 hook 处理所有输入逻辑
   const {
     input,
     setInput,
@@ -46,9 +36,8 @@ export function ChatInput() {
     startRecording,
     stopRecording,
     cancelRecording,
-  } = useChatInput()
+  } = useChatInput({ conversationId })
 
-  // 将所有状态和方法传递给 UI 组件
   return (
     <ChatInputUI
       input={input}
@@ -71,4 +60,3 @@ export function ChatInput() {
     />
   )
 }
-

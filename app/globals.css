@@ -259,3 +259,51 @@
 .prose-container .prose th {
   @apply bg-gray-100 dark:bg-gray-800 font-semibold;
 }
+
+/* 自定义滚动条样式类 - 用于需要美化滚动条的容器 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.4);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* 悬停时才显示滚动条 */
+.custom-scrollbar-auto::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.custom-scrollbar-auto:hover::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+/* Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+.custom-scrollbar-auto {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.custom-scrollbar-auto:hover {
+  scrollbar-color: hsl(var(--border)) transparent;
+}

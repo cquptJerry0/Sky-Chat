@@ -12,19 +12,14 @@
 import { useRef, useEffect, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useChatStore } from '@/features/chat/store/chat.store'
-import { useConversationStore } from '@/features/conversation'
 import { ChatMessage } from '@/features/chat/components/ChatMessage'
-import { Loader2 } from 'lucide-react'
 
-/* eslint-disable react-hooks/incompatible-library */
+// 用于追踪组件实例
 export function MessageList() {
   // 从 Store 获取数据
   const messages = useChatStore((s) => s.messages)
   const isSendingMessage = useChatStore((s) => s.isSendingMessage)
-  const isSwitchingConversation = useConversationStore((s) => s.isSwitchingConversation)
-  const isLoadingOlder = useChatStore((s) => s.isLoadingOlder)
-  const hasOlderMessages = useChatStore((s) => s.hasOlderMessages)
-  const loadOlderMessages = useChatStore((s) => s.loadOlderMessages)
+  const isLoadingMessages = useChatStore((s) => s.isLoadingMessages)
   const streamingMessageId = useChatStore((s) => s.streamingMessageId)
   
   // 滚动容器
@@ -33,6 +28,15 @@ export function MessageList() {
   // 滚动状态管理 - 简化！
   const [userScrolledUp, setUserScrolledUp] = useState<boolean>(false)
   const previousMessagesLength = useRef<number>(0)
+  
+  // 检查消息数组是否有重复 ID（调试用）
+  useEffect(() => {
+    const ids = messages.map(m => m.id)
+    const uniqueIds = new Set(ids)
+    if (ids.length !== uniqueIds.size) {
+      console.warn('[MessageList] Duplicate message IDs detected!', ids)
+    }
+  }, [messages])
   
   // TanStack Virtual 配置
   const virtualizer = useVirtualizer({
@@ -71,20 +75,7 @@ export function MessageList() {
     return () => container.removeEventListener('scroll', handleScroll)
   }, [])
   
-  // 2. 监听滚动：触发加载历史消息
-  useEffect(() => {
-    const firstItem = virtualItems[0]
-    
-    if (
-      firstItem && 
-      firstItem.index < 5 && 
-      hasOlderMessages && 
-      !isLoadingOlder &&
-      messages.length > 0
-    ) {
-      loadOlderMessages()
-    }
-  }, [virtualItems, hasOlderMessages, isLoadingOlder, messages.length, loadOlderMessages])
+
   
   // 3. 核心滚动逻辑 - 发送消息时强制滚动到底部
   useEffect(() => {
@@ -138,8 +129,7 @@ export function MessageList() {
   }, [messages.length, streamingMessageId, userScrolledUp, isSendingMessage])
   
   // 空状态 - 只有在非加载状态且真的没有消息时才显示欢迎语
-  // 不管是发送消息还是切换会话，都不应该显示欢迎语
-  if (messages.length === 0 && !isSendingMessage && !isSwitchingConversation) {
+  if (messages.length === 0 && !isSendingMessage && !isLoadingMessages) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
@@ -154,7 +144,7 @@ export function MessageList() {
   return (
     <div
       ref={scrollContainerRef}
-      className="flex-1 overflow-y-auto"
+      className="flex-1 overflow-y-auto custom-scrollbar-auto"
       style={{ overflowAnchor: 'auto' }}
     >
       <div
@@ -164,25 +154,21 @@ export function MessageList() {
         }}
         className="mx-auto max-w-3xl px-6 py-6"
       >
-        {/* 加载历史消息指示器 */}
-        {isLoadingOlder && (
-          <div className="absolute top-0 left-0 right-0 py-4 flex justify-center">
-            <div className="flex items-center gap-2 text-[hsl(var(--text-secondary))]">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">加载历史消息...</span>
-            </div>
-          </div>
-        )}
-
         {/* 虚拟列表渲染 */}
         {virtualItems.map((virtualItem) => {
           const message = messages[virtualItem.index]
+          
+          // 防御性检查：确保消息存在
+          if (!message) {
+            console.warn('[MessageList] Missing message at index:', virtualItem.index)
+            return null
+          }
 
           return (
             <div
-              key={virtualItem.key}
+              key={`${virtualItem.index}-${message.id}`}
               data-index={virtualItem.index}
-              ref={virtualizer.measureElement}  // 自动测量高度
+              ref={virtualizer.measureElement}
               style={{
                 position: 'absolute',
                 top: 0,
