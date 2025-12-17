@@ -44,14 +44,21 @@ export function ChartBlock({ data, isStreaming }: MediaBlockProps) {
   // 转换为 recharts 格式
   const formattedData = useMemo(() => {
     if (!chartData) return []
+    // 防御性检查：确保 labels 和 values 存在且是数组
+    if (!Array.isArray(chartData.labels) || !Array.isArray(chartData.values)) {
+      return []
+    }
     return chartData.labels.map((label, index) => ({
       name: label,
       value: chartData.values[index] ?? 0,
     }))
   }, [chartData])
 
-  // 流式传输中且解析失败时显示加载状态
-  if (!chartData) {
+  // 检查数据是否有效（JSON 解析成功且有必要字段）
+  const isValidData = chartData && Array.isArray(chartData.labels) && Array.isArray(chartData.values)
+
+  // 流式传输中且数据无效时显示加载状态
+  if (!isValidData) {
     if (isStreaming) {
       return (
         <div className="my-4 overflow-hidden rounded-xl border bg-card">
@@ -72,6 +79,28 @@ export function ChartBlock({ data, isStreaming }: MediaBlockProps) {
   }
 
   const chartType = chartData.type || 'bar'
+  const supportedTypes = ['bar', 'line']
+
+  // 不支持的图表类型，显示友好提示
+  if (!supportedTypes.includes(chartType)) {
+    return (
+      <div className="my-4 overflow-hidden rounded-xl border bg-amber-50 dark:bg-amber-950/30">
+        <div className="border-b border-amber-200 dark:border-amber-800 bg-amber-100/50 dark:bg-amber-900/30 px-4 py-2">
+          <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+            暂不支持的图表类型
+          </span>
+        </div>
+        <div className="p-4">
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            暂不支持 <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 rounded">{chartType}</code> 类型图表
+          </p>
+          <p className="text-sm text-amber-500 dark:text-amber-500 mt-1">
+            目前仅支持柱状图（bar）和折线图（line）
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="my-4 overflow-hidden rounded-xl border bg-card">
