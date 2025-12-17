@@ -6,8 +6,8 @@
  */
 
 import { ComponentType } from 'react'
-import { WeatherBlock } from './WeatherBlock.tsx'
-import { ChartBlock } from './ChartBlock.tsx'
+import { WeatherBlock } from './WeatherBlock'
+import { ChartBlock } from './ChartBlock'
 
 /**
  * 媒体块组件的 props 接口
@@ -15,6 +15,8 @@ import { ChartBlock } from './ChartBlock.tsx'
 export interface MediaBlockProps {
   /** JSON 字符串格式的数据 */
   data: string
+  /** 是否正在流式传输 */
+  isStreaming?: boolean
 }
 
 /**

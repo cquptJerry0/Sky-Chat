@@ -32,7 +32,7 @@ interface ChartData {
   values: number[]
 }
 
-export function ChartBlock({ data }: MediaBlockProps) {
+export function ChartBlock({ data, isStreaming }: MediaBlockProps) {
   const chartData = useMemo(() => {
     try {
       return JSON.parse(data) as ChartData
@@ -50,7 +50,20 @@ export function ChartBlock({ data }: MediaBlockProps) {
     }))
   }, [chartData])
 
+  // 流式传输中且解析失败时显示加载状态
   if (!chartData) {
+    if (isStreaming) {
+      return (
+        <div className="my-4 overflow-hidden rounded-xl border bg-card">
+          <div className="border-b bg-muted/30 px-4 py-2">
+            <span className="text-sm font-medium text-muted-foreground">图表</span>
+          </div>
+          <div className="flex h-[250px] items-center justify-center">
+            <div className="text-sm text-muted-foreground">加载中...</div>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="my-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
         <span className="text-sm text-destructive">无法解析图表数据</span>
@@ -65,7 +78,7 @@ export function ChartBlock({ data }: MediaBlockProps) {
       {/* 标题 */}
       {chartData.title && (
         <div className="border-b bg-muted/30 px-4 py-2">
-          <span className="text-sm font-medium">📊 {chartData.title}</span>
+          <span className="text-sm font-medium">{chartData.title}</span>
         </div>
       )}
 

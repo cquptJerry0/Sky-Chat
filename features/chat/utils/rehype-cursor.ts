@@ -1,5 +1,5 @@
 /**
- * Rehype Cursor Plugin - 智能光标插件
+ * Rehype Cursor Plugin - 光标插件
  * 
  * 在 Markdown 渲染的最后一个文本节点添加光标，避免在代码块中显示
  * 

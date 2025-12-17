@@ -12,12 +12,13 @@
  * @module components/MessageContent
  */
 
+import { useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeRaw from 'rehype-raw'
 import { rehypeCursor } from '@/features/chat/utils/rehype-cursor'
-import { markdownComponents } from './MarkdownComponents'
+import { createMarkdownComponents } from './MarkdownComponents'
 
 interface MessageContentProps {
   /** 消息内容（Markdown 格式） */
@@ -43,6 +44,12 @@ export function MessageContent({
 }: MessageContentProps) {
   // 只在流式传输且需要显示光标时添加 cursor 插件
   const shouldShowCursor = isStreaming && showCursor
+  
+  // 根据流式状态创建 markdown 组件
+  const markdownComponents = useMemo(
+    () => createMarkdownComponents(isStreaming),
+    [isStreaming]
+  )
   
   return (
     <div className="prose prose-sm dark:prose-invert max-w-none">

@@ -12,7 +12,7 @@
 import { prisma } from './client'
 
 async function main() {
-  console.log('🌱 开始 seeding...')
+  console.log('开始 seeding...')
 
   // 测试账号 - 用户名: admin, 密码: admin
   // 密码hash: $2b$10$ZZDSvqWx0BzGArNRULYake0KFEWE674VJEzhM0EJouYuA9pfEAgo.
@@ -26,17 +26,17 @@ async function main() {
     },
   })
 
-  console.log('✅ 创建测试账号:', {
+  console.log(' 创建测试账号:', {
     id: admin.id,
     username: admin.username,
     createdAt: admin.createdAt,
   })
 
-  console.log('🎉 Seeding 完成!')
-  console.log('\n📝 测试账号信息:')
+  console.log('Seeding 完成!')
+  console.log('\n测试账号信息:')
   console.log('   用户名: admin')
   console.log('   密码: admin')
-  console.log('\n⚠️  请在生产环境中删除此账号或修改密码!')
+  console.log('\n请在生产环境中删除此账号或修改密码!')
 }
 
 main()
