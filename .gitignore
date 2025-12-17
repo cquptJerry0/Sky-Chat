@@ -48,5 +48,6 @@ next-env.d.ts
 .windsurf
 .claude
 .augment
+.kiro
 .pnpm-store
 .test-data

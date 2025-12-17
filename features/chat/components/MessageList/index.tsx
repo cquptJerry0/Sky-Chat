@@ -155,6 +155,7 @@ export function MessageList() {
     <div
       ref={scrollContainerRef}
       className="flex-1 overflow-y-auto"
+      style={{ overflowAnchor: 'auto' }}
     >
       <div
         style={{

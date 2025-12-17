@@ -20,7 +20,7 @@ interface WeatherData {
   wind?: string
 }
 
-export function WeatherBlock({ data }: MediaBlockProps) {
+export function WeatherBlock({ data, isStreaming }: MediaBlockProps) {
   const weatherData = useMemo(() => {
     try {
       return JSON.parse(data) as WeatherData
@@ -29,7 +29,17 @@ export function WeatherBlock({ data }: MediaBlockProps) {
     }
   }, [data])
 
+  // 流式传输中且解析失败时显示加载状态
   if (!weatherData) {
+    if (isStreaming) {
+      return (
+        <div className="my-4 overflow-hidden rounded-xl border bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900">
+          <div className="p-4 h-[140px] flex items-center justify-center">
+            <span className="text-sm text-blue-600 dark:text-blue-400">加载中...</span>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="my-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
         <span className="text-sm text-destructive">无法解析天气数据</span>

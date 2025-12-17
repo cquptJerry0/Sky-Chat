@@ -61,7 +61,7 @@ export function ChatInput() {
       uploadedFiles={uploadedFiles}
       onSubmit={handleSubmit}
       onStop={handleStop}
-      onModelChange={setModel}
+      _onModelChange={setModel}
       onThinkingToggle={toggleThinking}
       onStartRecording={startRecording}
       onStopRecording={stopRecording}
