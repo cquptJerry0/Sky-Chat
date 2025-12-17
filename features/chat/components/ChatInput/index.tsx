@@ -19,8 +19,10 @@ interface ChatInputProps {
 export function ChatInput({ conversationId }: ChatInputProps) {
   const selectedModel = useChatStore((s) => s.selectedModel)
   const enableThinking = useChatStore((s) => s.enableThinking)
+  const enableWebSearch = useChatStore((s) => s.enableWebSearch)
   const setModel = useChatStore((s) => s.setModel)
   const toggleThinking = useChatStore((s) => s.toggleThinking)
+  const toggleWebSearch = useChatStore((s) => s.toggleWebSearch)
   
   const {
     input,

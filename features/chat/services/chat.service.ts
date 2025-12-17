@@ -101,6 +101,7 @@ export const ChatService = {
           conversationId,
           model: store.selectedModel,
           enableThinking: store.enableThinking,
+          enableWebSearch: store.enableWebSearch,
           thinkingBudget: 4096,
           userMessageId,
           aiMessageId,
@@ -143,6 +144,25 @@ export const ChatService = {
             s.updateMessage(messageId, { displayState: 'streaming' })
           }
           s.appendContent(messageId, data.content)
+        } else if (data.type === 'tool_call') {
+          // 工具调用开始
+          s.updateMessage(messageId, {
+            toolCallStatus: {
+              name: data.name || 'web_search',
+              query: data.query,
+              status: 'calling',
+            },
+            displayState: 'streaming',
+          })
+        } else if (data.type === 'tool_result') {
+          // 工具调用完成
+          s.updateMessage(messageId, {
+            toolCallStatus: {
+              name: data.name || 'web_search',
+              status: data.success ? 'completed' : 'failed',
+              resultCount: data.resultCount,
+            },
+          })
         } else if (data.type === 'complete') {
           s.stopStreaming()
           s.updateMessage(messageId, { displayState: 'idle' })

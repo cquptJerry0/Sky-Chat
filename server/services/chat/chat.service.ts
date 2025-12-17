@@ -5,6 +5,7 @@
  * - 会话管理
  * - 消息创建
  * - 调用 AI API
+ * - 工具调用处理
  * - 返回流式响应
  */
 
@@ -13,7 +14,9 @@ import { ConversationRepository } from '@/server/repositories/conversation.repos
 import { MessageRepository } from '@/server/repositories/message.repository'
 import { createChatCompletion } from '@/server/services/ai/siliconflow'
 import { buildContextMessages, appendAttachments } from './prompt.builder'
-import { createSSEStream } from './stream.handler'
+import { createSSEStream, createSSEStreamWithTools } from './stream.handler'
+import { toolRegistry } from '@/server/services/tools'
+// import type { ToolCall } from '@/server/services/tools'
 
 export interface ChatRequest {
   content: string
@@ -21,7 +24,7 @@ export interface ChatRequest {
   model?: string
   enableThinking?: boolean
   thinkingBudget?: number
-  tools?: unknown[]
+  enableWebSearch?: boolean
   userMessageId?: string
   aiMessageId?: string
   attachments?: Array<{ name: string; content: string; type: string; size: number }>
@@ -48,7 +51,7 @@ export async function handleChatRequest(
     model = 'Qwen/Qwen2.5-7B-Instruct',
     enableThinking = false,
     thinkingBudget = 4096,
-    tools,
+    enableWebSearch = false,
     userMessageId,
     aiMessageId,
     attachments,
@@ -69,7 +72,10 @@ export async function handleChatRequest(
   const currentUserMessage = appendAttachments(content, attachments)
   const contextMessages = buildContextMessages(historyMessages, currentUserMessage)
 
-  // 5. 调用 AI API
+  // 5. 准备工具定义（如果启用联网搜索）
+  const tools = enableWebSearch ? toolRegistry.getToolDefinitions() : undefined
+
+  // 6. 调用 AI API
   const { reader } = await createChatCompletion(apiKey, {
     model,
     messages: contextMessages as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
@@ -78,14 +84,28 @@ export async function handleChatRequest(
     tools,
   })
 
-  // 6. 创建 SSE 流
+  // 7. 创建 SSE 流
   const sessionId = Date.now().toString()
-  const stream = createSSEStream(reader, {
-    messageId,
-    conversationId: conversation.id,
-    userId,
-    sessionId,
-  })
+  
+  // 如果启用了工具，使用支持工具调用的流处理器
+  const stream = enableWebSearch
+    ? createSSEStreamWithTools(reader, {
+        messageId,
+        conversationId: conversation.id,
+        userId,
+        sessionId,
+        apiKey,
+        model,
+        contextMessages: contextMessages as Array<{ role: string; content: string }>,
+        enableThinking,
+        thinkingBudget,
+      })
+    : createSSEStream(reader, {
+        messageId,
+        conversationId: conversation.id,
+        userId,
+        sessionId,
+      })
 
   return {
     stream,
@@ -127,7 +147,6 @@ async function createMessages(
   const assistantMessageTime = new Date(now.getTime() + 1)
 
   if (userMessageId) {
-    // 需要创建 user 消息（正常发送、编辑重发）
     await prisma.$transaction([
       prisma.message.create({
         data: {
@@ -150,7 +169,6 @@ async function createMessages(
       }),
     ])
   } else {
-    // 不需要创建 user 消息（重试）
     await prisma.message.create({
       data: {
         id: aiMessageId,

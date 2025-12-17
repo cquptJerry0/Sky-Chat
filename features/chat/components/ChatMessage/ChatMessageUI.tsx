@@ -17,7 +17,70 @@ import { Loader2, Edit2, RotateCw } from 'lucide-react'
 import { MarkdownIcon } from '@/components/icons/MarkdownIcon'
 import { TextFileIcon } from '@/components/icons/TextFileIcon'
 import { cn } from '@/lib/utils'
+import {  Loader2 as SearchLoader, CheckCircle2, XCircle } from 'lucide-react'
 import type { Message } from '@/features/chat/types/chat'
+
+/**
+ * 工具调用状态组件
+ */
+function ToolCallStatus({ status }: { status: NonNullable<Message['toolCallStatus']> }) {
+  if (status.status === 'calling') {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/50">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
+          <SearchLoader className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+            正在搜索
+          </p>
+          {status.query && (
+            <p className="text-xs text-blue-700 dark:text-blue-300">
+              {status.query}
+            </p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (status.status === 'completed') {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 dark:border-green-800 dark:bg-green-950/50">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-green-900 dark:text-green-100">
+            搜索完成
+          </p>
+          {status.resultCount !== undefined && (
+            <p className="text-xs text-green-700 dark:text-green-300">
+              找到 {status.resultCount} 条相关结果
+            </p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (status.status === 'failed') {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-950/50">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
+          <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-red-900 dark:text-red-100">
+            搜索失败
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return null
+}
 
 interface ChatMessageUIProps {
   /** 消息数据 */
@@ -167,6 +230,11 @@ export function ChatMessageUI({
             <div className="flex items-center gap-2 text-red-500">
               <span className="text-sm">生成失败</span>
             </div>
+          )}
+
+          {/* 工具调用状态（联网搜索） */}
+          {message.toolCallStatus && (
+            <ToolCallStatus status={message.toolCallStatus} />
           )}
 
           {/* Thinking 面板（独立组件） */}

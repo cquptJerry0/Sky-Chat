@@ -12,13 +12,14 @@
  */
 
 import * as React from 'react'
-import { ArrowUp, Mic, Loader2, Brain, Square, X, FileUp } from 'lucide-react'
+import { ArrowUp, Mic, Loader2, Brain, Square, X, FileUp, Paintbrush, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { MarkdownIcon } from '@/components/icons/MarkdownIcon'
 import { TextFileIcon } from '@/components/icons/TextFileIcon'
 import { getModelById } from '@/features/chat/constants/models'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/lib/hooks/use-toast'
 
 interface ChatInputUIProps {
   // 状态
@@ -26,6 +27,7 @@ interface ChatInputUIProps {
   setInput: (value: string) => void
   selectedModel: string
   enableThinking: boolean
+  enableWebSearch: boolean
   isLoading: boolean
   isRecording: boolean
   isTranscribing: boolean
@@ -36,6 +38,7 @@ interface ChatInputUIProps {
   onStop: () => void
   _onModelChange?: (model: string) => void
   onThinkingToggle: (enabled: boolean) => void
+  onWebSearchToggle: (enabled: boolean) => void
   onStartRecording: () => void
   onStopRecording: () => void
   onCancelRecording: () => void
@@ -53,6 +56,7 @@ export function ChatInputUI({
   setInput,
   selectedModel,
   enableThinking,
+  enableWebSearch,
   isLoading,
   isRecording,
   isTranscribing,
@@ -61,6 +65,7 @@ export function ChatInputUI({
   onStop,
   _onModelChange,
   onThinkingToggle,
+  onWebSearchToggle,
   onStartRecording,
   onStopRecording,
   onCancelRecording,
@@ -69,8 +74,17 @@ export function ChatInputUI({
 }: ChatInputUIProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = React.useState(false)
+  const { toast } = useToast()
   const currentModel = getModelById(selectedModel)
   const disabled = isLoading || isRecording || isTranscribing
+
+  // 生图按钮点击（占位）
+  const handleGenerateImage = () => {
+    toast({
+      title: '功能开发中',
+      description: '图片生成功能即将上线',
+    })
+  }
 
   // 处理拖拽上传
   const handleDragOver = React.useCallback((e: React.DragEvent) => {
@@ -348,6 +362,53 @@ export function ChatInputUI({
                 </Tooltip>
               </TooltipProvider>
             )}
+
+            {/* 生图按钮 */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={handleGenerateImage}
+                    disabled={disabled}
+                    className="h-8 w-8 rounded-lg hover:bg-[hsl(var(--input-hover))]"
+                  >
+                    <Paintbrush className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>生成图片</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* 联网搜索按钮 */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => onWebSearchToggle(!enableWebSearch)}
+                    disabled={disabled}
+                    className={cn(
+                      'h-8 w-8 rounded-lg transition-all',
+                      enableWebSearch
+                        ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                        : 'hover:bg-[hsl(var(--input-hover))] text-gray-600 dark:text-gray-400'
+                    )}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{enableWebSearch ? '关闭联网搜索' : '开启联网搜索'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           
           {/* 右侧操作 */}

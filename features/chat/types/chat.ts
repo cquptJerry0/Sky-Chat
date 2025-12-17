@@ -23,9 +23,11 @@ export type MessageRole = 'user' | 'assistant' | 'system'
  * - thinking: AI 思考过程（用于 CoT 模型）
  * - answer: AI 回答内容
  * - tool_calls: 工具调用请求
+ * - tool_call: 工具调用开始（用于显示搜索状态）
+ * - tool_result: 工具调用结果
  * - complete: 流式传输完成
  */
-export type SSEEventType = 'thinking' | 'answer' | 'tool_calls' | 'complete'
+export type SSEEventType = 'thinking' | 'answer' | 'tool_calls' | 'tool_call' | 'tool_result' | 'complete'
 
 /**
  * 工具调用结构
@@ -123,6 +125,13 @@ export interface Message {
   thinking?: string
   /** 工具调用列表 */
   toolCalls?: ToolCall[]
+  /** 工具调用状态（用于显示搜索进度） */
+  toolCallStatus?: {
+    name: string
+    query?: string
+    status: 'calling' | 'completed' | 'failed'
+    resultCount?: number
+  }
   /** 是否出现错误 */
   hasError?: boolean
   /** 会话 ID（用于断点续传） */
@@ -175,6 +184,14 @@ export interface SSEData {
   sessionId?: string
   /** 传输进度（0-1） */
   progress?: number
+  /** 工具名称（tool_call/tool_result 事件） */
+  name?: string
+  /** 搜索查询（tool_call 事件） */
+  query?: string
+  /** 结果数量（tool_result 事件） */
+  resultCount?: number
+  /** 是否成功（tool_result 事件） */
+  success?: boolean
 }
 
 /**

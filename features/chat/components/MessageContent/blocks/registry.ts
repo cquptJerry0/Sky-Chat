@@ -8,6 +8,7 @@
 import { ComponentType } from 'react'
 import { WeatherBlock } from './WeatherBlock'
 import { ChartBlock } from './ChartBlock'
+import { ImageBlock } from './ImageBlock'
 
 /**
  * 媒体块组件的 props 接口
@@ -27,6 +28,7 @@ export interface MediaBlockProps {
 export const mediaRegistry: Record<string, ComponentType<MediaBlockProps>> = {
   weather: WeatherBlock,
   chart: ChartBlock,
+  image: ImageBlock,
 }
 
 /**

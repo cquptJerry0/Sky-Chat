@@ -27,6 +27,7 @@ interface ChatState {
   // 配置
   selectedModel: string
   enableThinking: boolean
+  enableWebSearch: boolean
 }
 
 interface ChatActions {
@@ -50,6 +51,7 @@ interface ChatActions {
   // 配置
   setModel: (modelId: string) => void
   toggleThinking: (enabled: boolean) => void
+  toggleWebSearch: (enabled: boolean) => void
   
   // 重置
   reset: () => void
@@ -74,6 +76,7 @@ const initialState: ChatState = {
   abortReason: null,
   selectedModel: getInitialModel(),
   enableThinking: false,
+  enableWebSearch: false,
 }
 
 export const useChatStore = create<ChatState & ChatActions>()((set, get) => ({
@@ -140,6 +143,8 @@ export const useChatStore = create<ChatState & ChatActions>()((set, get) => ({
   },
   
   toggleThinking: (enabled) => set({ enableThinking: enabled }),
+  
+  toggleWebSearch: (enabled) => set({ enableWebSearch: enabled }),
   
   // ===== 重置 =====
   reset: () => set(initialState),
