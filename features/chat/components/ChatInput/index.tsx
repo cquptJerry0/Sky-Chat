@@ -38,6 +38,7 @@ export function ChatInput({ conversationId }: ChatInputProps) {
     startRecording,
     stopRecording,
     cancelRecording,
+    handleImageGenerate,
   } = useChatInput({ conversationId })
 
   return (
@@ -46,6 +47,7 @@ export function ChatInput({ conversationId }: ChatInputProps) {
       setInput={setInput}
       selectedModel={selectedModel}
       enableThinking={enableThinking}
+      enableWebSearch={enableWebSearch}
       isLoading={isSendingMessage}
       isRecording={isRecording}
       isTranscribing={isTranscribing}
@@ -54,11 +56,13 @@ export function ChatInput({ conversationId }: ChatInputProps) {
       onStop={handleStop}
       _onModelChange={setModel}
       onThinkingToggle={toggleThinking}
+      onWebSearchToggle={toggleWebSearch}
       onStartRecording={startRecording}
       onStopRecording={stopRecording}
       onCancelRecording={cancelRecording}
       onFileUpload={handleFileUpload}
       onRemoveFile={handleRemoveFile}
+      onImageGenerate={handleImageGenerate}
     />
   )
 }

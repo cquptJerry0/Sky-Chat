@@ -77,7 +77,7 @@ export function ConversationItem({
   return (
     <div
       className={cn(
-        'group relative flex items-center gap-2 rounded-lg px-3 py-2 transition-colors',
+        'group relative flex items-center gap-2 rounded-lg px-3 py-2 transition-colors overflow-hidden',
         isActive
           ? 'bg-[hsl(var(--sidebar-active))]'
           : 'hover:bg-[hsl(var(--sidebar-hover))]'
@@ -121,7 +121,7 @@ export function ConversationItem({
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
-                className="flex-1 justify-start gap-2 p-0 h-auto hover:bg-transparent min-w-0"
+                className="flex-1 justify-start gap-2 p-0 h-auto hover:bg-transparent min-w-0 overflow-hidden"
                 onClick={handleSelect}
               >
                 <MessageSquare className="h-4 w-4 shrink-0" />

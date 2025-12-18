@@ -30,21 +30,17 @@ const MEDIA_FORMAT_PROMPT = `
 - 不支持饼图(pie)、散点图(scatter)、雷达图(radar)等其他类型
 - 如果用户要求不支持的图表类型，请用文字说明"目前仅支持柱状图和折线图"，并建议使用支持的类型
 
-3. 图片生成 - 使用 image 代码块：
-\`\`\`image
-{"generate": true, "prompt": "详细的英文图片描述", "alt": "简短中文描述"}
-\`\`\`
+3. 图片生成 - 当使用 generate_image 工具生成图片后：
+- 工具会返回 \`\`\`image\n{...}\n\`\`\` 格式的结果
+- 你必须原样输出这个 image 代码块，不要修改！
+- 例如工具返回：\`\`\`image\n{"url":"/generated/xxx.png","alt":"描述"}\n\`\`\`
+- 你就直接输出：\`\`\`image\n{"url":"/generated/xxx.png","alt":"描述"}\n\`\`\`
+- 重要：必须使用 image 代码块格式，不要用 ![](url) 语法！
 
-图片生成规则：
-- 当用户要求画图、生成图片、创作图像时使用
-- prompt 必须是详细的英文描述，包含主体、风格、颜色、构图、光线等
-- alt 是简短的中文描述
-
-示例：
-- 用户说"画一只猫" → prompt: "a cute fluffy cat sitting on cushion, soft lighting, digital art"
-- 用户说"生成风景图" → prompt: "beautiful mountain landscape with lake, sunset, golden hour, photorealistic"
-
-注意：只在用户明确询问天气、需要数据可视化或要求生成图片时才使用这些格式。`
+注意：
+- 只在用户明确询问天气或需要数据可视化时才使用这些格式
+- 如果用户要求生成图片，请使用 generate_image 工具（如果可用）
+`
 
 /**
  * 构建完整的系统提示词

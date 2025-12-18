@@ -81,6 +81,72 @@ export interface Tool {
 }
 
 /**
+ * 搜索结果来源
+ */
+export interface SearchSource {
+  title: string
+  url: string
+  snippet?: string
+}
+
+/**
+ * 工具执行结果
+ * @description 存储工具调用的执行结果，用于持久化
+ */
+export interface ToolResult {
+  /** 关联的 tool_call id */
+  toolCallId: string
+  /** 工具名称 */
+  name: string
+  /** 执行结果 */
+  result: {
+    success: boolean
+    /** 图片生成结果 */
+    imageUrl?: string
+    prompt?: string
+    /** 搜索结果 */
+    resultCount?: number
+    /** 搜索来源列表 */
+    sources?: SearchSource[]
+    /** 其他数据 */
+    [key: string]: unknown
+  }
+}
+
+/**
+ * 工具调用状态
+ * @description 运行时状态，用于显示工具执行进度
+ */
+export type ToolInvocationState = 'pending' | 'running' | 'completed' | 'failed'
+
+/**
+ * 工具调用实例
+ * @description 单个工具调用的完整状态
+ */
+export interface ToolInvocation {
+  /** 工具调用 ID */
+  toolCallId: string
+  /** 工具名称 */
+  name: string
+  /** 执行状态 */
+  state: ToolInvocationState
+  /** 工具参数 */
+  args?: {
+    query?: string
+    prompt?: string
+    [key: string]: unknown
+  }
+  /** 执行结果 */
+  result?: {
+    success: boolean
+    imageUrl?: string
+    resultCount?: number
+    sources?: SearchSource[]
+    [key: string]: unknown
+  }
+}
+
+/**
  * 消息显示状态
  * @description 描述消息的当前显示状态，用于控制 UI 渲染
  * - idle: 正常显示（已完成）
@@ -125,13 +191,10 @@ export interface Message {
   thinking?: string
   /** 工具调用列表 */
   toolCalls?: ToolCall[]
-  /** 工具调用状态（用于显示搜索进度） */
-  toolCallStatus?: {
-    name: string
-    query?: string
-    status: 'calling' | 'completed' | 'failed'
-    resultCount?: number
-  }
+  /** 工具执行结果（持久化存储） */
+  toolResults?: ToolResult[]
+  /** 工具调用实例列表（运行时状态，支持多个并行工具） */
+  toolInvocations?: ToolInvocation[]
   /** 是否出现错误 */
   hasError?: boolean
   /** 会话 ID（用于断点续传） */
@@ -184,14 +247,26 @@ export interface SSEData {
   sessionId?: string
   /** 传输进度（0-1） */
   progress?: number
+  /** 工具调用 ID（tool_call/tool_result 事件） */
+  toolCallId?: string
   /** 工具名称（tool_call/tool_result 事件） */
   name?: string
   /** 搜索查询（tool_call 事件） */
   query?: string
+  /** 图片生成提示词（tool_call 事件） */
+  prompt?: string
   /** 结果数量（tool_result 事件） */
   resultCount?: number
   /** 是否成功（tool_result 事件） */
   success?: boolean
+  /** 图片 URL（generate_image tool_result 事件） */
+  imageUrl?: string
+  /** 图片宽度（generate_image tool_result 事件） */
+  width?: number
+  /** 图片高度（generate_image tool_result 事件） */
+  height?: number
+  /** 搜索来源列表（web_search tool_result 事件） */
+  sources?: SearchSource[]
 }
 
 /**

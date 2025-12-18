@@ -72,7 +72,7 @@ export function Sidebar({ children, isLeader, className }: SidebarProps) {
 
       {/* 中间：动态内容（会话列表等模块） */}
       {!collapsed && (
-        <ScrollArea className="flex-1 px-3">
+        <ScrollArea className="flex-1 min-h-0 px-3">
           {children}
         </ScrollArea>
       )}

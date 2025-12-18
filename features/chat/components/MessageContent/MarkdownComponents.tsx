@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { CodeBlock } from './CodeBlock'
 import { isMediaBlock, mediaRegistry } from './blocks/registry'
+import { ImageBlock } from './blocks/ImageBlock'
 import type { Components } from 'react-markdown'
 
 /**
@@ -31,6 +32,17 @@ export function createMarkdownComponents(isStreaming: boolean = false): Componen
         <CodeBlock inline={isInline} className={className}>
           {children}
         </CodeBlock>
+      )
+    },
+
+    // 图片使用 ImageBlock 组件渲染，支持下载、复制、放大
+    img: ({ src, alt }) => {
+      if (!src) return null
+      const data = JSON.stringify({ url: src, alt: alt || '' })
+      return (
+        <Suspense fallback={<div className="my-4 aspect-square animate-pulse bg-muted" />}>
+          <ImageBlock data={data} isStreaming={isStreaming} />
+        </Suspense>
       )
     },
 

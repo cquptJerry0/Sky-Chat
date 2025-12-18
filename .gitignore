@@ -45,10 +45,11 @@ next-env.d.ts
 /lib/generated/prisma
 
 # Windsurf
+prisma/migrations/
 .windsurf
 .claude
 .augment
 .kiro
 .pnpm-store
 .test-data
-public/generated
+public/generated/

@@ -11,7 +11,7 @@ import type { NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   // next-auth v4 的 getToken 需要类型断言
   const token = await getToken({ 
-    req: request as Parameters<typeof getToken>[0]['req'], 
+    req: request as unknown as Parameters<typeof getToken>[0]['req'], 
     secret: process.env.AUTH_SECRET 
   })
   

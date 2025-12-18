@@ -6,6 +6,7 @@
 
 import { ToolRegistry } from './registry'
 import { createWebSearchTool } from './web-search'
+import { createImageGenerationTool } from './image-generation'
 
 // 创建全局工具注册表实例
 const toolRegistry = new ToolRegistry()
@@ -18,6 +19,16 @@ if (tavilyApiKey) {
   toolRegistry.register(webSearchTool)
 } else {
   console.warn('[Tools] TAVILY_API_KEY not configured, web_search tool disabled')
+}
+
+// 注册 generate_image 工具（仅当 SILICONFLOW_API_KEY 存在时）
+const siliconflowApiKey = process.env.SILICONFLOW_API_KEY
+
+if (siliconflowApiKey) {
+  const imageGenerationTool = createImageGenerationTool()
+  toolRegistry.register(imageGenerationTool)
+} else {
+  console.warn('[Tools] SILICONFLOW_API_KEY not configured, generate_image tool disabled')
 }
 
 // 导出注册表实例
@@ -38,4 +49,5 @@ export type {
 
 // 导出工具创建函数
 export { createWebSearchTool } from './web-search'
+export { createImageGenerationTool } from './image-generation'
 export { ToolRegistry, createToolRegistry } from './registry'

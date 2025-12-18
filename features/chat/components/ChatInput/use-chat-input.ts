@@ -11,6 +11,7 @@ import { ChatAPI } from '@/lib/services/chat-api'
 import { useToast } from '@/lib/hooks/use-toast'
 import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
 import type { FileAttachment } from '@/features/chat/types/chat'
+import type { ImageConfig } from '../ImageGenerationModal'
 
 interface UseChatInputOptions {
   conversationId: string
@@ -179,6 +180,28 @@ export function useChatInput({ conversationId }: UseChatInputOptions) {
     transcribe()
   }, [audioBlob, clearAudio, toast])
 
+  // 处理图片生成（通过 Modal 配置）
+  const handleImageGenerate = useCallback(
+    async (config: ImageConfig) => {
+      if (isSendingMessage) return
+
+      // 构建带配置的生图请求消息
+      // 把配置信息附加到消息中，让 AI 知道用户的具体需求
+      let content = `请生成图片：${config.prompt}`
+      if (config.negative_prompt) {
+        content += `\n排除内容：${config.negative_prompt}`
+      }
+      if (config.image_size && config.image_size !== '1024x1024') {
+        content += `\n图片尺寸：${config.image_size}`
+      }
+      
+      await ChatService.sendMessage(conversationId, content, {
+        createUserMessage: true,
+      })
+    },
+    [isSendingMessage, conversationId]
+  )
+
   return {
     input,
     setInput: handleInputChange,
@@ -193,5 +216,6 @@ export function useChatInput({ conversationId }: UseChatInputOptions) {
     startRecording: handleStartRecording,
     stopRecording: handleStopRecording,
     cancelRecording: handleCancelRecording,
+    handleImageGenerate,
   }
 }

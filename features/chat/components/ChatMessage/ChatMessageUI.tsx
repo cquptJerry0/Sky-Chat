@@ -13,72 +13,166 @@ import { MessageContent } from '@/features/chat/components/MessageContent'
 import { MessageActions } from '@/features/chat/components/MessageActions'
 import { MessageEdit } from '@/features/chat/components/MessageEdit'
 import { Button } from '@/components/ui/button'
-import { Loader2, Edit2, RotateCw } from 'lucide-react'
+import { Loader2, Edit2, RotateCw, ChevronDown, ChevronRight, Globe, XCircle } from 'lucide-react'
 import { MarkdownIcon } from '@/components/icons/MarkdownIcon'
 import { TextFileIcon } from '@/components/icons/TextFileIcon'
 import { cn } from '@/lib/utils'
-import {  Loader2 as SearchLoader, CheckCircle2, XCircle } from 'lucide-react'
-import type { Message } from '@/features/chat/types/chat'
+import type { Message, ToolInvocation, ToolResult, SearchSource } from '@/features/chat/types/chat'
 
 /**
- * 工具调用状态组件
+ * 搜索状态组件 - 简洁风格，类似 Perplexity
  */
-function ToolCallStatus({ status }: { status: NonNullable<Message['toolCallStatus']> }) {
-  if (status.status === 'calling') {
+function WebSearchStatus({ invocation }: { invocation: ToolInvocation }) {
+  const [isExpanded, setIsExpanded] = React.useState(false)
+  const sources = invocation.result?.sources as SearchSource[] | undefined
+
+  // 搜索中
+  if (invocation.state === 'running' || invocation.state === 'pending') {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/50">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
-          <SearchLoader className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
-        </div>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-            正在搜索
-          </p>
-          {status.query && (
-            <p className="text-xs text-blue-700 dark:text-blue-300">
-              {status.query}
-            </p>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        <span>搜索中...</span>
+        {invocation.args?.query && (
+          <span className="text-xs opacity-70">&quot;{invocation.args.query}&quot;</span>
+        )}
+      </div>
+    )
+  }
+
+  // 失败
+  if (invocation.state === 'failed') {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <XCircle className="h-3.5 w-3.5" />
+        <span>搜索失败</span>
+      </div>
+    )
+  }
+
+  // 完成 - 显示来源标签
+  const hasSources = sources && sources.length > 0
+  
+  return (
+    <div className="space-y-2">
+      {/* 来源标签行 */}
+      {hasSources && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">来源:</span>
+          {sources.slice(0, isExpanded ? sources.length : 3).map((source, index) => (
+            <a
+              key={index}
+              href={source.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 hover:bg-muted text-xs transition-colors group"
+            >
+              <Globe className="h-3 w-3 text-muted-foreground" />
+              <span className="text-foreground/80 group-hover:text-foreground max-w-[120px] truncate">
+                {new URL(source.url).hostname.replace('www.', '')}
+              </span>
+            </a>
+          ))}
+          {sources.length > 3 && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            >
+              {isExpanded ? (
+                <>收起 <ChevronDown className="h-3 w-3" /></>
+              ) : (
+                <>+{sources.length - 3} 更多 <ChevronRight className="h-3 w-3" /></>
+              )}
+            </button>
           )}
         </div>
-      </div>
-    )
+      )}
+    </div>
+  )
+}
+
+/**
+ * 渲染单个工具调用
+ * 图片生成完成后会直接插入到 content 流中，这里只显示 loading 状态
+ */
+function ToolInvocationItem({ invocation }: { invocation: ToolInvocation }) {
+  // 图片生成 - 只显示 loading 和失败状态
+  if (invocation.name === 'generate_image') {
+    if (invocation.state === 'running' || invocation.state === 'pending') {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <span>正在生成图片...</span>
+        </div>
+      )
+    }
+    if (invocation.state === 'failed') {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <XCircle className="h-3.5 w-3.5" />
+          <span>图片生成失败</span>
+        </div>
+      )
+    }
+    // 完成状态不渲染，图片已插入到 content 中
+    return null
   }
 
-  if (status.status === 'completed') {
+  // 搜索工具
+  if (invocation.name === 'web_search') {
+    return <WebSearchStatus invocation={invocation} />
+  }
+
+  return null
+}
+
+/**
+ * 渲染持久化的工具结果
+ * 方案 A：图片在 content 中渲染，这里不单独显示
+ */
+function ToolResultItem({ result }: { result: ToolResult }) {
+  const [isExpanded, setIsExpanded] = React.useState(false)
+
+  // 图片生成结果不在这里渲染，会在 content 的 markdown 中显示
+  if (result.name === 'generate_image') {
+    return null
+  }
+
+  // 搜索结果 - 简洁的来源标签
+  if (result.name === 'web_search' && result.result.sources && result.result.sources.length > 0) {
+    const sources = result.result.sources as SearchSource[]
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 dark:border-green-800 dark:bg-green-950/50">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
-          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-        </div>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-green-900 dark:text-green-100">
-            搜索完成
-          </p>
-          {status.resultCount !== undefined && (
-            <p className="text-xs text-green-700 dark:text-green-300">
-              找到 {status.resultCount} 条相关结果
-            </p>
-          )}
-        </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-muted-foreground">来源:</span>
+        {sources.slice(0, isExpanded ? sources.length : 3).map((source, index) => (
+          <a
+            key={index}
+            href={source.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 hover:bg-muted text-xs transition-colors group"
+          >
+            <Globe className="h-3 w-3 text-muted-foreground" />
+            <span className="text-foreground/80 group-hover:text-foreground max-w-[120px] truncate">
+              {new URL(source.url).hostname.replace('www.', '')}
+            </span>
+          </a>
+        ))}
+        {sources.length > 3 && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+          >
+            {isExpanded ? (
+              <>收起 <ChevronDown className="h-3 w-3" /></>
+            ) : (
+              <>+{sources.length - 3} 更多 <ChevronRight className="h-3 w-3" /></>
+            )}
+          </button>
+        )}
       </div>
     )
   }
-
-  if (status.status === 'failed') {
-    return (
-      <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-950/50">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
-          <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-        </div>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-red-900 dark:text-red-100">
-            搜索失败
-          </p>
-        </div>
-      </div>
-    )
-  }
-
+  
   return null
 }
 
@@ -232,10 +326,15 @@ export function ChatMessageUI({
             </div>
           )}
 
-          {/* 工具调用状态（联网搜索） */}
-          {message.toolCallStatus && (
-            <ToolCallStatus status={message.toolCallStatus} />
-          )}
+          {/* 工具调用状态（运行时，支持多个并行） */}
+          {message.toolInvocations?.map((invocation) => (
+            <ToolInvocationItem key={invocation.toolCallId} invocation={invocation} />
+          ))}
+
+          {/* 工具执行结果（持久化后，从数据库加载） */}
+          {!message.toolInvocations?.length && message.toolResults?.map((result) => (
+            <ToolResultItem key={result.toolCallId} result={result} />
+          ))}
 
           {/* Thinking 面板（独立组件） */}
           {message.thinking && (

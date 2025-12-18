@@ -31,10 +31,32 @@ export function parseToolCalls(toolCalls: ToolCall[]): ParsedToolCall[] {
  * 格式化工具结果为消息
  */
 export function formatToolMessage(result: ToolCallResult): ToolMessage {
+  let content = result.content
+  
+  // 如果是搜索结果的 JSON 格式，提取 content 字段给 AI
+  if (result.name === 'web_search') {
+    try {
+      const parsed = JSON.parse(result.content)
+      content = parsed.content || parsed.error || result.content
+    } catch {
+      // 不是 JSON，保持原样
+    }
+  }
+  
+  // 图片生成结果，只给 AI 简短消息，避免 AI 复述长 URL
+  if (result.name === 'generate_image') {
+    try {
+      const parsed = JSON.parse(result.content)
+      content = parsed.message || '图片已生成完成。'
+    } catch {
+      // 不是 JSON，保持原样
+    }
+  }
+  
   return {
     role: 'tool',
     tool_call_id: result.toolCallId,
-    content: result.content,
+    content,
   }
 }
 
@@ -104,4 +126,29 @@ export function extractSearchQuery(toolCalls: ToolCall[]): string | null {
   } catch {
     return null
   }
+}
+
+/**
+ * 从 tool_calls 中提取图片生成 prompt（用于前端显示）
+ */
+export function extractImagePrompt(toolCalls: ToolCall[]): string | null {
+  const imageCall = toolCalls.find(call => call.function.name === 'generate_image')
+  
+  if (!imageCall) {
+    return null
+  }
+  
+  try {
+    const args = JSON.parse(imageCall.function.arguments)
+    return args.prompt || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 获取 tool_calls 中的工具名称列表
+ */
+export function getToolNames(toolCalls: ToolCall[]): string[] {
+  return toolCalls.map(call => call.function.name)
 }

@@ -25,6 +25,8 @@ export interface ChatRequest {
   enableThinking?: boolean
   thinkingBudget?: number
   enableWebSearch?: boolean
+  enableImageGeneration?: boolean
+  imageConfig?: { prompt: string; negative_prompt?: string; image_size: string }
   userMessageId?: string
   aiMessageId?: string
   attachments?: Array<{ name: string; content: string; type: string; size: number }>
@@ -52,6 +54,7 @@ export async function handleChatRequest(
     enableThinking = false,
     thinkingBudget = 4096,
     enableWebSearch = false,
+    enableImageGeneration: _enableImageGeneration = false,
     userMessageId,
     aiMessageId,
     attachments,
@@ -72,8 +75,30 @@ export async function handleChatRequest(
   const currentUserMessage = appendAttachments(content, attachments)
   const contextMessages = buildContextMessages(historyMessages, currentUserMessage)
 
-  // 5. 准备工具定义（如果启用联网搜索）
-  const tools = enableWebSearch ? toolRegistry.getToolDefinitions() : undefined
+  // 5. 准备工具定义
+  // - web_search: 需要用户手动开启
+  // - generate_image: 始终可用（AI 自动判断何时调用）
+  const enabledTools = []
+  if (enableWebSearch && toolRegistry.has('web_search')) {
+    enabledTools.push(toolRegistry.get('web_search')!)
+  }
+  // 生图工具始终可用，让 AI 自己判断何时调用
+  if (toolRegistry.has('generate_image')) {
+    enabledTools.push(toolRegistry.get('generate_image')!)
+  }
+  const tools = enabledTools.length > 0
+    ? enabledTools.map(tool => ({
+        type: 'function' as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        },
+      }))
+    : undefined
+
+  // 调试日志
+  console.log('[ChatService] Enabled tools:', enabledTools.map(t => t.name))
 
   // 6. 调用 AI API
   const { reader } = await createChatCompletion(apiKey, {
@@ -87,8 +112,9 @@ export async function handleChatRequest(
   // 7. 创建 SSE 流
   const sessionId = Date.now().toString()
   
-  // 如果启用了工具，使用支持工具调用的流处理器
-  const stream = enableWebSearch
+  // 如果有可用工具，使用支持工具调用的流处理器
+  const hasTools = enabledTools.length > 0
+  const stream = hasTools
     ? createSSEStreamWithTools(reader, {
         messageId,
         conversationId: conversation.id,

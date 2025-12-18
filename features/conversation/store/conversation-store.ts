@@ -13,6 +13,7 @@ import {
 import { sortConversations } from '@/features/conversation/utils/sort-conversations'
 
 export interface ConversationState {
+ 
   // 会话列表
   conversations: Conversation[]
   filteredConversations: Conversation[]

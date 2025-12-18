@@ -11,7 +11,7 @@
  * @module modules/chat-input/ChatInputUI
  */
 
-import * as React from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { ArrowUp, Mic, Loader2, Brain, Square, X, FileUp, Paintbrush, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -19,7 +19,7 @@ import { MarkdownIcon } from '@/components/icons/MarkdownIcon'
 import { TextFileIcon } from '@/components/icons/TextFileIcon'
 import { getModelById } from '@/features/chat/constants/models'
 import { cn } from '@/lib/utils'
-import { useToast } from '@/lib/hooks/use-toast'
+import { ImageGenerationModal, type ImageConfig } from '../ImageGenerationModal'
 
 interface ChatInputUIProps {
   // 状态
@@ -44,6 +44,7 @@ interface ChatInputUIProps {
   onCancelRecording: () => void
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
   onRemoveFile: (index: number) => void
+  onImageGenerate?: (config: ImageConfig) => void
 }
 
 /**
@@ -71,35 +72,39 @@ export function ChatInputUI({
   onCancelRecording,
   onFileUpload,
   onRemoveFile,
+  onImageGenerate,
 }: ChatInputUIProps) {
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
-  const [isDragging, setIsDragging] = React.useState(false)
-  const { toast } = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [showImageModal, setShowImageModal] = useState(false)
   const currentModel = getModelById(selectedModel)
   const disabled = isLoading || isRecording || isTranscribing
 
-  // 生图按钮点击（占位）
+  // 生图按钮点击
   const handleGenerateImage = () => {
-    toast({
-      title: '功能开发中',
-      description: '图片生成功能即将上线',
-    })
+    setShowImageModal(true)
+  }
+
+  // 处理图片生成
+  const handleImageGenerate = (config: ImageConfig) => {
+    setShowImageModal(false)
+    onImageGenerate?.(config)
   }
 
   // 处理拖拽上传
-  const handleDragOver = React.useCallback((e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(true)
   }, [])
 
-  const handleDragLeave = React.useCallback((e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(false)
   }, [])
 
-  const handleDrop = React.useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(false)
@@ -482,6 +487,13 @@ export function ChatInputUI({
           Sky Chat 可能会出错。请核实重要信息。
         </p>
       </div>
+
+      {/* 图片生成配置弹窗 */}
+      <ImageGenerationModal
+        open={showImageModal}
+        onClose={() => setShowImageModal(false)}
+        onGenerate={handleImageGenerate}
+      />
     </div>
   )
 }

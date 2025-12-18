@@ -121,6 +121,7 @@ model Message {
   content        String       @db.Text
   thinking       String?      @db.Text
   toolCalls      Json?
+  toolResults    Json?        // 工具执行结果 [{ toolCallId, name, result }]
   attachments    Json?        // 文件附件列表 [{ name, type, size }]
   createdAt      DateTime     @default(now())
 

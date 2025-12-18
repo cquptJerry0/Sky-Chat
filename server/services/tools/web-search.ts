@@ -45,7 +45,7 @@ async function searchTavily(query: string, apiKey: string): Promise<TavilyRespon
         query,
         search_depth: 'basic',
         include_answer: true,
-        max_results: 5,
+        max_results: 6,
       }),
       signal: controller.signal,
     })
@@ -62,7 +62,16 @@ async function searchTavily(query: string, apiKey: string): Promise<TavilyRespon
 }
 
 /**
- * 格式化搜索结果为字符串
+ * 搜索来源信息（用于前端展示）
+ */
+export interface SearchSource {
+  title: string
+  url: string
+  snippet?: string
+}
+
+/**
+ * 格式化搜索结果为字符串（给 AI 看的）
  */
 export function formatSearchResults(response: TavilyResponse): string {
   const parts: string[] = []
@@ -90,6 +99,21 @@ export function formatSearchResults(response: TavilyResponse): string {
 }
 
 /**
+ * 提取搜索来源列表（用于前端展示）
+ */
+export function extractSearchSources(response: TavilyResponse): SearchSource[] {
+  if (!response.results || response.results.length === 0) {
+    return []
+  }
+  
+  return response.results.slice(0, 5).map(result => ({
+    title: result.title,
+    url: result.url,
+    snippet: result.content.substring(0, 100) + (result.content.length > 100 ? '...' : ''),
+  }))
+}
+
+/**
  * 创建网页搜索工具
  */
 export function createWebSearchTool(apiKey: string): Tool {
@@ -110,25 +134,30 @@ export function createWebSearchTool(apiKey: string): Tool {
       const query = args.query as string
 
       if (!query || typeof query !== 'string') {
-        return '错误: 搜索查询不能为空'
+        return JSON.stringify({ error: '搜索查询不能为空', sources: [] })
       }
 
       try {
-        console.log(`[WebSearch] Searching for: ${query}`)
         const response = await searchTavily(query, apiKey)
-        const resultCount = response.results?.length || 0
-        console.log(`[WebSearch] Found ${resultCount} results`)
-        return formatSearchResults(response)
+        const sources = extractSearchSources(response)
+        const content = formatSearchResults(response)
+        
+        // 返回 JSON 格式，包含内容和来源
+        return JSON.stringify({
+          content,
+          sources,
+          resultCount: response.results?.length || 0,
+        })
       } catch (error) {
         if (error instanceof Error) {
           if (error.name === 'AbortError') {
             console.error('[WebSearch] Search timeout')
-            return '搜索超时，请稍后重试'
+            return JSON.stringify({ error: '搜索超时，请稍后重试', sources: [] })
           }
           console.error('[WebSearch] Search error:', error.message)
-          return `搜索失败: ${error.message}`
+          return JSON.stringify({ error: error.message, sources: [] })
         }
-        return '搜索失败: 未知错误'
+        return JSON.stringify({ error: '未知错误', sources: [] })
       }
     },
   }

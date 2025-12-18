@@ -95,7 +95,8 @@ export interface IToolRegistry {
 export interface ToolCallEvent {
   type: 'tool_call'
   name: string
-  query?: string
+  query?: string       // web_search 工具的搜索查询
+  prompt?: string      // generate_image 工具的图片描述
   sessionId: string
 }
 
@@ -105,7 +106,8 @@ export interface ToolCallEvent {
 export interface ToolResultEvent {
   type: 'tool_result'
   name: string
-  resultCount?: number
+  resultCount?: number // web_search 工具的结果数量
+  imageUrl?: string    // generate_image 工具的图片 URL
   success: boolean
   sessionId: string
 }

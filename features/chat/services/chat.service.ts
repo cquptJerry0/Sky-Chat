@@ -62,9 +62,14 @@ export const ChatService = {
   async sendMessage(
     conversationId: string,
     content: string,
-    options: { createUserMessage?: boolean; attachments?: FileAttachment[] } = {}
+    options: {
+      createUserMessage?: boolean
+      attachments?: FileAttachment[]
+      enableImageGeneration?: boolean
+      imageConfig?: { prompt: string; negative_prompt?: string; image_size: string }
+    } = {}
   ): Promise<void> {
-    const { createUserMessage = true, attachments } = options
+    const { createUserMessage = true, attachments, enableImageGeneration, imageConfig } = options
     const store = useChatStore.getState()
     
     if (store.isSendingMessage) return
@@ -102,6 +107,8 @@ export const ChatService = {
           model: store.selectedModel,
           enableThinking: store.enableThinking,
           enableWebSearch: store.enableWebSearch,
+          enableImageGeneration,
+          imageConfig,
           thinkingBudget: 4096,
           userMessageId,
           aiMessageId,
@@ -145,23 +152,62 @@ export const ChatService = {
           }
           s.appendContent(messageId, data.content)
         } else if (data.type === 'tool_call') {
-          // 工具调用开始
-          s.updateMessage(messageId, {
-            toolCallStatus: {
-              name: data.name || 'web_search',
+          // 工具调用开始 - 添加新的 invocation
+          const msg = s.messages.find((m) => m.id === messageId)
+          const invocations = msg?.toolInvocations || []
+          const newInvocation = {
+            toolCallId: data.toolCallId || `temp_${Date.now()}`,
+            name: data.name || 'unknown',
+            state: 'running' as const,
+            args: {
               query: data.query,
-              status: 'calling',
+              prompt: data.prompt,
             },
+          }
+          s.updateMessage(messageId, {
+            toolInvocations: [...invocations, newInvocation],
             displayState: 'streaming',
           })
         } else if (data.type === 'tool_result') {
-          // 工具调用完成
+          // 工具调用完成 - 通过 toolCallId 精确匹配
+          const msg = s.messages.find((m) => m.id === messageId)
+          const invocations = msg?.toolInvocations || []
+          const updatedInvocations = invocations.map((inv) => {
+            // 优先用 toolCallId 匹配，fallback 到 name + running 状态
+            const isMatch = data.toolCallId
+              ? inv.toolCallId === data.toolCallId
+              : inv.name === data.name && inv.state === 'running'
+            if (isMatch) {
+              return {
+                ...inv,
+                state: data.success ? ('completed' as const) : ('failed' as const),
+                result: {
+                  success: data.success ?? false,
+                  imageUrl: data.imageUrl,
+                  resultCount: data.resultCount,
+                  sources: data.sources,
+                  width: data.width,
+                  height: data.height,
+                },
+              }
+            }
+            return inv
+          })
+          
+          // 图片生成完成时，直接插入图片到 content 流的当前位置
+          if (data.name === 'generate_image' && data.success && data.imageUrl) {
+            const imageData = JSON.stringify({
+              url: data.imageUrl,
+              alt: invocations.find(inv => inv.toolCallId === data.toolCallId)?.args?.prompt || '生成的图片',
+              width: data.width || 512,
+              height: data.height || 512,
+            })
+            // 插入 image 代码块到 content
+            s.appendContent(messageId, `\n\`\`\`image\n${imageData}\n\`\`\`\n`)
+          }
+          
           s.updateMessage(messageId, {
-            toolCallStatus: {
-              name: data.name || 'web_search',
-              status: data.success ? 'completed' : 'failed',
-              resultCount: data.resultCount,
-            },
+            toolInvocations: updatedInvocations,
           })
         } else if (data.type === 'complete') {
           s.stopStreaming()
