@@ -199,7 +199,14 @@ export function createSSEStreamWithTools(
         const allToolResultsData: Array<{
           toolCallId: string
           name: string
-          result: { success: boolean; imageUrl?: string; prompt?: string; resultCount?: number }
+          result: {
+            success: boolean
+            imageUrl?: string
+            width?: number
+            height?: number
+            resultCount?: number
+            sources?: SearchSource[]
+          }
         }> = []
 
         // 当前消息上下文（会随着工具调用不断扩展）
@@ -480,7 +487,7 @@ function sendToolResultEvent(
   encoder: TextEncoder,
   result: { toolCallId: string; name: string; success: boolean; content: string },
   sessionId: string
-): { toolCallId: string; name: string; result: { success: boolean; imageUrl?: string; prompt?: string; resultCount?: number; sources?: SearchSource[] } } {
+): { toolCallId: string; name: string; result: { success: boolean; imageUrl?: string; width?: number; height?: number; resultCount?: number; sources?: SearchSource[] } } {
   if (result.name === 'web_search') {
     // 解析搜索结果 JSON
     let resultCount = 0
