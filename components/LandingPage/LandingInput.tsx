@@ -11,7 +11,7 @@
  * @module components/LandingPage/LandingInput
  */
 
-import * as React from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -25,13 +25,13 @@ import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
  */
 export function LandingInput() {
   const router = useRouter()
-  const [message, setMessage] = React.useState('')
-  const [showLogin, setShowLogin] = React.useState(false)
+  const [message, setMessage] = useState('')
+  const [showLogin, setShowLogin] = useState(false)
 
   /**
    * 处理发送按钮点击
    */
-  const handleSend = React.useCallback(() => {
+  const handleSend = useCallback(() => {
     const trimmedMessage = message.trim()
 
     if (!trimmedMessage) return
@@ -44,7 +44,7 @@ export function LandingInput() {
   /**
    * 处理键盘事件
    */
-  const handleKeyDown = React.useCallback(
+  const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()

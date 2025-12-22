@@ -22,7 +22,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          prompt: 'consent',
+          prompt: 'select_account',
           access_type: 'offline',
           response_type: 'code',
         },
@@ -32,6 +32,11 @@ export const authOptions: NextAuthOptions = {
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: 'consent',
+        },
+      },
     }),
     
     CredentialsProvider({
@@ -73,7 +78,7 @@ export const authOptions: NextAuthOptions = {
   ],
   
   pages: {
-    signIn: '/',
+    signIn: '/auth/signin',
     error: '/auth/error',
   },
   

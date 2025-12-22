@@ -74,30 +74,30 @@ export function ImageBlock({ data, isStreaming }: MediaBlockProps) {
   // 流式传输中或解析失败
   if (!imageData) {
     if (isStreaming) {
-      return <figure className="my-4 aspect-square animate-pulse bg-muted rounded-lg" />
+      return <span className="block my-4 aspect-square animate-pulse bg-muted rounded-lg" />
     }
     return (
-      <figure className="my-4 bg-destructive/10 p-4 text-sm text-destructive rounded-lg">
+      <span className="block my-4 bg-destructive/10 p-4 text-sm text-destructive rounded-lg">
         无法解析图片数据
-      </figure>
+      </span>
     )
   }
 
   // 没有 URL
   if (!imageData.url) {
     return (
-      <figure className="my-4 bg-destructive/5 p-4 text-sm text-destructive rounded-lg">
+      <span className="block my-4 bg-destructive/5 p-4 text-sm text-destructive rounded-lg">
         图片加载失败
-      </figure>
+      </span>
     )
     }
 
     // 加载失败
     if (hasError) {
       return (
-        <figure className="my-4 bg-destructive/5 p-4 text-sm text-destructive rounded-lg">
+        <span className="block my-4 bg-destructive/5 p-4 text-sm text-destructive rounded-lg">
           图片加载失败
-        </figure>
+        </span>
       )
     }
 
@@ -108,7 +108,7 @@ export function ImageBlock({ data, isStreaming }: MediaBlockProps) {
 
   return (
     <>
-      <figure className="my-4">
+      <span className="block my-4">
         {/* 图片区域 */}
         <span
           className="relative block overflow-hidden rounded-lg"
@@ -138,10 +138,10 @@ export function ImageBlock({ data, isStreaming }: MediaBlockProps) {
         {imageData.alt && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <figcaption className="mt-2 text-sm text-muted-foreground flex items-start gap-1.5 cursor-default">
+              <span className="mt-2 text-sm text-muted-foreground flex items-start gap-1.5 cursor-default">
                 <Sparkles className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                 <span className="truncate">{imageData.alt}</span>
-              </figcaption>
+              </span>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-sm">
               <p>{imageData.alt}</p>
@@ -179,7 +179,7 @@ export function ImageBlock({ data, isStreaming }: MediaBlockProps) {
             放大
           </Button>
         </span>
-      </figure>
+      </span>
 
       {/* Lightbox 放大预览 */}
       <Dialog open={isZoomed} onOpenChange={setIsZoomed}>

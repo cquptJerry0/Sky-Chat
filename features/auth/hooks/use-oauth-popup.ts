@@ -62,6 +62,10 @@ export function useOAuthPopup(options: UseOAuthPopupOptions = {}) {
       if (event.data?.type === 'oauth-success') {
         cleanup()
         onSuccess?.()
+      } else if (event.data?.type === 'oauth-cancelled') {
+        // 用户取消了 OAuth 登录
+        cleanup()
+        // 不调用 onError，因为取消是正常行为
       }
     }
     window.addEventListener('message', messageHandlerRef.current)

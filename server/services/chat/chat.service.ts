@@ -16,7 +16,7 @@ import { createChatCompletion } from '@/server/services/ai/siliconflow'
 import { buildContextMessages, appendAttachments } from './prompt.builder'
 import { createSSEStream, createSSEStreamWithTools } from './stream.handler'
 import { toolRegistry } from '@/server/services/tools'
-// import type { ToolCall } from '@/server/services/tools'
+
 
 export interface ChatRequest {
   content: string

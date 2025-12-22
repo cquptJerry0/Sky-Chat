@@ -9,12 +9,19 @@
 
 import { signIn } from 'next-auth/react'
 import { useParams } from 'next/navigation'
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 
 export default function OAuthPopupPage() {
   const params = useParams()
   const provider = params.provider as string
   const triggered = useRef(false)
+
+  useEffect(() => {
+    // 标记当前窗口是 OAuth 弹窗
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('oauth-popup', 'true')
+    }
+  }, [])
 
   // 只触发一次
   if (!triggered.current && typeof window !== 'undefined') {

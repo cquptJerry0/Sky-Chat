@@ -123,7 +123,11 @@ function sendEvent(
   encoder: TextEncoder,
   data: Record<string, unknown>
 ): void {
-  controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+  try {
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+  } catch {
+    // Controller 已关闭，忽略
+  }
 }
 
 /**

@@ -37,8 +37,6 @@ export function LandingPage() {
 
       {/* 新手教程（CSR） - 浮动按钮和弹窗 */}
       <LandingTutorial />
-
-  
     </div>
   )
 }
