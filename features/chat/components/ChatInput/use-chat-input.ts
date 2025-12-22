@@ -55,6 +55,7 @@ export function useChatInput({ conversationId }: UseChatInputOptions) {
   )
 
   const handleStop = useCallback(() => {
+    ChatService.abortStream()
     stopStreaming('user_stop')
   }, [stopStreaming])
 

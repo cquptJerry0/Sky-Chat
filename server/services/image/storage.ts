@@ -58,11 +58,15 @@ async function ensureStorageDir(): Promise<void> {
  * @throws Error 当下载或保存失败时
  */
 export async function downloadAndSave(remoteUrl: string): Promise<StoredImage> {
+  console.log('[Storage] Starting download from:', remoteUrl)
+  
   // 确保目录存在
   await ensureStorageDir()
+  console.log('[Storage] Storage dir ensured')
 
   // 下载图片
   const response = await fetch(remoteUrl)
+  console.log('[Storage] Fetch response status:', response.status)
 
   if (!response.ok) {
     throw new Error(`下载图片失败: ${response.status} ${response.statusText}`)

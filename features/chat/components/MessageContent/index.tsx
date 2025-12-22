@@ -68,7 +68,7 @@ function preprocessStreamingContent(content: string, isStreaming: boolean): stri
 export function MessageContent({
   content,
   isStreaming = false,
-  showCursor = true,
+  showCursor: _showCursor = true,
 }: MessageContentProps) {
   // 渲染计数器（开发环境统计用，暂时注释）
   // const renderCount = useRef(0)
@@ -80,8 +80,9 @@ export function MessageContent({
   //   }
   // })
   
-  // 只在流式传输且需要显示光标时添加 cursor 插件
-  const shouldShowCursor = isStreaming && showCursor
+  // 光标功能暂时禁用，bug 较多
+  // const shouldShowCursor = isStreaming && showCursor
+  const shouldShowCursor = false
   
   // 根据流式状态创建 markdown 组件
   const markdownComponents = useMemo(

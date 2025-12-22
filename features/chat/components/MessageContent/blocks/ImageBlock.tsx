@@ -6,7 +6,7 @@
  * 展示图片，支持下载、复制、放大操作
  */
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, memo } from 'react'
 import Image from 'next/image'
 import { Download, Copy, ZoomIn, Loader2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -22,10 +22,10 @@ interface ImageData {
   height?: number
 }
 
-export function ImageBlock({ data, isStreaming }: MediaBlockProps) {
-  const [isLoading, setIsLoading] = useState(true)
-  const [hasError, setHasError] = useState(false)
-  const [isZoomed, setIsZoomed] = useState(false)
+// 缓存已加载的图片 URL
+const loadedImages = new Set<string>()
+
+function ImageBlockInner({ data, isStreaming }: MediaBlockProps) {
   const { toast } = useToast()
 
   const imageData = useMemo(() => {
@@ -42,6 +42,16 @@ export function ImageBlock({ data, isStreaming }: MediaBlockProps) {
     }
     return null
   }, [data])
+
+  // 如果图片已经加载过，初始状态就是 false
+  const [isLoading, setIsLoading] = useState(() => {
+    if (imageData?.url && loadedImages.has(imageData.url)) {
+      return false
+    }
+    return true
+  })
+  const [hasError, setHasError] = useState(false)
+  const [isZoomed, setIsZoomed] = useState(false)
 
   // 下载图片
   const handleDownload = async () => {
@@ -90,21 +100,21 @@ export function ImageBlock({ data, isStreaming }: MediaBlockProps) {
         图片加载失败
       </span>
     )
-    }
+  }
 
-    // 加载失败
-    if (hasError) {
-      return (
-        <span className="block my-4 bg-destructive/5 p-4 text-sm text-destructive rounded-lg">
-          图片加载失败
-        </span>
-      )
-    }
+  // 加载失败
+  if (hasError) {
+    return (
+      <span className="block my-4 bg-destructive/5 p-4 text-sm text-destructive rounded-lg">
+        图片加载失败
+      </span>
+    )
+  }
 
-    // 计算宽高比，用于占位防抖
-    const width = imageData.width || 512
-    const height = imageData.height || 512
-    const aspectRatio = width / height
+  // 计算宽高比，用于占位防抖
+  const width = imageData.width || 512
+  const height = imageData.height || 512
+  const aspectRatio = width / height
 
   return (
     <>
@@ -125,7 +135,12 @@ export function ImageBlock({ data, isStreaming }: MediaBlockProps) {
             width={width}
             height={height}
             className={`w-full h-auto rounded-lg ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
-            onLoad={() => setIsLoading(false)}
+            onLoad={() => {
+              setIsLoading(false)
+              if (imageData.url) {
+                loadedImages.add(imageData.url)
+              }
+            }}
             onError={() => {
               setIsLoading(false)
               setHasError(true)
@@ -205,3 +220,8 @@ export function ImageBlock({ data, isStreaming }: MediaBlockProps) {
     </>
   )
 }
+
+// 用 memo 包裹，只有 data 变化时才重新渲染
+export const ImageBlock = memo(ImageBlockInner, (prevProps, nextProps) => {
+  return prevProps.data === nextProps.data
+})

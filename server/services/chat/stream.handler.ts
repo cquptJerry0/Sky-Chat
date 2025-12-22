@@ -221,7 +221,7 @@ export function createSSEStreamWithTools(
         // 工具调用循环
         while (round < MAX_TOOL_ROUNDS) {
           round++
-          console.log(`[StreamHandler] Tool round ${round}`)
+         
 
           // 读取当前轮次的 AI 响应
           const { 
@@ -282,10 +282,24 @@ export function createSSEStreamWithTools(
         }
 
         // 把图片生成结果插入到 answerContent 中，确保刷新后能显示
-        let contentWithImages = finalAnswerContent
+        // 收集真实的图片 URL
+        const realImageUrls = new Set<string>()
         for (const resultData of allToolResultsData) {
           if (resultData.name === 'generate_image' && resultData.result?.imageUrl) {
-            // 从 tool call 参数中获取 prompt
+            realImageUrls.add(resultData.result.imageUrl)
+          }
+        }
+
+        // 移除所有 AI 自己输出的 image block（不管 URL 是什么格式）
+        // 因为 AI 会模仿真实 URL 格式编造假的
+        let contentWithImages = finalAnswerContent.replace(
+          /```image\n\{[^}]*\}\n```\n?/g,
+          ''
+        )
+
+        // 追加真实的图片
+        for (const resultData of allToolResultsData) {
+          if (resultData.name === 'generate_image' && resultData.result?.imageUrl) {
             const toolCall = allToolCalls.find(tc => tc.id === resultData.toolCallId)
             let prompt = '生成的图片'
             if (toolCall) {

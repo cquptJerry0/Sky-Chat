@@ -19,9 +19,11 @@ export function createMarkdownComponents(isStreaming: boolean = false): Componen
       // 检查是否是媒体块
       if (language && isMediaBlock(language)) {
         const MediaComponent = mediaRegistry[language]
+        // 用 content 的 hash 作为 key，避免重复渲染
+        const blockKey = `${language}-${content.slice(0, 50)}`
         return (
           <Suspense fallback={<div className="my-4 h-32 animate-pulse rounded-lg bg-muted" />}>
-            <MediaComponent data={content} isStreaming={isStreaming} />
+            <MediaComponent key={blockKey} data={content} isStreaming={isStreaming} />
           </Suspense>
         )
       }
@@ -41,7 +43,7 @@ export function createMarkdownComponents(isStreaming: boolean = false): Componen
       const data = JSON.stringify({ url: src, alt: alt || '' })
       return (
         <Suspense fallback={<div className="my-4 aspect-square animate-pulse bg-muted" />}>
-          <ImageBlock data={data} isStreaming={isStreaming} />
+          <ImageBlock key={src} data={data} isStreaming={isStreaming} />
         </Suspense>
       )
     },

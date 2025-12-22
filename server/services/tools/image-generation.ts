@@ -52,6 +52,8 @@ export function createImageGenerationTool(): Tool {
       required: ['prompt'],
     },
     execute: async (args: Record<string, unknown>): Promise<string> => {
+      console.log('[ImageGeneration] Tool called with args:', args)
+      
       const prompt = args.prompt as string
       const negativePrompt = args.negative_prompt as string | undefined
       const imageSize = (args.image_size as string) || DEFAULT_IMAGE_SIZE
@@ -63,14 +65,18 @@ export function createImageGenerationTool(): Tool {
 
       try {
         // 调用 SiliconFlow API 生成图片
+        console.log('[ImageGeneration] Calling SiliconFlow API...')
         const result = await generateImage({
           prompt: prompt.trim(),
           negative_prompt: negativePrompt,
           image_size: imageSize,
         })
+        console.log('[ImageGeneration] SiliconFlow returned URL:', result.url)
 
         // 下载图片到本地存储
+        console.log('[ImageGeneration] Downloading and saving image...')
         const stored = await downloadAndSave(result.url)
+        console.log('[ImageGeneration] Image saved to:', stored.localUrl)
 
         // 返回 JSON 格式，包含本地 URL 和给 AI 的简短消息
         // stream.handler 会解析 URL 传给前端

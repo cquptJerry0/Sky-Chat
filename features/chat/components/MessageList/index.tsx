@@ -9,25 +9,37 @@
  * @module modules/message-list
  */
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
+import { useParams } from 'next/navigation'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { ChatMessage } from '@/features/chat/components/ChatMessage'
 
-// 用于追踪组件实例
 export function MessageList() {
+  const params = useParams()
+  const conversationId = params.conversationId as string
+  
   // 从 Store 获取数据
   const messages = useChatStore((s) => s.messages)
   const isSendingMessage = useChatStore((s) => s.isSendingMessage)
   const isLoadingMessages = useChatStore((s) => s.isLoadingMessages)
   const streamingMessageId = useChatStore((s) => s.streamingMessageId)
   
+  // 获取流式消息的内容长度，用于触发滚动
+  const streamingContentLength = useChatStore((s) => {
+    if (!s.streamingMessageId) return 0
+    const msg = s.messages.find(m => m.id === s.streamingMessageId)
+    if (!msg) return 0
+    return (msg.content?.length || 0) + (msg.thinking?.length || 0)
+  })
+  
   // 滚动容器
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   
-  // 滚动状态管理 - 简化！
-  const [userScrolledUp, setUserScrolledUp] = useState<boolean>(false)
-  const previousMessagesLength = useRef<number>(0)
+  // 用户是否主动上滑
+  const [userScrolledUp, setUserScrolledUp] = useState(false)
+  const previousMessagesLength = useRef(0)
+  const previousConversationId = useRef<string | null>(null)
   
   // 检查消息数组是否有重复 ID（调试用）
   useEffect(() => {
@@ -44,21 +56,30 @@ export function MessageList() {
     getScrollElement: () => scrollContainerRef.current,
     estimateSize: (index) => {
       const msg = messages[index]
-      // 智能估算高度
       if (!msg) return 100
-      if (msg.thinking) return 250  // 有thinking的消息更高
-      if (msg.content.includes('```')) return 300  // 代码块
-      if (msg.role === 'user') return 80   // 用户消息较短
-      return 150  // 默认 AI 回复
+      if (msg.thinking) return 250
+      if (msg.content.includes('```')) return 300
+      if (msg.role === 'user') return 80
+      return 150
     },
-    overscan: 3,  // 上下各渲染3条缓冲
+    overscan: 3,
   })
   
   const virtualItems = virtualizer.getVirtualItems()
   
-  // ========== 滚动管理 - 彻底重构 ==========
+  // ========== 滚动到底部 ==========
+  const scrollToBottom = useCallback(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    
+    container.scrollTop = container.scrollHeight
+    
+    requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight
+    })
+  }, [])
   
-  // 1. 监听用户滚动：检测是否上滑查看历史
+  // ========== 监听用户滚动 ==========
   useEffect(() => {
     const container = scrollContainerRef.current
     if (!container) return
@@ -66,69 +87,63 @@ export function MessageList() {
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = container
       const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-      
-      // 距离底部 < 50px 认为在底部，否则认为上滑了
-      setUserScrolledUp(distanceFromBottom > 50)
+      setUserScrolledUp(distanceFromBottom > 100)
     }
     
     container.addEventListener('scroll', handleScroll, { passive: true })
     return () => container.removeEventListener('scroll', handleScroll)
   }, [])
   
-
+  // 是否需要在加载完成后滚动
+  const shouldScrollAfterLoad = useRef(false)
   
-  // 3. 核心滚动逻辑 - 发送消息时强制滚动到底部
+  // ========== 切换会话时重置状态 ==========
+  useEffect(() => {
+    if (!conversationId) return
+    
+    if (previousConversationId.current !== conversationId) {
+      previousConversationId.current = conversationId
+      previousMessagesLength.current = 0
+      setUserScrolledUp(false)
+      shouldScrollAfterLoad.current = true
+    }
+  }, [conversationId])
+  
+  // ========== 消息加载完成后滚动到底部 ==========
+  useEffect(() => {
+    if (shouldScrollAfterLoad.current && !isLoadingMessages && messages.length > 0) {
+      shouldScrollAfterLoad.current = false
+      // 延迟一下等虚拟列表渲染完
+      setTimeout(() => {
+        scrollToBottom()
+      }, 50)
+    }
+  }, [isLoadingMessages, messages.length, scrollToBottom])
+  
+  // ========== 新消息时滚动 ==========
   useEffect(() => {
     if (messages.length === 0) return
-
-    const container = scrollContainerRef.current
-    if (!container) return
-
-    // 判断场景
+    
     const isNewMessage = messages.length > previousMessagesLength.current
-    const isStreamingUpdate = streamingMessageId && !isNewMessage
-
-    // 更新计数
     previousMessagesLength.current = messages.length
-
-    // 决定是否滚动
-    let shouldScroll = false
-
-    if (isNewMessage) {
-      // 新消息：如果是发送消息（isSendingMessage），强制滚动；否则只在底部时滚动
-      shouldScroll = isSendingMessage || !userScrolledUp
-
-      // 如果是发送消息，重置 userScrolledUp 状态
+    
+    if (!isNewMessage) return
+    
+    if (isSendingMessage || !userScrolledUp) {
       if (isSendingMessage) {
         setUserScrolledUp(false)
       }
-    } else if (isStreamingUpdate) {
-      // 流式更新：只有在底部时才滚动
-      shouldScroll = !userScrolledUp
-    }
-
-    if (!shouldScroll) return
-
-    // 执行滚动 - 使用多重延迟确保DOM完成
-    const scrollToBottom = () => {
-      container.scrollTop = container.scrollHeight
-
-      // 再延迟一次，处理异步渲染的情况
-      setTimeout(() => {
-        container.scrollTop = container.scrollHeight
-      }, 50)
-    }
-
-    // 立即滚动一次
-    scrollToBottom()
-
-    // RAF再滚动一次（处理虚拟列表延迟渲染）
-    requestAnimationFrame(() => {
       scrollToBottom()
-    })
-  }, [messages.length, streamingMessageId, userScrolledUp, isSendingMessage])
+    }
+  }, [messages.length, isSendingMessage, userScrolledUp, scrollToBottom])
   
-  // 空状态 - 只有在非加载状态且真的没有消息时才显示欢迎语
+  // ========== 流式更新时滚动 ==========
+  useEffect(() => {
+    if (!streamingMessageId || userScrolledUp) return
+    scrollToBottom()
+  }, [streamingContentLength, streamingMessageId, userScrolledUp, scrollToBottom])
+  
+  // 空状态
   if (messages.length === 0 && !isSendingMessage && !isLoadingMessages) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -154,11 +169,9 @@ export function MessageList() {
         }}
         className="mx-auto max-w-3xl px-6 py-6"
       >
-        {/* 虚拟列表渲染 */}
         {virtualItems.map((virtualItem) => {
           const message = messages[virtualItem.index]
           
-          // 防御性检查：确保消息存在
           if (!message) {
             console.warn('[MessageList] Missing message at index:', virtualItem.index)
             return null

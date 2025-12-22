@@ -13,8 +13,19 @@ import type { Message, FileAttachment } from '@/features/chat/types/chat'
 
 // 用于取消请求
 let loadAbortController: AbortController | null = null
+let streamAbortController: AbortController | null = null
 
 export const ChatService = {
+  /**
+   * 中断当前流式请求
+   */
+  abortStream(): void {
+    if (streamAbortController) {
+      streamAbortController.abort()
+      streamAbortController = null
+    }
+  },
+
   /**
    * 加载会话消息
    */
@@ -98,6 +109,9 @@ export const ChatService = {
     })
     
     try {
+      // 创建 AbortController 用于中断
+      streamAbortController = new AbortController()
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,6 +128,7 @@ export const ChatService = {
           aiMessageId,
           attachments,
         }),
+        signal: streamAbortController.signal,
       })
       
       if (!response.ok) throw new Error(`API error: ${response.status}`)
@@ -123,10 +138,16 @@ export const ChatService = {
       
       await this.handleStream(reader, aiMessageId)
     } catch (e) {
+      // AbortError 是正常中断，不算错误
+      if ((e as Error).name === 'AbortError') {
+        store.updateMessage(aiMessageId, { displayState: 'idle' })
+        return
+      }
       console.error('[ChatService] sendMessage failed:', e)
       store.updateMessage(aiMessageId, { hasError: true, displayState: 'error' })
       store.stopStreaming()
     } finally {
+      streamAbortController = null
       store.setSendingMessage(false)
     }
   },
