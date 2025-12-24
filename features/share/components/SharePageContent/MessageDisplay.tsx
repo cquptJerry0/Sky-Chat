@@ -1,10 +1,17 @@
 /**
  * 消息展示组件
  * 用于分享页面的消息渲染
+ * 
+ * Hydration Mismatch 处理：
+ * - 时间戳使用 useEffect 延迟渲染，避免 SSR/CSR 时区差异导致的不一致
+ * - 随机锚点 ID 延迟生成，确保 SSR/CSR HTML 一致
  */
+
+'use client'
 
 import { Bot, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useClientValue } from '@/lib/hooks/use-client-value'
 import 'highlight.js/styles/github-dark.css' // 引入高亮样式
 
 interface Message {
@@ -19,20 +26,48 @@ interface MessageDisplayProps {
   message: Message
 }
 
-export function MessageDisplay({ message }: MessageDisplayProps) {
-  const isUser = message.role === 'user'
-  const isAssistant = message.role === 'assistant'
-  
-  const messageTime = new Date(message.createdAt).toLocaleString('zh-CN', {
+/**
+ * 格式化时间戳
+ * 仅在客户端调用，避免 SSR/CSR 时区差异
+ */
+function formatMessageTime(isoString: string): string {
+  return new Date(isoString).toLocaleString('zh-CN', {
     year: 'numeric',
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+/**
+ * 生成消息锚点 ID
+ * 用于复制消息链接时的定位
+ */
+function generateAnchorId(messageId: string): string {
+  return `msg_${messageId}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+export function MessageDisplay({ message }: MessageDisplayProps) {
+  const isUser = message.role === 'user'
+  const isAssistant = message.role === 'assistant'
+  
+  // Hydration Mismatch 处理：时间戳延迟至 useEffect 阶段渲染
+  // SSR 阶段显示 ISO 日期部分，CSR 阶段显示本地化时间
+  const messageTime = useClientValue(
+    () => formatMessageTime(message.createdAt),
+    message.createdAt.split('T')[0] // SSR 安全的初始值
+  )
+  
+  // Hydration Mismatch 处理：随机 ID 延迟至 useEffect 阶段生成
+  // SSR 阶段使用稳定的 messageId，CSR 阶段生成带随机后缀的锚点 ID
+  const anchorId = useClientValue(
+    () => generateAnchorId(message.id),
+    `msg_${message.id}` // SSR 安全的初始值
+  )
   
   return (
-    <div className="group relative">
+    <div id={anchorId} className="group relative">
       {/* 消息容器 */}
       <div
         className={cn(

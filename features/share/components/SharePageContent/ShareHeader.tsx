@@ -1,9 +1,13 @@
 /**
  * 分享页面头部组件
+ * 
+ * Hydration Mismatch 处理：
+ * - 时间戳使用 useEffect 延迟渲染，避免 SSR/CSR 时区差异导致的不一致
  */
 
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Calendar, Eye, User } from 'lucide-react'
 
 interface ShareHeaderProps {
@@ -16,12 +20,29 @@ interface ShareHeaderProps {
   }
 }
 
-export function ShareHeader({ conversation }: ShareHeaderProps) {
-  const sharedDate = new Date(conversation.sharedAt).toLocaleDateString('zh-CN', {
+/**
+ * 格式化分享日期
+ * 仅在客户端调用，避免 SSR/CSR 时区差异
+ */
+function formatSharedDate(isoString: string): string {
+  return new Date(isoString).toLocaleDateString('zh-CN', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   })
+}
+
+export function ShareHeader({ conversation }: ShareHeaderProps) {
+  // Hydration Mismatch 处理：时间戳延迟至 useEffect 阶段渲染
+  const [sharedDate, setSharedDate] = useState(() => {
+    // SSR 安全的初始值：只取日期部分
+    return conversation.sharedAt.split('T')[0]
+  })
+  
+  useEffect(() => {
+    // 客户端 hydration 后，显示本地化日期
+    setSharedDate(formatSharedDate(conversation.sharedAt))
+  }, [conversation.sharedAt])
   
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
