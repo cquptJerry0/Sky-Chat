@@ -9,6 +9,7 @@ import { nanoid } from 'nanoid'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { ConversationAPI } from '@/lib/services/conversation-api'
 import { SSEParser } from '@/lib/services/sse-parser'
+import { StreamBuffer } from '@/features/chat/utils/stream-buffer'
 import type { Message, FileAttachment } from '@/features/chat/types/chat'
 
 // 用于取消请求
@@ -154,99 +155,124 @@ export const ChatService = {
 
   /**
    * 处理 SSE 流
+   * 使用 StreamBuffer 批量刷新，优化渲染性能
    */
   async handleStream(reader: ReadableStreamDefaultReader<Uint8Array>, messageId: string): Promise<void> {
-    await SSEParser.parseStream(reader, {
-      onData: (data) => {
-        const s = useChatStore.getState()
-        
-        if (data.type === 'thinking' && data.content) {
-          if (s.streamingPhase !== 'thinking') {
-            s.startStreaming(messageId, 'thinking')
-            s.updateMessage(messageId, { displayState: 'streaming' })
-          }
-          s.appendThinking(messageId, data.content)
-        } else if (data.type === 'answer' && data.content) {
-          if (s.streamingPhase !== 'answer') {
-            s.startStreaming(messageId, 'answer')
-            s.updateMessage(messageId, { displayState: 'streaming' })
-          }
-          s.appendContent(messageId, data.content)
-        } else if (data.type === 'tool_call') {
-          // 工具调用开始 - 添加新的 invocation
-          const msg = s.messages.find((m) => m.id === messageId)
-          const invocations = msg?.toolInvocations || []
-          const newInvocation = {
-            toolCallId: data.toolCallId || `temp_${Date.now()}`,
-            name: data.name || 'unknown',
-            state: 'running' as const,
-            args: {
-              query: data.query,
-              prompt: data.prompt,
-            },
-          }
-          s.updateMessage(messageId, {
-            toolInvocations: [...invocations, newInvocation],
-            displayState: 'streaming',
-          })
-        } else if (data.type === 'tool_result') {
-          // 工具调用完成 - 通过 toolCallId 精确匹配
-          const msg = s.messages.find((m) => m.id === messageId)
-          const invocations = msg?.toolInvocations || []
-          const updatedInvocations = invocations.map((inv) => {
-            // 优先用 toolCallId 匹配，fallback 到 name + running 状态
-            const isMatch = data.toolCallId
-              ? inv.toolCallId === data.toolCallId
-              : inv.name === data.name && inv.state === 'running'
-            if (isMatch) {
-              return {
-                ...inv,
-                state: data.success ? ('completed' as const) : ('failed' as const),
-                result: {
-                  success: data.success ?? false,
-                  imageUrl: data.imageUrl,
-                  resultCount: data.resultCount,
-                  sources: data.sources,
-                  width: data.width,
-                  height: data.height,
-                },
-              }
+    // 创建两个独立的 buffer：thinking 和 answer
+    const thinkingBuffer = new StreamBuffer({
+      onFlush: (content) => useChatStore.getState().appendThinking(messageId, content)
+    })
+    
+    const answerBuffer = new StreamBuffer({
+      onFlush: (content) => useChatStore.getState().appendContent(messageId, content)
+    })
+
+    try {
+      await SSEParser.parseStream(reader, {
+        onData: (data) => {
+          const s = useChatStore.getState()
+          
+          if (data.type === 'thinking' && data.content) {
+            if (s.streamingPhase !== 'thinking') {
+              s.startStreaming(messageId, 'thinking')
+              s.updateMessage(messageId, { displayState: 'streaming' })
             }
-            return inv
-          })
-          
-          // 图片生成完成时，直接插入图片到 content 流的当前位置
-          if (data.name === 'generate_image' && data.success && data.imageUrl) {
-            const imageData = JSON.stringify({
-              url: data.imageUrl,
-              alt: invocations.find(inv => inv.toolCallId === data.toolCallId)?.args?.prompt || '生成的图片',
-              width: data.width || 512,
-              height: data.height || 512,
+            thinkingBuffer.append(data.content) // 使用 buffer 而非直接 setState
+          } else if (data.type === 'answer' && data.content) {
+            if (s.streamingPhase !== 'answer') {
+              s.startStreaming(messageId, 'answer')
+              s.updateMessage(messageId, { displayState: 'streaming' })
+            }
+            answerBuffer.append(data.content) // 使用 buffer 而非直接 setState
+          } else if (data.type === 'tool_call') {
+            // 工具调用开始 - 添加新的 invocation（不经过 buffer）
+            const msg = s.messages.find((m) => m.id === messageId)
+            const invocations = msg?.toolInvocations || []
+            const newInvocation = {
+              toolCallId: data.toolCallId || `temp_${Date.now()}`,
+              name: data.name || 'unknown',
+              state: 'running' as const,
+              args: {
+                query: data.query,
+                prompt: data.prompt,
+              },
+            }
+            s.updateMessage(messageId, {
+              toolInvocations: [...invocations, newInvocation],
+              displayState: 'streaming',
             })
-            // 插入 image 代码块到 content
-            s.appendContent(messageId, `\n\`\`\`image\n${imageData}\n\`\`\`\n`)
+          } else if (data.type === 'tool_result') {
+            // 工具调用完成 - 通过 toolCallId 精确匹配
+            const msg = s.messages.find((m) => m.id === messageId)
+            const invocations = msg?.toolInvocations || []
+            const updatedInvocations = invocations.map((inv) => {
+              // 优先用 toolCallId 匹配，fallback 到 name + running 状态
+              const isMatch = data.toolCallId
+                ? inv.toolCallId === data.toolCallId
+                : inv.name === data.name && inv.state === 'running'
+              if (isMatch) {
+                return {
+                  ...inv,
+                  state: data.success ? ('completed' as const) : ('failed' as const),
+                  result: {
+                    success: data.success ?? false,
+                    imageUrl: data.imageUrl,
+                    resultCount: data.resultCount,
+                    sources: data.sources,
+                    width: data.width,
+                    height: data.height,
+                  },
+                }
+              }
+              return inv
+            })
+            
+            // 图片生成完成时，直接插入图片到 content 流的当前位置
+            if (data.name === 'generate_image' && data.success && data.imageUrl) {
+              const imageData = JSON.stringify({
+                url: data.imageUrl,
+                alt: invocations.find(inv => inv.toolCallId === data.toolCallId)?.args?.prompt || '生成的图片',
+                width: data.width || 512,
+                height: data.height || 512,
+              })
+              // 插入 image 代码块到 content（通过 buffer）
+              answerBuffer.append(`\n\`\`\`image\n${imageData}\n\`\`\`\n`)
+            }
+            
+            s.updateMessage(messageId, {
+              toolInvocations: updatedInvocations,
+            })
+          } else if (data.type === 'complete') {
+            // 流结束前强制刷新 buffer
+            thinkingBuffer.forceFlush()
+            answerBuffer.forceFlush()
+            s.stopStreaming()
+            s.updateMessage(messageId, { displayState: 'idle' })
           }
-          
-          s.updateMessage(messageId, {
-            toolInvocations: updatedInvocations,
-          })
-        } else if (data.type === 'complete') {
+        },
+        onError: (error) => {
+          console.error('[ChatService] stream error:', error)
+          // 错误时也要刷新 buffer
+          thinkingBuffer.forceFlush()
+          answerBuffer.forceFlush()
+          const s = useChatStore.getState()
+          s.updateMessage(messageId, { hasError: true, displayState: 'error' })
+          s.stopStreaming()
+        },
+        onComplete: () => {
+          // 完成时强制刷新 buffer
+          thinkingBuffer.forceFlush()
+          answerBuffer.forceFlush()
+          const s = useChatStore.getState()
           s.stopStreaming()
           s.updateMessage(messageId, { displayState: 'idle' })
-        }
-      },
-      onError: (error) => {
-        console.error('[ChatService] stream error:', error)
-        const s = useChatStore.getState()
-        s.updateMessage(messageId, { hasError: true, displayState: 'error' })
-        s.stopStreaming()
-      },
-      onComplete: () => {
-        const s = useChatStore.getState()
-        s.stopStreaming()
-        s.updateMessage(messageId, { displayState: 'idle' })
-      },
-    })
+        },
+      })
+    } finally {
+      // 清理资源
+      thinkingBuffer.destroy()
+      answerBuffer.destroy()
+    }
   },
 
   /**
