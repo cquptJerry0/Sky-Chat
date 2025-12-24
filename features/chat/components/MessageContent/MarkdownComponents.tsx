@@ -41,9 +41,11 @@ export function createMarkdownComponents(isStreaming: boolean = false): Componen
     img: ({ src, alt }) => {
       if (!src) return null
       const data = JSON.stringify({ url: src, alt: alt || '' })
+      // 用 data 的 hash 作为 key
+      const blockKey = `img-${data.slice(0, 50)}`
       return (
         <Suspense fallback={<div className="my-4 aspect-square animate-pulse bg-muted" />}>
-          <ImageBlock key={src} data={data} isStreaming={isStreaming} />
+          <ImageBlock key={blockKey} data={data} isStreaming={isStreaming} />
         </Suspense>
       )
     },
