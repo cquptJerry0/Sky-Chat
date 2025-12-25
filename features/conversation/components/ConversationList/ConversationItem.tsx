@@ -27,10 +27,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import type { Conversation } from '@/lib/services/conversation-api'
+import type { ConversationData } from '@/app/actions/conversation'
 
 interface ConversationItemProps {
-  conversation: Conversation
+  conversation: ConversationData
   isActive: boolean
   onDelete: () => void
   onRename: (newTitle: string) => void

@@ -50,7 +50,7 @@ export async function handleChatRequest(
   const {
     content,
     conversationId,
-    model = 'Qwen/Qwen2.5-7B-Instruct',
+    model = 'zai-org/GLM-4.6',
     enableThinking = false,
     thinkingBudget = 4096,
     enableWebSearch = false,

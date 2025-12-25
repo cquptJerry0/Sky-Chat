@@ -6,6 +6,8 @@ export type AuditAction =
   | 'conversation.create'
   | 'conversation.update'
   | 'conversation.delete'
+  | 'conversation.share'
+  | 'conversation.unshare'
   | 'message.view'
   | 'message.create'
   | 'message.delete'

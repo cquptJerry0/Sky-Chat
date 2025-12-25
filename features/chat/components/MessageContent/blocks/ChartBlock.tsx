@@ -131,7 +131,10 @@ export function ChartBlock({ data, isStreaming }: MediaBlockProps) {
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
+                  color: 'hsl(var(--foreground))',
                 }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
+                formatter={(value: number) => [value, '数值']}
               />
               <Line
                 type="monotone"
@@ -158,7 +161,10 @@ export function ChartBlock({ data, isStreaming }: MediaBlockProps) {
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
+                  color: 'hsl(var(--foreground))',
                 }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
+                formatter={(value: number) => [value, '数值']}
               />
               <Bar
                 dataKey="value"

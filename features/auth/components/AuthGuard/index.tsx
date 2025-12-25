@@ -13,7 +13,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuth } from '@/features/auth/hooks/use-auth'
 import { LoginDialog } from '@/features/auth/components/LoginDialog'
 
 interface AuthGuardProps {

@@ -7,7 +7,7 @@ import { useCallback, useState, useEffect, useRef } from 'react'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { ChatService } from '@/features/chat/services/chat.service'
 import { useAudioRecorder } from '@/features/voice/hooks/use-audio-recorder'
-import { ChatAPI } from '@/lib/services/chat-api'
+import { VoiceAPI } from '@/features/voice/services/voice-api'
 import { useToast } from '@/lib/hooks/use-toast'
 import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
 import type { FileAttachment } from '@/features/chat/types/chat'
@@ -160,7 +160,7 @@ export function useChatInput({ conversationId }: UseChatInputOptions) {
       setIsTranscribing(true)
       try {
         const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' })
-        const result = await ChatAPI.speechToText(audioFile)
+        const result = await VoiceAPI.speechToText(audioFile)
 
         if (result.text) {
           setInput(result.text)

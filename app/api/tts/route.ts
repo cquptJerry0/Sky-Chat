@@ -12,7 +12,16 @@
  * @endpoint POST /api/tts
  * @see https://docs.siliconflow.cn/api-reference/audio/create-speech
  */
+import { getCurrentUserId } from '@/server/auth/utils'
+
 export async function POST(req: Request) {
+  // 鉴权
+  try {
+    await getCurrentUserId()
+  } catch {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   if (!process.env.SILICONFLOW_API_KEY) {
     return Response.json(
       { error: 'SILICONFLOW_API_KEY not configured' },

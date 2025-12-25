@@ -4,22 +4,21 @@
  * 提供标准的聊天页面布局：
  * - 侧边栏
  * - 主内容区
- * - 切换会话时的 loading 遮罩（不覆盖 Header）
+ * - 首次加载时的 loading 遮罩
  *
  * @module components/MainLayout
  */
 
-import * as React from 'react'
-import { useChatStore } from '@/features/chat/store/chat.store'
+import { useState, useEffect, type ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 
 interface MainLayoutProps {
   /** 侧边栏内容 */
-  sidebar: React.ReactNode
+  sidebar: ReactNode
   /** Header 组件 */
-  header?: React.ReactNode
+  header?: ReactNode
   /** 主内容区（消息列表 + 输入框） */
-  children: React.ReactNode
+  children: ReactNode
 }
 
 /**
@@ -28,7 +27,15 @@ interface MainLayoutProps {
  * 用于所有聊天相关页面的统一布局
  */
 export function MainLayout({ sidebar, header, children }: MainLayoutProps) {
-  const isLoadingMessages = useChatStore((s) => s.isLoadingMessages)
+  const [isFirstLoad, setIsFirstLoad] = useState(true)
+
+  // 首次渲染后隐藏 loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsFirstLoad(false)
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -37,18 +44,17 @@ export function MainLayout({ sidebar, header, children }: MainLayoutProps) {
 
       {/* 主内容区 */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header（不受 loading 影响） */}
+        {/* Header */}
         {header}
 
-        {/* 内容区域（消息列表 + 输入框，受 loading 影响） */}
+        {/* 内容区域（消息列表 + 输入框） */}
         <div className="flex flex-1 flex-col overflow-hidden relative">
           {children}
 
-          {/* 加载消息时的 loading 遮罩（只覆盖消息列表和输入框） */}
-          {/* 放在 children 后面确保遮罩在最上层 */}
-          {isLoadingMessages && (
-            <div className="absolute inset-0 flex items-center justify-center bg-[hsl(var(--background))] z-50 backdrop-blur-sm">
-              <div className="flex items-center gap-3 text-[hsl(var(--text-secondary))]">
+          {/* 首次加载时的 loading 遮罩 */}
+          {isFirstLoad && (
+            <div className="absolute inset-0 flex items-center justify-center bg-[hsl(var(--background))] z-50">
+              <div className="flex items-center gap-3 text-muted-foreground">
                 <Loader2 className="h-6 w-6 animate-spin" />
                 <span className="text-base">加载中...</span>
               </div>

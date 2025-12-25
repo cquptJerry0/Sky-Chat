@@ -60,7 +60,7 @@ export function ConversationList() {
     <ConversationListUI
       conversations={conversations}
       currentConversationId={currentConversationId || null}
-      _loading={loading}
+      loading={loading}
       onDelete={handleDelete}
       onRename={updateConversationTitle}
       onTogglePin={toggleConversationPin}

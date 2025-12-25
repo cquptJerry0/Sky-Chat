@@ -9,7 +9,7 @@
 import { useState } from 'react'
 import { History } from 'lucide-react'
 import { ConversationItem } from './ConversationItem'
-import type { Conversation } from '@/lib/services/conversation-api'
+import type { ConversationData } from '@/app/actions/conversation'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,9 +22,9 @@ import {
 } from '@/components/ui/alert-dialog'
 
 interface ConversationListUIProps {
-  conversations: Conversation[]
+  conversations: ConversationData[]
   currentConversationId: string | null
-  _loading?: boolean
+  loading?: boolean
   onDelete: (id: string) => void
   onRename: (id: string, newTitle: string) => void
   onTogglePin: (id: string, isPinned: boolean) => void
@@ -33,7 +33,7 @@ interface ConversationListUIProps {
 export function ConversationListUI({
   conversations,
   currentConversationId,
-  _loading,
+  loading = false,
   onDelete,
   onRename,
   onTogglePin,
@@ -62,7 +62,14 @@ export function ConversationListUI({
         <span className="text-sm font-medium text-muted-foreground">历史会话</span>
       </div>
 
-      {conversations.length === 0 ? (
+      {loading ? (
+        <div className="py-4 px-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+            <span>加载中...</span>
+          </div>
+        </div>
+      ) : conversations.length === 0 ? (
         <div className="py-4">
           <p className="text-xs text-muted-foreground px-3">
             暂无历史对话

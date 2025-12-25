@@ -7,12 +7,17 @@
 
 import { create } from 'zustand'
 import type { Message, AbortReason, StreamingPhase } from '@/features/chat/types/chat'
+import type { MessageRuntimeState, PhaseEvent, ActiveTool } from '@/features/chat/types/message-state'
 import { getDefaultModel, getModelById } from '@/features/chat/constants/models'
 import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
+import { getNextPhase, createInitialState } from '@/features/chat/utils/message-state-machine'
 
 interface ChatState {
   // 消息
   messages: Message[]
+  
+  // 消息运行时状态（按 messageId 索引）
+  messageStates: Map<string, MessageRuntimeState>
   
   // 加载状态
   isLoadingMessages: boolean
@@ -39,6 +44,13 @@ interface ChatActions {
   appendContent: (id: string, chunk: string) => void
   clearMessages: () => void
   removeMessagesFrom: (index: number) => Message[]
+  
+  // 消息状态机
+  initMessageState: (messageId: string) => void
+  transitionPhase: (messageId: string, event: PhaseEvent) => void
+  clearMessageState: (messageId: string) => void
+  updateToolProgress: (messageId: string, toolCallId: string, progress: number, estimatedTime?: number) => void
+  cancelTool: (messageId: string, toolCallId: string) => void
   
   // 加载状态
   setLoadingMessages: (loading: boolean, conversationId?: string | null) => void
@@ -68,6 +80,7 @@ const getInitialModel = (): string => {
 
 const initialState: ChatState = {
   messages: [],
+  messageStates: new Map(),
   isLoadingMessages: false,
   loadingConversationId: null,
   isSendingMessage: false,
@@ -114,6 +127,132 @@ export const useChatStore = create<ChatState & ChatActions>()((set, get) => ({
     set({ messages: state.messages.slice(0, index) })
     return removed
   },
+  
+  // ===== 消息状态机 =====
+  initMessageState: (messageId) => set((s) => {
+    const newStates = new Map(s.messageStates)
+    newStates.set(messageId, createInitialState())
+    return { messageStates: newStates }
+  }),
+  
+  transitionPhase: (messageId, event) => set((s) => {
+    const currentState = s.messageStates.get(messageId)
+    if (!currentState) {
+      console.warn(`[Store] No state for message: ${messageId}`)
+      return s
+    }
+    
+    const nextPhase = getNextPhase(currentState.phase, event)
+    if (nextPhase === null) return s
+    
+    const newStates = new Map(s.messageStates)
+    const newActiveTools = new Map(currentState.activeTools)
+    
+    // 处理工具状态更新
+    if (event.type === 'START_TOOL_CALL') {
+      const tool: ActiveTool = {
+        toolCallId: event.toolCallId,
+        name: event.name,
+        state: 'running',
+        args: event.args,
+      }
+      newActiveTools.set(event.toolCallId, tool)
+    } else if (event.type === 'TOOL_PROGRESS') {
+      const tool = newActiveTools.get(event.toolCallId)
+      if (tool) {
+        newActiveTools.set(event.toolCallId, {
+          ...tool,
+          progress: event.progress,
+          estimatedTime: event.estimatedTime,
+        })
+      }
+    } else if (event.type === 'TOOL_CANCEL') {
+      const tool = newActiveTools.get(event.toolCallId)
+      if (tool) {
+        newActiveTools.set(event.toolCallId, {
+          ...tool,
+          state: 'cancelled',
+          result: { success: false, cancelled: true },
+        })
+      }
+    } else if (event.type === 'TOOL_COMPLETE') {
+      const tool = newActiveTools.get(event.toolCallId)
+      if (tool) {
+        const cancelled = 'cancelled' in event && event.cancelled
+        newActiveTools.set(event.toolCallId, {
+          ...tool,
+          state: cancelled ? 'cancelled' : (event.success ? 'completed' : 'failed'),
+          progress: 100,
+          result: { success: event.success, data: event.result, cancelled },
+        })
+      }
+    }
+    
+    newStates.set(messageId, {
+      phase: nextPhase,
+      activeTools: newActiveTools,
+    })
+    
+    return { messageStates: newStates }
+  }),
+  
+  clearMessageState: (messageId) => set((s) => {
+    const newStates = new Map(s.messageStates)
+    newStates.delete(messageId)
+    return { messageStates: newStates }
+  }),
+  
+  updateToolProgress: (messageId, toolCallId, progress, estimatedTime) => set((s) => {
+    const currentState = s.messageStates.get(messageId)
+    if (!currentState) return s
+    
+    const tool = currentState.activeTools.get(toolCallId)
+    if (!tool) return s
+    
+    // 更新 messageStates
+    const newStates = new Map(s.messageStates)
+    const newActiveTools = new Map(currentState.activeTools)
+    newActiveTools.set(toolCallId, { ...tool, progress, estimatedTime })
+    newStates.set(messageId, { ...currentState, activeTools: newActiveTools })
+    
+    // 同时更新 messages 里的 toolInvocations
+    const newMessages = s.messages.map((msg) => {
+      if (msg.id !== messageId) return msg
+      const updatedInvocations = msg.toolInvocations?.map((inv) => {
+        if (inv.toolCallId !== toolCallId) return inv
+        return { ...inv, progress, estimatedTime }
+      })
+      return { ...msg, toolInvocations: updatedInvocations }
+    })
+    
+    return { messageStates: newStates, messages: newMessages }
+  }),
+  
+  cancelTool: (messageId, toolCallId) => set((s) => {
+    const currentState = s.messageStates.get(messageId)
+    if (!currentState) return s
+    
+    const tool = currentState.activeTools.get(toolCallId)
+    if (!tool) return s
+    
+    // 更新 messageStates
+    const newStates = new Map(s.messageStates)
+    const newActiveTools = new Map(currentState.activeTools)
+    newActiveTools.set(toolCallId, { ...tool, state: 'cancelled', result: { success: false, cancelled: true } })
+    newStates.set(messageId, { ...currentState, activeTools: newActiveTools })
+    
+    // 同时更新 messages 里的 toolInvocations
+    const newMessages = s.messages.map((msg) => {
+      if (msg.id !== messageId) return msg
+      const updatedInvocations = msg.toolInvocations?.map((inv) => {
+        if (inv.toolCallId !== toolCallId) return inv
+        return { ...inv, state: 'cancelled' as const, result: { success: false, cancelled: true } }
+      })
+      return { ...msg, toolInvocations: updatedInvocations }
+    })
+    
+    return { messageStates: newStates, messages: newMessages }
+  }),
   
   // ===== 加载状态 =====
   setLoadingMessages: (loading, conversationId = null) => set({

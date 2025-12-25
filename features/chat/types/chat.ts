@@ -24,10 +24,11 @@ export type MessageRole = 'user' | 'assistant' | 'system'
  * - answer: AI 回答内容
  * - tool_calls: 工具调用请求
  * - tool_call: 工具调用开始（用于显示搜索状态）
+ * - tool_progress: 工具执行进度（用于长时间运行的工具）
  * - tool_result: 工具调用结果
  * - complete: 流式传输完成
  */
-export type SSEEventType = 'thinking' | 'answer' | 'tool_calls' | 'tool_call' | 'tool_result' | 'complete'
+export type SSEEventType = 'thinking' | 'answer' | 'tool_calls' | 'tool_call' | 'tool_progress' | 'tool_result' | 'complete'
 
 /**
  * 工具调用结构
@@ -117,7 +118,7 @@ export interface ToolResult {
  * 工具调用状态
  * @description 运行时状态，用于显示工具执行进度
  */
-export type ToolInvocationState = 'pending' | 'running' | 'completed' | 'failed'
+export type ToolInvocationState = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 /**
  * 工具调用实例
@@ -247,7 +248,7 @@ export interface SSEData {
   sessionId?: string
   /** 传输进度（0-1） */
   progress?: number
-  /** 工具调用 ID（tool_call/tool_result 事件） */
+  /** 工具调用 ID（tool_call/tool_progress/tool_result 事件） */
   toolCallId?: string
   /** 工具名称（tool_call/tool_result 事件） */
   name?: string
@@ -267,6 +268,10 @@ export interface SSEData {
   height?: number
   /** 搜索来源列表（web_search tool_result 事件） */
   sources?: SearchSource[]
+  /** 预估剩余时间（秒，tool_progress 事件） */
+  estimatedTime?: number
+  /** 是否被取消（tool_result 事件） */
+  cancelled?: boolean
 }
 
 /**

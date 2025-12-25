@@ -1,12 +1,13 @@
+/**
+ * Markdown 服务端渲染工具
+ */
+
 import { remark } from 'remark'
 import remarkGfm from 'remark-gfm'
 import html from 'remark-html'
 import { rehype } from 'rehype'
 import rehypeHighlight from 'rehype-highlight'
 
-/**
- * 预处理 ```image 代码块
- */
 function preprocessImageBlock(markdown: string): string {
   return markdown.replace(
     /```image\n([\s\S]*?)\n```/g,
@@ -29,9 +30,6 @@ function preprocessImageBlock(markdown: string): string {
   )
 }
 
-/**
- * 预处理 ```weather 代码块
- */
 function preprocessWeatherBlock(markdown: string): string {
   return markdown.replace(
     /```weather\n([\s\S]*?)\n```/g,
@@ -65,10 +63,6 @@ function preprocessWeatherBlock(markdown: string): string {
   )
 }
 
-/**
- * 预处理 ```chart 代码块
- * 注意：图表在服务端渲染为静态表格，因为 recharts 需要客户端 JS
- */
 function preprocessChartBlock(markdown: string): string {
   return markdown.replace(
     /```chart\n([\s\S]*?)\n```/g,
@@ -80,7 +74,6 @@ function preprocessChartBlock(markdown: string): string {
         const values = data.values || []
         const type = data.type || 'bar'
         
-        // 服务端渲染为表格形式（静态展示）
         const rows = labels.map((label: string, i: number) => 
           `<tr><td class="border px-3 py-2">${label}</td><td class="border px-3 py-2 text-right">${values[i] ?? 0}</td></tr>`
         ).join('')
@@ -103,9 +96,6 @@ function preprocessChartBlock(markdown: string): string {
   )
 }
 
-/**
- * 预处理所有自定义代码块
- */
 function preprocessCustomBlocks(markdown: string): string {
   let result = markdown
   result = preprocessImageBlock(result)
@@ -115,39 +105,21 @@ function preprocessCustomBlocks(markdown: string): string {
 }
 
 /**
- * 将 Markdown 转换为安全的 HTML (服务端)
- * 
- * 流程:
- * 1. 预处理: 转换自定义代码块 (```image, ```weather, ```chart)
- * 2. remark: Markdown -> HTML String (基础转换 + GFM 支持)
- * 3. rehype: 处理 HTML (如代码高亮)
- * 
- * 支持的语法:
- * - GFM (表格、删除线、任务列表、自动链接)
- * - 标准 Markdown 图片 ![alt](url)
- * - 自定义 ```image 代码块 (图片)
- * - 自定义 ```weather 代码块 (天气卡片)
- * - 自定义 ```chart 代码块 (图表，服务端渲染为表格)
+ * 将 Markdown 转换为 HTML (服务端)
  */
 export async function renderMarkdownToHtml(markdown: string): Promise<string> {
   if (!markdown) return ''
 
   try {
-    // 0. 预处理自定义代码块
     const preprocessed = preprocessCustomBlocks(markdown)
     
-    // 1. Markdown -> HTML (添加 GFM 支持)
     const processedContent = await remark()
-      .use(remarkGfm)  // 支持 GFM 语法（表格、删除线、图片等）
-      .use(html, { sanitize: false })  // 不过滤 HTML，保留图片等标签
+      .use(remarkGfm)
+      .use(html, { sanitize: false })
       .process(preprocessed)
     
-    const  contentHtml = processedContent.toString()
+    const contentHtml = processedContent.toString()
 
-    // 2. 代码高亮处理 (可选，如果 remark-html 输出的结构需要进一步处理)
-    // 注意：remark-html 生成的 <pre><code>...</code></pre> 结构通常可以直接配合 highlight.js 样式使用
-    // 这里我们使用 rehype-highlight 来注入 class
-    
     const file = await rehype()
       .data('settings', { fragment: true })
       .use(rehypeHighlight)
@@ -156,8 +128,6 @@ export async function renderMarkdownToHtml(markdown: string): Promise<string> {
     return file.toString()
   } catch (error) {
     console.error('Markdown rendering error:', error)
-    // 降级处理：返回原始内容或转义后的文本
     return markdown
   }
 }
-

@@ -7,7 +7,6 @@
  * 支持：
  * - GFM (GitHub Flavored Markdown)
  * - 代码高亮
- * - 流式传输时的光标显示（智能避开代码块）
  * - 流式传输时延迟渲染未闭合的代码块
  * 
  * @module components/MessageContent
@@ -18,7 +17,6 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeRaw from 'rehype-raw'
-import { rehypeCursor } from '@/features/chat/utils/rehype-cursor'
 import { createMarkdownComponents } from './MarkdownComponents'
 
 interface MessageContentProps {
@@ -27,9 +25,6 @@ interface MessageContentProps {
   
   /** 是否正在流式传输 */
   isStreaming?: boolean
-  
-  /** 是否显示光标（默认 true） */
-  showCursor?: boolean
 }
 
 /**
@@ -55,7 +50,36 @@ function preprocessStreamingContent(content: string, isStreaming: boolean): stri
     return content
   }
   
-  // 有未闭合的代码块，在末尾补上闭合标记
+  // 有未闭合的代码块
+  // 检查是否是媒体块（image/chart/weather），如果是则隐藏直到完成
+  const lastOpenBlock = content.lastIndexOf('```')
+  const afterBlock = content.slice(lastOpenBlock + 3)
+  const langMatch = afterBlock.match(/^(\w+)/)
+  const lang = langMatch?.[1]
+  
+  // 如果是媒体块且内容不完整，暂时隐藏整个代码块
+  if (lang && ['image', 'chart', 'weather'].includes(lang)) {
+    const blockContent = afterBlock.slice(lang.length).trim()
+    // 检查是否有完整的 JSON（必须以 { 开始，以 } 结束）
+    const jsonStart = blockContent.indexOf('{')
+    const jsonEnd = blockContent.lastIndexOf('}')
+    
+    // JSON 不完整（没开始、没结束、或结束在开始之前），隐藏整个代码块
+    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd < jsonStart) {
+      return content.slice(0, lastOpenBlock)
+    }
+    
+    // 尝试解析 JSON，如果解析失败也隐藏
+    const jsonStr = blockContent.slice(jsonStart, jsonEnd + 1)
+    try {
+      JSON.parse(jsonStr)
+    } catch {
+      // JSON 解析失败，隐藏整个代码块
+      return content.slice(0, lastOpenBlock)
+    }
+  }
+  
+  // 普通代码块，补上闭合标记
   return content + '\n```'
 }
 
@@ -68,22 +92,7 @@ function preprocessStreamingContent(content: string, isStreaming: boolean): stri
 export function MessageContent({
   content,
   isStreaming = false,
-  showCursor: _showCursor = true,
 }: MessageContentProps) {
-  // 渲染计数器（开发环境统计用，暂时注释）
-  // const renderCount = useRef(0)
-  // renderCount.current++
-  // 
-  // useEffect(() => {
-  //   if (process.env.NODE_ENV === 'development') {
-  //     console.log(`[MessageContent] render #${renderCount.current}, content length: ${content.length}, isStreaming: ${isStreaming}`)
-  //   }
-  // })
-  
-  // 光标功能暂时禁用，bug 较多
-  // const shouldShowCursor = isStreaming && showCursor
-  const shouldShowCursor = false
-  
   // 根据流式状态创建 markdown 组件
   const markdownComponents = useMemo(
     () => createMarkdownComponents(isStreaming),
@@ -100,12 +109,7 @@ export function MessageContent({
     <div className="prose prose-sm dark:prose-invert max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[
-          rehypeRaw,
-          rehypeHighlight,
-          // 动态添加光标插件
-          ...(shouldShowCursor ? [rehypeCursor] : []),
-        ]}
+        rehypePlugins={[rehypeRaw, rehypeHighlight]}
         components={markdownComponents}
       >
         {processedContent}

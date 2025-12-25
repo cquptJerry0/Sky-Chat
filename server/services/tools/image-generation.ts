@@ -2,15 +2,14 @@
  * 图片生成工具
  *
  * 使用 SiliconFlow API 生成图片并保存到本地存储
+ * 支持异步执行、进度回调、取消操作
  */
 
 import type { Tool } from './types'
 import { generateImage } from '@/server/services/image/siliconflow'
 import { downloadAndSave } from '@/server/services/image/storage'
 
-/**
- * 支持的图片尺寸
- */
+/** 支持的图片尺寸 */
 const SUPPORTED_IMAGE_SIZES = [
   '1024x1024',
   '512x1024',
@@ -20,13 +19,74 @@ const SUPPORTED_IMAGE_SIZES = [
   '576x1024',
 ] as const
 
-/**
- * 默认图片尺寸
- */
 const DEFAULT_IMAGE_SIZE = '1024x1024'
 
+/** 进度回调类型 */
+export type ImageProgressCallback = (progress: number) => void
+
+/** 异步执行选项 */
+export interface ImageGenerationExecOptions {
+  signal?: AbortSignal
+  onProgress?: ImageProgressCallback
+}
+
+/** 图片生成结果 */
+export interface ImageGenerationResult {
+  url: string
+  message: string
+  width: number
+  height: number
+}
+
 /**
- * 创建图片生成工具
+ * 执行图片生成（支持异步）
+ */
+export async function executeImageGeneration(
+  args: Record<string, unknown>,
+  options: ImageGenerationExecOptions = {}
+): Promise<ImageGenerationResult> {
+  const { signal, onProgress } = options
+  const prompt = args.prompt as string
+  const negativePrompt = args.negative_prompt as string | undefined
+  const imageSize = (args.image_size as string) || DEFAULT_IMAGE_SIZE
+
+  if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
+    throw new Error('prompt 不能为空')
+  }
+
+  // 检查是否已取消
+  if (signal?.aborted) {
+    throw new Error('任务已取消')
+  }
+
+  // 阶段 1: 调用 API (0-60%)
+  onProgress?.(10)
+  const result = await generateImage({
+    prompt: prompt.trim(),
+    negative_prompt: negativePrompt,
+    image_size: imageSize,
+  })
+  
+  if (signal?.aborted) throw new Error('任务已取消')
+  onProgress?.(60)
+
+  // 阶段 2: 下载保存 (60-100%)
+  onProgress?.(70)
+  const stored = await downloadAndSave(result.url)
+  
+  if (signal?.aborted) throw new Error('任务已取消')
+  onProgress?.(100)
+
+  return {
+    url: stored.localUrl,
+    message: '图片已生成完成。',
+    width: parseInt(imageSize.split('x')[0]) || 512,
+    height: parseInt(imageSize.split('x')[1]) || 512,
+  }
+}
+
+/**
+ * 创建图片生成工具（同步版本，兼容现有逻辑）
  */
 export function createImageGenerationTool(): Tool {
   return {
@@ -52,41 +112,9 @@ export function createImageGenerationTool(): Tool {
       required: ['prompt'],
     },
     execute: async (args: Record<string, unknown>): Promise<string> => {
-      console.log('[ImageGeneration] Tool called with args:', args)
-      
-      const prompt = args.prompt as string
-      const negativePrompt = args.negative_prompt as string | undefined
-      const imageSize = (args.image_size as string) || DEFAULT_IMAGE_SIZE
-
-      // 验证 prompt
-      if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
-        return '图片生成失败: prompt 不能为空'
-      }
-
       try {
-        // 调用 SiliconFlow API 生成图片
-        console.log('[ImageGeneration] Calling SiliconFlow API...')
-        const result = await generateImage({
-          prompt: prompt.trim(),
-          negative_prompt: negativePrompt,
-          image_size: imageSize,
-        })
-        console.log('[ImageGeneration] SiliconFlow returned URL:', result.url)
-
-        // 下载图片到本地存储
-        console.log('[ImageGeneration] Downloading and saving image...')
-        const stored = await downloadAndSave(result.url)
-        console.log('[ImageGeneration] Image saved to:', stored.localUrl)
-
-        // 返回 JSON 格式，包含本地 URL 和给 AI 的简短消息
-        // stream.handler 会解析 URL 传给前端
-        // formatToolMessage 会只把 message 给 AI，避免 AI 复述长 URL
-        return JSON.stringify({
-          url: stored.localUrl,
-          message: '图片已生成完成。',
-          width: parseInt(imageSize.split('x')[0]) || 512,
-          height: parseInt(imageSize.split('x')[1]) || 512,
-        })
+        const result = await executeImageGeneration(args)
+        return JSON.stringify(result)
       } catch (error) {
         const message = error instanceof Error ? error.message : '未知错误'
         console.error('[ImageGeneration] Error:', message)

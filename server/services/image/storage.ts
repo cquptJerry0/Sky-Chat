@@ -21,11 +21,19 @@ export interface StoredImage {
   filepath: string
 }
 
-/** 图片存储目录（相对于项目根目录） */
-const STORAGE_DIR = 'public/generated'
+/** 
+ * 图片存储目录
+ * 开发环境: public/generated
+ * 生产环境: 通过 IMAGE_STORAGE_DIR 环境变量配置
+ */
+const STORAGE_DIR = process.env.IMAGE_STORAGE_DIR || 'public/generated'
 
-/** URL 前缀（用于访问） */
-const URL_PREFIX = '/generated'
+/** 
+ * 图片 URL 前缀
+ * 开发环境: /generated
+ * 生产环境: 通过 IMAGE_URL_PREFIX 环境变量配置
+ */
+const URL_PREFIX = process.env.IMAGE_URL_PREFIX || '/generated'
 
 /**
  * 生成唯一文件名

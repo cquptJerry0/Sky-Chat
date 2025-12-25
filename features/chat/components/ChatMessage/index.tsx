@@ -4,13 +4,14 @@
  * Chat Message Module - 消息模块
  * 
  * Container Component（容器组件）
- * 连接 Store，最小化 props（只接收 messageId）
+ * 连接 Store，使用消息状态机
  * 
  * @module modules/chat-message
  */
 
 import { useParams } from 'next/navigation'
 import { useChatStore } from '@/features/chat/store/chat.store'
+import { selectMessagePhase, selectIsProcessing } from '@/features/chat/store/selectors'
 import { ChatService } from '@/features/chat/services/chat.service'
 import { ChatMessageUI } from './ChatMessageUI'
 
@@ -24,23 +25,19 @@ export function ChatMessage({ messageId }: ChatMessageProps) {
 
   // Store 数据
   const message = useChatStore((s) => s.messages.find((m) => m.id === messageId))
-  const streamingMessageId = useChatStore((s) => s.streamingMessageId)
-  const streamingPhase = useChatStore((s) => s.streamingPhase)
-  const isSendingMessage = useChatStore((s) => s.isSendingMessage)
   const messages = useChatStore((s) => s.messages)
+  const isSendingMessage = useChatStore((s) => s.isSendingMessage)
+  
+  // 状态机数据
+  const phase = useChatStore(selectMessagePhase(messageId))
+  const isProcessing = useChatStore(selectIsProcessing(messageId))
 
   if (!message) return null
-
-  // 流式状态
-  const isStreaming = streamingMessageId === messageId
-  const isStreamingThinking = isStreaming && streamingPhase === 'thinking'
-  const isStreamingAnswer = isStreaming && streamingPhase === 'answer'
 
   // 位置判断
   const isLastMessage = messages[messages.length - 1]?.id === messageId
   const isAIMessage = message.role === 'assistant'
   const isWaitingForResponse = isSendingMessage && isLastMessage && isAIMessage
-  const isLastAssistantMessage = isAIMessage && isLastMessage
   
   // 操作回调
   const handleRetry = isAIMessage 
@@ -51,15 +48,20 @@ export function ChatMessage({ messageId }: ChatMessageProps) {
     ? (newContent: string) => ChatService.editAndResend(conversationId, messageId, newContent) 
     : undefined
 
+  const handleCancelTool = isAIMessage
+    ? (toolCallId: string) => ChatService.cancelTool(messageId, toolCallId)
+    : undefined
+
   return (
     <ChatMessageUI
       message={message}
-      isStreamingThinking={isStreamingThinking}
-      isStreamingAnswer={isStreamingAnswer}
+      messageId={messageId}
+      phase={phase}
+      isProcessing={isProcessing}
       isWaitingForResponse={isWaitingForResponse}
-      isLastAssistantMessage={isLastAssistantMessage}
       onRetry={handleRetry}
       onEdit={handleEdit}
+      onCancelTool={handleCancelTool}
     />
   )
 }
