@@ -10,7 +10,11 @@ import { useChatStore } from '@/features/chat/store/chat.store'
 import { ConversationAPI } from '@/lib/services/conversation-api'
 import { SSEParser } from '@/lib/services/sse-parser'
 import { StreamBuffer } from '@/features/chat/utils/stream-buffer'
+import { createMonitor } from '@sky-monitor/sdk'
 import type { Message, FileAttachment } from '@/features/chat/types/chat'
+
+// 初始化监控实例
+const monitor = createMonitor({ appId: 'sky-chat', debug: true })
 
 // 用于取消请求
 let loadAbortController: AbortController | null = null
@@ -89,6 +93,12 @@ export const ChatService = {
     
     const userMessageId = createUserMessage ? nanoid() : undefined
     const aiMessageId = nanoid()
+    const traceId = nanoid() // 用于追踪本次请求
+    const startTime = Date.now()
+    
+    // 设置监控上下文
+    monitor.setContext({ conversationId })
+    monitor.track('sse_start', { traceId, aiMessageId })
     
     // 添加用户消息
     if (createUserMessage && userMessageId) {
@@ -137,16 +147,22 @@ export const ChatService = {
       const reader = response.body?.getReader()
       if (!reader) throw new Error('No reader')
       
-      await this.handleStream(reader, aiMessageId)
+      await this.handleStream(reader, aiMessageId, { traceId, startTime })
     } catch (e) {
       // AbortError 是正常中断，不算错误
       if ((e as Error).name === 'AbortError') {
         store.updateMessage(aiMessageId, { displayState: 'idle' })
+        monitor.track('sse_abort', { traceId, duration: Date.now() - startTime })
         return
       }
       console.error('[ChatService] sendMessage failed:', e)
       store.updateMessage(aiMessageId, { hasError: true, displayState: 'error' })
       store.stopStreaming()
+      monitor.track('sse_error', { 
+        traceId, 
+        error: (e as Error).message,
+        duration: Date.now() - startTime 
+      })
     } finally {
       streamAbortController = null
       store.setSendingMessage(false)
@@ -157,7 +173,14 @@ export const ChatService = {
    * 处理 SSE 流
    * 使用 StreamBuffer 批量刷新，优化渲染性能
    */
-  async handleStream(reader: ReadableStreamDefaultReader<Uint8Array>, messageId: string): Promise<void> {
+  async handleStream(
+    reader: ReadableStreamDefaultReader<Uint8Array>, 
+    messageId: string,
+    metrics?: { traceId: string; startTime: number }
+  ): Promise<void> {
+    let firstChunkReceived = false
+    let completeTracked = false // 防止重复上报
+    
     // 创建两个独立的 buffer：thinking 和 answer
     const thinkingBuffer = new StreamBuffer({
       onFlush: (content) => useChatStore.getState().appendThinking(messageId, content)
@@ -171,6 +194,13 @@ export const ChatService = {
       await SSEParser.parseStream(reader, {
         onData: (data) => {
           const s = useChatStore.getState()
+          
+          // 首个 chunk 到达，记录 TTFB
+          if (!firstChunkReceived && metrics) {
+            firstChunkReceived = true
+            const ttfb = Date.now() - metrics.startTime
+            monitor.track('sse_first_chunk', { traceId: metrics.traceId, ttfb })
+          }
           
           if (data.type === 'thinking' && data.content) {
             if (s.streamingPhase !== 'thinking') {
@@ -248,6 +278,13 @@ export const ChatService = {
             answerBuffer.forceFlush()
             s.stopStreaming()
             s.updateMessage(messageId, { displayState: 'idle' })
+            
+            // 记录 TTLB（防止重复上报）
+            if (metrics && !completeTracked) {
+              completeTracked = true
+              const ttlb = Date.now() - metrics.startTime
+              monitor.track('sse_complete', { traceId: metrics.traceId, ttlb })
+            }
           }
         },
         onError: (error) => {
