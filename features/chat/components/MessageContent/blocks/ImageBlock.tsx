@@ -6,13 +6,14 @@
  * 展示图片，支持下载、复制、放大操作
  */
 
-import { useMemo, useState, memo } from 'react'
+import { useMemo, useState, memo, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { Download, Copy, ZoomIn, Loader2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogPortal, DialogOverlay, DialogClose } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useToast } from '@/lib/hooks/use-toast'
+import { createMonitor } from '@sky-monitor/sdk'
 import type { MediaBlockProps } from './registry'
 
 interface ImageData {
@@ -25,8 +26,12 @@ interface ImageData {
 // 缓存已加载的图片 URL
 const loadedImages = new Set<string>()
 
+// 获取共享的 monitor 实例（用于图片加载追踪）
+const monitor = createMonitor({ appId: 'sky-chat', debug: false })
+
 function ImageBlockInner({ data, isStreaming }: MediaBlockProps) {
   const { toast } = useToast()
+  const imageUrlRef = useRef<string | null>(null)
 
   const imageData = useMemo(() => {
     const trimmed = data.trim()
@@ -52,6 +57,18 @@ function ImageBlockInner({ data, isStreaming }: MediaBlockProps) {
   })
   const [hasError, setHasError] = useState(false)
   const [isZoomed, setIsZoomed] = useState(false)
+
+  // 图片加载追踪：开始
+  useEffect(() => {
+    if (imageData?.url && isLoading && !loadedImages.has(imageData.url)) {
+      imageUrlRef.current = imageData.url
+      // 使用当前活跃的 trace 进行图片加载追踪
+      const trace = monitor.getCurrentTrace()
+      if (trace) {
+        trace.imageLoadStart(imageData.url)
+      }
+    }
+  }, [imageData?.url, isLoading])
 
   // 下载图片
   const handleDownload = async () => {
@@ -139,11 +156,23 @@ function ImageBlockInner({ data, isStreaming }: MediaBlockProps) {
               setIsLoading(false)
               if (imageData.url) {
                 loadedImages.add(imageData.url)
+                // 图片加载追踪：成功
+                const trace = monitor.getCurrentTrace()
+                if (trace && imageUrlRef.current === imageData.url) {
+                  trace.imageLoadEnd(imageData.url, { success: true })
+                }
+                imageUrlRef.current = null
               }
             }}
             onError={() => {
               setIsLoading(false)
               setHasError(true)
+              // 图片加载追踪：失败
+              const trace = monitor.getCurrentTrace()
+              if (trace && imageData.url && imageUrlRef.current === imageData.url) {
+                trace.imageLoadEnd(imageData.url, { success: false, error: 'Load failed' })
+              }
+              imageUrlRef.current = null
             }}
             unoptimized
           />

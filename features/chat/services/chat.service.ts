@@ -16,9 +16,15 @@ import type { Message, FileAttachment } from '@/features/chat/types/chat'
 // 初始化监控实例
 const monitor = createMonitor({ appId: 'sky-chat', debug: true })
 
+// 启动会话（自动监听 visibilitychange 和 beforeunload）
+monitor.startSession()
+
 // 用于取消请求
 let loadAbortController: AbortController | null = null
 let streamAbortController: AbortController | null = null
+
+// 存储上一个 trace 的 ID，用于重试关联
+let lastTraceId: string | null = null
 
 export const ChatService = {
   /**
@@ -174,6 +180,7 @@ export const ChatService = {
     // 设置监控上下文并创建 Trace
     monitor.setContext({ conversationId })
     const trace = monitor.createTrace({ aiMessageId })
+    monitor.setCurrentTrace(trace)
     trace.start()
 
     // 添加用户消息
@@ -246,12 +253,16 @@ export const ChatService = {
       if ((e as Error).name === 'AbortError') {
         store.updateMessage(aiMessageId, { displayState: 'idle' })
         trace.abort('user_manual')
+        lastTraceId = trace.traceId
+        monitor.setCurrentTrace(null)
         return
       }
       console.error('[ChatService] sendMessage failed:', e)
       store.updateMessage(aiMessageId, { hasError: true, displayState: 'error' })
       store.stopStreaming()
       trace.error((e as Error).message)
+      lastTraceId = trace.traceId
+      monitor.setCurrentTrace(null)
     } finally {
       streamAbortController = null
       store.setSendingMessage(false)
@@ -298,6 +309,9 @@ export const ChatService = {
             firstChunkReceived = true
             trace.firstChunk()
           }
+
+          // 记录收到 chunk，用于卡顿检测
+          trace.recordChunk()
 
           if (data.type === 'thinking' && data.content) {
             if (s.streamingPhase !== 'thinking') {
@@ -456,6 +470,8 @@ export const ChatService = {
             if (!completeTracked) {
               completeTracked = true
               trace.complete()
+              lastTraceId = trace.traceId
+              monitor.setCurrentTrace(null)
             }
           }
         },
@@ -467,6 +483,8 @@ export const ChatService = {
             trace.phaseEnd(currentPhase)
           }
           trace.error(error.message)
+          lastTraceId = trace.traceId
+          monitor.setCurrentTrace(null)
           const s = useChatStore.getState()
           s.transitionPhase(messageId, { type: 'ERROR', message: error.message })
           s.updateMessage(messageId, { hasError: true, displayState: 'error' })
@@ -502,6 +520,9 @@ export const ChatService = {
     const message = store.messages[index]
     if (message.role !== 'assistant') return
 
+    // 保存当前 lastTraceId 用于重试关联
+    const previousTraceId = lastTraceId
+
     // 删除从该消息开始的所有消息
     const removed = store.removeMessagesFrom(index)
     const idsToDelete = removed.map((m) => m.id)
@@ -519,8 +540,85 @@ export const ChatService = {
       }).catch(console.error)
     }
 
-    // 重新发送
-    await this.sendMessage(conversationId, lastUserMsg.content, { createUserMessage: false })
+    // 重新发送（带重试关联）
+    await this.sendMessageWithRetry(conversationId, lastUserMsg.content, previousTraceId)
+  },
+
+  /**
+   * 发送消息（支持重试关联）
+   */
+  async sendMessageWithRetry(
+    conversationId: string,
+    content: string,
+    previousTraceId: string | null
+  ): Promise<void> {
+    const store = useChatStore.getState()
+
+    if (store.isSendingMessage) return
+    store.setSendingMessage(true)
+
+    const aiMessageId = nanoid()
+
+    // 设置监控上下文并创建 Trace（带重试关联）
+    monitor.setContext({ conversationId })
+    const traceOptions = previousTraceId
+      ? { aiMessageId, previousTraceId }
+      : { aiMessageId }
+    const trace = monitor.createTrace(traceOptions)
+    monitor.setCurrentTrace(trace)
+    trace.start()
+
+    // 添加 AI 占位消息
+    store.addMessage({
+      id: aiMessageId,
+      role: 'assistant',
+      content: '',
+      thinking: '',
+      displayState: 'waiting',
+    })
+
+    try {
+      streamAbortController = new AbortController()
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          conversationId,
+          model: store.selectedModel,
+          enableThinking: store.enableThinking,
+          enableWebSearch: store.enableWebSearch,
+          thinkingBudget: 4096,
+          aiMessageId,
+        }),
+        signal: streamAbortController.signal,
+      })
+
+      if (!response.ok) throw new Error(`API error: ${response.status}`)
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No reader')
+
+      await this.handleStream(reader, aiMessageId, trace)
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') {
+        store.updateMessage(aiMessageId, { displayState: 'idle' })
+        trace.abort('user_manual')
+        lastTraceId = trace.traceId
+        monitor.setCurrentTrace(null)
+        return
+      }
+      console.error('[ChatService] sendMessageWithRetry failed:', e)
+      store.updateMessage(aiMessageId, { hasError: true, displayState: 'error' })
+      store.stopStreaming()
+      trace.error((e as Error).message)
+      lastTraceId = trace.traceId
+      monitor.setCurrentTrace(null)
+    } finally {
+      streamAbortController = null
+      store.setSendingMessage(false)
+    }
   },
 
   /**
