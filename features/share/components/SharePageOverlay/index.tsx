@@ -1,79 +1,91 @@
 'use client'
 
 /**
- * Share Page Overlay - 分享页蒙版组件
+ * Share Page Overlay - 分享页登录引导组件
  * 
- * 显示一个蒙版和引导卡片，引导用户登录后开始对话
+ * 触发方式：
+ * 1. 点击页面任意位置（Dialog 关闭状态下）
+ * 2. 延迟 5 秒后自动弹出
+ * 
+ * 副作用考虑：
+ * - Dialog 打开时不监听点击，避免关闭按钮的 click 冒泡导致立即重新打开
+ * - 关闭后有 300ms 冷却时间，避免关闭动画期间的点击误触发
  */
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { MessageSquare, Sparkles } from 'lucide-react'
 import { LoginDialog } from '@/features/auth/components/LoginDialog'
 
 interface SharePageOverlayProps {
   conversationId: string
+  /** 延迟弹出时间（毫秒），默认 5000ms */
+  delayMs?: number
 }
 
-export function SharePageOverlay({ conversationId }: SharePageOverlayProps) {
+export function SharePageOverlay({ conversationId, delayMs = 5000 }: SharePageOverlayProps) {
   const router = useRouter()
   const [showLogin, setShowLogin] = useState(false)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const cooldownRef = useRef(false) // 冷却状态，防止关闭后立即重新打开
   
-  const handleClick = () => {
-    // 显示登录对话框
+  // 触发登录弹窗
+  const triggerLogin = () => {
+    if (showLogin || cooldownRef.current) return
     setShowLogin(true)
   }
   
+  // 启动延迟定时器
+  const startDelayTimer = () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(triggerLogin, delayMs)
+  }
+  
+  // 初始延迟触发
+  useEffect(() => {
+    startDelayTimer()
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  
+  // 点击触发（仅在 Dialog 关闭且不在冷却期时）
+  useEffect(() => {
+    if (showLogin) return // Dialog 打开时不监听
+    
+    const handleClick = () => {
+      if (!cooldownRef.current) {
+        triggerLogin()
+      }
+    }
+    
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [showLogin]) // eslint-disable-line react-hooks/exhaustive-deps
+  
+  // 关闭后重新启动定时器，并设置冷却期
+  const handleOpenChange = (open: boolean) => {
+    setShowLogin(open)
+    if (!open) {
+      // 设置 300ms 冷却期，避免关闭动画期间的点击误触发
+      cooldownRef.current = true
+      setTimeout(() => {
+        cooldownRef.current = false
+      }, 300)
+      
+      // 关闭后重新开始计时
+      startDelayTimer()
+    }
+  }
+  
   const handleLoginSuccess = () => {
-    // 登录成功后，跳转到新会话并携带当前conversation作为引用
     router.push(`/chat?ref=${conversationId}`)
   }
   
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onClick={handleClick}
-    >
-      <Card 
-        className="w-full max-w-md mx-4 shadow-2xl border-2 cursor-pointer hover:border-primary transition-all duration-300 hover:scale-105"
-        onClick={handleClick}
-      >
-        <CardHeader className="text-center pb-4">
-          <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <Sparkles className="h-8 w-8 text-primary" />
-          </div>
-          <CardTitle className="text-2xl font-bold">
-            开始你的 AI 对话
-          </CardTitle>
-          <CardDescription className="text-base mt-2">
-            登录后即可创建自己的对话，体验智能聊天
-          </CardDescription>
-        </CardHeader>
-        
-        <CardContent className="space-y-4">
-          <Button 
-            size="lg" 
-            className="w-full text-lg h-12"
-            onClick={handleClick}
-          >
-            <MessageSquare className="mr-2 h-5 w-5" />
-            立即开始对话
-          </Button>
-          
-          <div className="text-center text-sm text-muted-foreground">
-            点击任意位置继续
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* 登录对话框 */}
-      <LoginDialog 
-        open={showLogin}
-        onOpenChange={setShowLogin}
-        onSuccess={handleLoginSuccess}
-      />
-    </div>
+    <LoginDialog 
+      open={showLogin}
+      onOpenChange={handleOpenChange}
+      onSuccess={handleLoginSuccess}
+    />
   )
 }
