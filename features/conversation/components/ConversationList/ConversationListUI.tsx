@@ -38,8 +38,8 @@ export function ConversationListUI({
   onRename,
   onTogglePin,
 }: ConversationListUIProps) {
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
-  const [conversationToDelete, setConversationToDelete] = React.useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [conversationToDelete, setConversationToDelete] = useState<string | null>(null)
 
   const handleDeleteClick = (id: string) => {
     setConversationToDelete(id)

@@ -121,7 +121,7 @@ export function MessageDisplay({ message }: MessageDisplayProps) {
         
         {/* 消息内容 - HTML 直出 */}
         <div 
-          className="prose prose-gray max-w-none dark:prose-invert break-words"
+          className="prose prose-gray max-w-none dark:prose-invert break-words prose-img:rounded-lg prose-img:max-w-full prose-img:h-auto"
           dangerouslySetInnerHTML={{ __html: message.content }}
         />
       </div>
