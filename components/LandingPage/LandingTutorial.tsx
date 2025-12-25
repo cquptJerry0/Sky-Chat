@@ -9,7 +9,7 @@
  * @module components/LandingPage/LandingTutorial
  */
 
-import * as React from 'react'
+import { useState } from 'react'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -58,8 +58,8 @@ const tutorialSteps: TutorialStep[] = [
  * 提供步进式引导，帮助新用户快速上手
  */
 export function LandingTutorial() {
-  const [isOpen, setIsOpen] = React.useState(false)
-  const [currentStep, setCurrentStep] = React.useState(0)
+  const [isOpen, setIsOpen] = useState(false)
+  const [currentStep, setCurrentStep] = useState(0)
 
   const handleNext = () => {
     if (currentStep < tutorialSteps.length - 1) {

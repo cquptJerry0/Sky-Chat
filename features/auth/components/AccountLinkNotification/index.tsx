@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useToast } from '@/lib/hooks/use-toast'
 import { CheckCircle2 } from 'lucide-react'
@@ -8,9 +8,9 @@ import { CheckCircle2 } from 'lucide-react'
 export function AccountLinkNotification() {
   const { data: session } = useSession()
   const { toast } = useToast()
-  const [hasShownNotification, setHasShownNotification] = React.useState(false)
+  const [hasShownNotification, setHasShownNotification] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!session?.user || hasShownNotification) return
 
     const checkRecentLink = async () => {

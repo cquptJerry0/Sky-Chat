@@ -7,7 +7,7 @@
  * @module modules/chat-message/ChatMessageUI
  */
 
-import * as React from 'react'
+import { useState } from 'react'
 import { ThinkingPanel } from '@/features/chat/components/ThinkingPanel'
 import { MessageContent } from '@/features/chat/components/MessageContent'
 import { MessageActions } from '@/features/chat/components/MessageActions'
@@ -23,7 +23,7 @@ import type { Message, ToolInvocation, ToolResult, SearchSource } from '@/featur
  * 搜索状态组件 - 简洁风格，类似 Perplexity
  */
 function WebSearchStatus({ invocation }: { invocation: ToolInvocation }) {
-  const [isExpanded, setIsExpanded] = React.useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
   const sources = invocation.result?.sources as SearchSource[] | undefined
 
   // 搜索中
@@ -130,7 +130,7 @@ function ToolInvocationItem({ invocation }: { invocation: ToolInvocation }) {
  * 方案 A：图片在 content 中渲染，这里不单独显示
  */
 function ToolResultItem({ result }: { result: ToolResult }) {
-  const [isExpanded, setIsExpanded] = React.useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   // 图片生成结果不在这里渲染，会在 content 的 markdown 中显示
   if (result.name === 'generate_image') {
@@ -214,7 +214,7 @@ export function ChatMessageUI({
   onEdit,
 }: ChatMessageUIProps) {
   const isUser = message.role === 'user'
-  const [isEditing, setIsEditing] = React.useState(false)
+  const [isEditing, setIsEditing] = useState(false)
 
   // 获取消息显示状态
   const displayState = message.displayState || 'idle'

@@ -5,7 +5,7 @@
  * 用于生成和管理会话分享链接
  */
 
-import * as React from 'react'
+import { useState, useEffect } from 'react'
 import { Share2, Link2, X, Check, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,14 +26,14 @@ interface ShareButtonProps {
 
 export function ShareButton({ conversationId, className }: ShareButtonProps) {
   const { toast } = useToast()
-  const [isOpen, setIsOpen] = React.useState(false)
-  const [isShared, setIsShared] = React.useState(false)
-  const [shareUrl, setShareUrl] = React.useState('')
-  const [isLoading, setIsLoading] = React.useState(false)
-  const [isCopied, setIsCopied] = React.useState(false)
+  const [isOpen, setIsOpen] = useState(false)
+  const [isShared, setIsShared] = useState(false)
+  const [shareUrl, setShareUrl] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [isCopied, setIsCopied] = useState(false)
   
   // 检查分享状态
-  React.useEffect(() => {
+  useEffect(() => {
     // TODO: 检查会话是否已分享
   }, [conversationId])
   

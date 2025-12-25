@@ -8,7 +8,7 @@
  * - 邮箱/密码登录（备选）
  */
 
-import * as React from 'react'
+import React, { useState } from 'react'
 import { Loader2, LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,13 +29,13 @@ interface LoginDialogProps {
 }
 
 export function LoginDialog({ open, onOpenChange, onSuccess }: LoginDialogProps) {
-  const [showEmailLogin, setShowEmailLogin] = React.useState(false)
-  const [isRegisterMode, setIsRegisterMode] = React.useState(false)
-  const [email, setEmail] = React.useState('')
-  const [password, setPassword] = React.useState('')
-  const [confirmPassword, setConfirmPassword] = React.useState('')
-  const [name, setName] = React.useState('')
-  const [isLoading, setIsLoading] = React.useState(false)
+  const [showEmailLogin, setShowEmailLogin] = useState(false)
+  const [isRegisterMode, setIsRegisterMode] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [name, setName] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
