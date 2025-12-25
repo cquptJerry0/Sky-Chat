@@ -6,7 +6,7 @@
  * 纯展示组件，接收所有状态和方法通过props
  */
 
-import * as React from 'react'
+import { useState } from 'react'
 import { History } from 'lucide-react'
 import { ConversationItem } from './ConversationItem'
 import type { Conversation } from '@/lib/services/conversation-api'
