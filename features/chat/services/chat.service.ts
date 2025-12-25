@@ -10,21 +10,11 @@ import { useChatStore } from '@/features/chat/store/chat.store'
 import { ConversationAPI } from '@/features/chat/services/conversation-api'
 import { SSEParser } from '@/features/chat/utils/sse-parser'
 import { StreamBuffer } from '@/features/chat/utils/stream-buffer'
-import { createMonitor, type Trace } from '@sky-monitor/sdk'
 import type { Message, FileAttachment } from '@/features/chat/types/chat'
-
-// 初始化监控实例
-const monitor = createMonitor({ appId: 'sky-chat', debug: true })
-
-// 启动会话（自动监听 visibilitychange 和 beforeunload）
-monitor.startSession()
 
 // 用于取消请求
 let loadAbortController: AbortController | null = null
 let streamAbortController: AbortController | null = null
-
-// 存储上一个 trace 的 ID，用于重试关联
-let lastTraceId: string | null = null
 
 export const ChatService = {
   /**
@@ -107,36 +97,44 @@ export const ChatService = {
   },
 
   /**
-   * 加载会话消息
+   * 加载会话消息（带缓存，智能 loading）
+   * - 第一次进入会话：显示 loading
+   * - 切换会话：从缓存立即显示，后台静默加载
    */
   async loadMessages(conversationId: string): Promise<void> {
     const store = useChatStore.getState()
 
-    // 防止重复加载
-    if (store.loadingConversationId === conversationId) return
-
-    // 如果正在发送消息，不要加载（避免清掉正在发送的消息）
-    if (store.isSendingMessage) return
+    // 如果正在流式生成，先中断并保存已生成的内容
+    if (store.isSendingMessage || store.streamingMessageId) {
+      this.abortStream()
+    }
 
     // 取消之前的请求
     loadAbortController?.abort()
     loadAbortController = new AbortController()
 
-    store.setLoadingMessages(true, conversationId)
+    // 检查是否有缓存
+    const cached = store.getCachedMessages(conversationId)
+    const hasCache = cached && cached.length > 0
 
+    // 如果没有缓存，显示 loading；有缓存则立即显示
+    if (!hasCache) {
+      store.setLoadingMessages(true, conversationId)
+    } else {
+      store.setMessages(cached)
+    }
+
+    // 后台加载最新数据
     try {
       const { messages } = await ConversationAPI.getMessages(conversationId)
-
-      // 检查是否过期或正在发送消息
-      const currentState = useChatStore.getState()
-      if (currentState.loadingConversationId !== conversationId) return
-      if (currentState.isSendingMessage) return // 不要覆盖正在发送的消息
 
       // 去重
       const unique = messages.filter(
         (msg, i, arr) => arr.findIndex((m) => m.id === msg.id) === i
       ) as Message[]
 
+      // 更新缓存和显示
+      store.cacheMessages(conversationId, unique)
       store.setMessages(unique)
     } catch (e) {
       if ((e as Error).name === 'AbortError') return
@@ -148,6 +146,7 @@ export const ChatService = {
         return
       }
       
+      // 静默失败，保持缓存数据
       console.error('[ChatService] loadMessages failed:', e)
     } finally {
       loadAbortController = null
@@ -176,12 +175,6 @@ export const ChatService = {
 
     const userMessageId = createUserMessage ? nanoid() : undefined
     const aiMessageId = nanoid()
-
-    // 设置监控上下文并创建 Trace
-    monitor.setContext({ conversationId })
-    const trace = monitor.createTrace({ aiMessageId })
-    monitor.setCurrentTrace(trace)
-    trace.start()
 
     // 添加用户消息
     if (createUserMessage && userMessageId) {
@@ -247,25 +240,22 @@ export const ChatService = {
       const reader = response.body?.getReader()
       if (!reader) throw new Error('No reader')
 
-      await this.handleStream(reader, aiMessageId, trace)
+      await this.handleStream(reader, aiMessageId)
     } catch (e) {
       // AbortError 是正常中断，不算错误
       if ((e as Error).name === 'AbortError') {
         store.updateMessage(aiMessageId, { displayState: 'idle' })
-        trace.abort('user_manual')
-        lastTraceId = trace.traceId
-        monitor.setCurrentTrace(null)
         return
       }
       console.error('[ChatService] sendMessage failed:', e)
       store.updateMessage(aiMessageId, { hasError: true, displayState: 'error' })
       store.stopStreaming()
-      trace.error((e as Error).message)
-      lastTraceId = trace.traceId
-      monitor.setCurrentTrace(null)
     } finally {
       streamAbortController = null
       store.setSendingMessage(false)
+      // 更新消息缓存
+      const currentMessages = useChatStore.getState().messages
+      useChatStore.getState().cacheMessages(conversationId, currentMessages)
     }
   },
 
@@ -276,16 +266,8 @@ export const ChatService = {
    */
   async handleStream(
     reader: ReadableStreamDefaultReader<Uint8Array>,
-    messageId: string,
-    trace: Trace
+    messageId: string
   ): Promise<void> {
-    let firstChunkReceived = false
-    let completeTracked = false // 防止重复上报
-    let currentPhase: 'thinking' | 'answer' | null = null
-
-    // 后端 toolCallId → SDK toolCallId 映射
-    const toolCallIdMap = new Map<string, string>()
-
     // 初始化消息状态机
     const store = useChatStore.getState()
     store.initMessageState(messageId)
@@ -304,23 +286,8 @@ export const ChatService = {
         onData: (data) => {
           const s = useChatStore.getState()
 
-          // 首个 chunk 到达，记录 TTFB
-          if (!firstChunkReceived) {
-            firstChunkReceived = true
-            trace.firstChunk()
-          }
-
-          // 记录收到 chunk，用于卡顿检测
-          trace.recordChunk()
-
           if (data.type === 'thinking' && data.content) {
             if (s.streamingPhase !== 'thinking') {
-              // 阶段切换：开始 thinking
-              if (currentPhase && currentPhase !== 'thinking') {
-                trace.phaseEnd(currentPhase)
-              }
-              currentPhase = 'thinking'
-              trace.phaseStart('thinking')
               s.startStreaming(messageId, 'thinking')
               s.transitionPhase(messageId, { type: 'START_THINKING' })
               s.updateMessage(messageId, { displayState: 'streaming' })
@@ -328,12 +295,6 @@ export const ChatService = {
             thinkingBuffer.append(data.content)
           } else if (data.type === 'answer' && data.content) {
             if (s.streamingPhase !== 'answer') {
-              // 阶段切换：开始 answer
-              if (currentPhase && currentPhase !== 'answer') {
-                trace.phaseEnd(currentPhase)
-              }
-              currentPhase = 'answer'
-              trace.phaseStart('answer')
               s.startStreaming(messageId, 'answer')
               s.transitionPhase(messageId, { type: 'START_ANSWERING' })
               s.updateMessage(messageId, { displayState: 'streaming' })
@@ -341,19 +302,12 @@ export const ChatService = {
             answerBuffer.append(data.content)
           } else if (data.type === 'tool_call') {
             // 工具调用开始
-            const sdkToolCallId = trace.toolStart(data.name || 'unknown', {
-              query: data.query,
-              prompt: data.prompt,
-            })
-            // 保存后端 toolCallId → SDK toolCallId 映射
-            if (data.toolCallId) {
-              toolCallIdMap.set(data.toolCallId, sdkToolCallId)
-            }
+            const toolCallId = data.toolCallId || nanoid()
             
             // 状态机：转换到 tool_calling
             s.transitionPhase(messageId, {
               type: 'START_TOOL_CALL',
-              toolCallId: data.toolCallId || sdkToolCallId,
+              toolCallId,
               name: data.name || 'unknown',
               args: { query: data.query, prompt: data.prompt },
             })
@@ -361,7 +315,7 @@ export const ChatService = {
             const msg = s.messages.find((m) => m.id === messageId)
             const invocations = msg?.toolInvocations || []
             const newInvocation = {
-              toolCallId: data.toolCallId || sdkToolCallId,
+              toolCallId,
               name: data.name || 'unknown',
               state: 'running' as const,
               args: {
@@ -385,21 +339,6 @@ export const ChatService = {
               s.updateToolProgress(messageId, data.toolCallId, data.progress, data.estimatedTime)
             }
           } else if (data.type === 'tool_result') {
-            // 工具调用完成 - 用映射找到 SDK 的 toolCallId
-            const sdkToolCallId = data.toolCallId
-              ? toolCallIdMap.get(data.toolCallId)
-              : undefined
-            trace.toolEnd(data.name || 'unknown', {
-              success: data.success ?? false,
-              toolCallId: sdkToolCallId,
-              imageUrl: data.imageUrl,
-              width: data.width,
-              height: data.height,
-              resultCount: data.resultCount,
-              sources: data.sources,
-              error: data.success ? undefined : 'Tool failed',
-            })
-
             // 状态机：工具完成
             s.transitionPhase(messageId, {
               type: 'TOOL_COMPLETE',
@@ -456,35 +395,16 @@ export const ChatService = {
             thinkingBuffer.forceFlush()
             answerBuffer.forceFlush()
 
-            // 结束当前阶段
-            if (currentPhase) {
-              trace.phaseEnd(currentPhase)
-            }
-
             // 状态机：完成
             s.transitionPhase(messageId, { type: 'COMPLETE' })
             s.stopStreaming()
             s.updateMessage(messageId, { displayState: 'idle' })
-
-            // 记录 TTLB（防止重复上报）
-            if (!completeTracked) {
-              completeTracked = true
-              trace.complete()
-              lastTraceId = trace.traceId
-              monitor.setCurrentTrace(null)
-            }
           }
         },
         onError: (error) => {
           console.error('[ChatService] stream error:', error)
           thinkingBuffer.forceFlush()
           answerBuffer.forceFlush()
-          if (currentPhase) {
-            trace.phaseEnd(currentPhase)
-          }
-          trace.error(error.message)
-          lastTraceId = trace.traceId
-          monitor.setCurrentTrace(null)
           const s = useChatStore.getState()
           s.transitionPhase(messageId, { type: 'ERROR', message: error.message })
           s.updateMessage(messageId, { hasError: true, displayState: 'error' })
@@ -520,9 +440,6 @@ export const ChatService = {
     const message = store.messages[index]
     if (message.role !== 'assistant') return
 
-    // 保存当前 lastTraceId 用于重试关联
-    const previousTraceId = lastTraceId
-
     // 删除从该消息开始的所有消息
     const removed = store.removeMessagesFrom(index)
     const idsToDelete = removed.map((m) => m.id)
@@ -540,85 +457,8 @@ export const ChatService = {
       }).catch(console.error)
     }
 
-    // 重新发送（带重试关联）
-    await this.sendMessageWithRetry(conversationId, lastUserMsg.content, previousTraceId)
-  },
-
-  /**
-   * 发送消息（支持重试关联）
-   */
-  async sendMessageWithRetry(
-    conversationId: string,
-    content: string,
-    previousTraceId: string | null
-  ): Promise<void> {
-    const store = useChatStore.getState()
-
-    if (store.isSendingMessage) return
-    store.setSendingMessage(true)
-
-    const aiMessageId = nanoid()
-
-    // 设置监控上下文并创建 Trace（带重试关联）
-    monitor.setContext({ conversationId })
-    const traceOptions = previousTraceId
-      ? { aiMessageId, previousTraceId }
-      : { aiMessageId }
-    const trace = monitor.createTrace(traceOptions)
-    monitor.setCurrentTrace(trace)
-    trace.start()
-
-    // 添加 AI 占位消息
-    store.addMessage({
-      id: aiMessageId,
-      role: 'assistant',
-      content: '',
-      thinking: '',
-      displayState: 'waiting',
-    })
-
-    try {
-      streamAbortController = new AbortController()
-
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content,
-          conversationId,
-          model: store.selectedModel,
-          enableThinking: store.enableThinking,
-          enableWebSearch: store.enableWebSearch,
-          thinkingBudget: 4096,
-          aiMessageId,
-        }),
-        signal: streamAbortController.signal,
-      })
-
-      if (!response.ok) throw new Error(`API error: ${response.status}`)
-
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('No reader')
-
-      await this.handleStream(reader, aiMessageId, trace)
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') {
-        store.updateMessage(aiMessageId, { displayState: 'idle' })
-        trace.abort('user_manual')
-        lastTraceId = trace.traceId
-        monitor.setCurrentTrace(null)
-        return
-      }
-      console.error('[ChatService] sendMessageWithRetry failed:', e)
-      store.updateMessage(aiMessageId, { hasError: true, displayState: 'error' })
-      store.stopStreaming()
-      trace.error((e as Error).message)
-      lastTraceId = trace.traceId
-      monitor.setCurrentTrace(null)
-    } finally {
-      streamAbortController = null
-      store.setSendingMessage(false)
-    }
+    // 重新发送
+    await this.sendMessage(conversationId, lastUserMsg.content, { createUserMessage: false })
   },
 
   /**

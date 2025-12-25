@@ -381,7 +381,7 @@ export function ChatMessageUI({
             <ToolInvocationItem 
               key={invocation.toolCallId} 
               invocation={invocation}
-              messageId={messageId}
+              _messageId={messageId}
               onCancel={onCancelTool}
             />
           ))}

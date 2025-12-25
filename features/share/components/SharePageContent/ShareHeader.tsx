@@ -2,13 +2,14 @@
  * 分享页面头部组件
  * 
  * Hydration Mismatch 处理：
- * - 时间戳使用 useEffect 延迟渲染，避免 SSR/CSR 时区差异导致的不一致
+ * - 时间戳使用 useClientValue 延迟渲染，避免 SSR/CSR 时区差异导致的不一致
+ * - 相对时间（"3 天前"）延迟计算，避免 SSR/CSR 时间点差异
  */
 
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Calendar, Eye, User } from 'lucide-react'
+import { Calendar, Eye, User, Clock } from 'lucide-react'
+import { useClientValue } from '@/features/share/hooks/use-client-value'
 
 interface ShareHeaderProps {
   conversation: {
@@ -32,17 +33,41 @@ function formatSharedDate(isoString: string): string {
   })
 }
 
+/**
+ * 计算相对时间（"3 天前"）
+ * 仅在客户端调用，避免 SSR/CSR 时间点差异
+ */
+function getRelativeTime(isoString: string): string {
+  const now = Date.now()
+  const then = new Date(isoString).getTime()
+  const diffMs = now - then
+  
+  const minutes = Math.floor(diffMs / (1000 * 60))
+  const hours = Math.floor(diffMs / (1000 * 60 * 60))
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes} 分钟前`
+  if (hours < 24) return `${hours} 小时前`
+  if (days < 30) return `${days} 天前`
+  if (days < 365) return `${Math.floor(days / 30)} 个月前`
+  return `${Math.floor(days / 365)} 年前`
+}
+
 export function ShareHeader({ conversation }: ShareHeaderProps) {
   // Hydration Mismatch 处理：时间戳延迟至 useEffect 阶段渲染
-  const [sharedDate, setSharedDate] = useState(() => {
-    // SSR 安全的初始值：只取日期部分
-    return conversation.sharedAt.split('T')[0]
-  })
+  // SSR 阶段显示 ISO 日期部分，CSR 阶段显示本地化日期
+  const sharedDate = useClientValue(
+    () => formatSharedDate(conversation.sharedAt),
+    conversation.sharedAt.split('T')[0]
+  )
   
-  useEffect(() => {
-    // 客户端 hydration 后，显示本地化日期
-    setSharedDate(formatSharedDate(conversation.sharedAt))
-  }, [conversation.sharedAt])
+  // Hydration Mismatch 处理：相对时间延迟计算
+  // SSR 阶段显示空字符串，CSR 阶段显示 "3 天前"
+  const relativeTime = useClientValue(
+    () => getRelativeTime(conversation.sharedAt),
+    ''
+  )
   
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -65,6 +90,14 @@ export function ShareHeader({ conversation }: ShareHeaderProps) {
             <Calendar className="h-4 w-4" />
             <span>分享于 {sharedDate}</span>
           </div>
+          
+          {/* 相对时间 - 客户端渲染后显示 */}
+          {relativeTime && (
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4" />
+              <span>{relativeTime}</span>
+            </div>
+          )}
           
           {conversation.viewCount !== undefined && (
             <div className="flex items-center gap-1.5">

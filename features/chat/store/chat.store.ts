@@ -16,6 +16,9 @@ interface ChatState {
   // 消息
   messages: Message[]
   
+  // 消息缓存（按 conversationId 索引）
+  messageCache: Map<string, Message[]>
+  
   // 消息运行时状态（按 messageId 索引）
   messageStates: Map<string, MessageRuntimeState>
   
@@ -56,6 +59,10 @@ interface ChatActions {
   setLoadingMessages: (loading: boolean, conversationId?: string | null) => void
   setSendingMessage: (sending: boolean) => void
   
+  // 消息缓存
+  cacheMessages: (conversationId: string, messages: Message[]) => void
+  getCachedMessages: (conversationId: string) => Message[] | undefined
+  
   // 流式状态
   startStreaming: (messageId: string, phase: StreamingPhase) => void
   stopStreaming: (reason?: AbortReason) => void
@@ -80,6 +87,7 @@ const getInitialModel = (): string => {
 
 const initialState: ChatState = {
   messages: [],
+  messageCache: new Map(),
   messageStates: new Map(),
   isLoadingMessages: false,
   loadingConversationId: null,
@@ -261,6 +269,17 @@ export const useChatStore = create<ChatState & ChatActions>()((set, get) => ({
   }),
   
   setSendingMessage: (sending) => set({ isSendingMessage: sending }),
+  
+  // ===== 消息缓存 =====
+  cacheMessages: (conversationId, messages) => set((s) => {
+    const newCache = new Map(s.messageCache)
+    newCache.set(conversationId, messages)
+    return { messageCache: newCache }
+  }),
+  
+  getCachedMessages: (conversationId) => {
+    return get().messageCache.get(conversationId)
+  },
   
   // ===== 流式状态 =====
   startStreaming: (messageId, phase) => set({
