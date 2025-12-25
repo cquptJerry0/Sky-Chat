@@ -127,3 +127,18 @@ model Message {
 
   @@index([conversationId, createdAt])
 }
+
+
+// 监控事件表 - 存储 SDK 上报的埋点数据
+model MonitorEvent {
+  id        String   @id @default(cuid())
+  type      String   // 事件类型: sse_start, sse_complete, tool_start 等
+  timestamp DateTime // 事件发生时间（客户端时间戳）
+  data      Json     // 事件数据: { traceId, ttfb, duration, ... }
+  context   Json     // 上下文: { appId, sessionId, traceId, ... }
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([timestamp])
+  @@index([type, timestamp])
+}

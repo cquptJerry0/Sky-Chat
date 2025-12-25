@@ -11,6 +11,17 @@ import { ConversationAPI } from '@/features/chat/services/conversation-api'
 import { SSEParser } from '@/features/chat/utils/sse-parser'
 import { StreamBuffer } from '@/features/chat/utils/stream-buffer'
 import type { Message, FileAttachment } from '@/features/chat/types/chat'
+import {
+  startTrace,
+  endTrace,
+  getCurrentTraceId,
+  recordFirstChunk,
+  recordChunk,
+  startPhase,
+  endPhase,
+  startToolWithId,
+  endTool,
+} from '@/lib/monitor/trace-helper'
 
 // 用于取消请求
 let loadAbortController: AbortController | null = null
@@ -21,6 +32,9 @@ export const ChatService = {
    * 中断当前流式请求
    */
   abortStream(): void {
+    // ========== 埋点：先结束 Trace ==========
+    endTrace('abort', 'user_cancel')
+
     if (streamAbortController) {
       streamAbortController.abort()
       streamAbortController = null
@@ -165,9 +179,10 @@ export const ChatService = {
       attachments?: FileAttachment[]
       enableImageGeneration?: boolean
       imageConfig?: { prompt: string; negative_prompt?: string; image_size: string }
+      previousTraceId?: string
     } = {}
   ): Promise<void> {
-    const { createUserMessage = true, attachments, enableImageGeneration, imageConfig } = options
+    const { createUserMessage = true, attachments, enableImageGeneration, imageConfig, previousTraceId } = options
     const store = useChatStore.getState()
 
     if (store.isSendingMessage) return
@@ -175,6 +190,9 @@ export const ChatService = {
 
     const userMessageId = createUserMessage ? nanoid() : undefined
     const aiMessageId = nanoid()
+
+    // ========== 埋点：创建并启动 Trace ==========
+    startTrace(aiMessageId, previousTraceId)
 
     // 添加用户消息
     if (createUserMessage && userMessageId) {
@@ -245,11 +263,14 @@ export const ChatService = {
       // AbortError 是正常中断，不算错误
       if ((e as Error).name === 'AbortError') {
         store.updateMessage(aiMessageId, { displayState: 'idle' })
+        // 注意：AbortError 不在这里埋点，因为 abortStream() 已经埋点了
         return
       }
       console.error('[ChatService] sendMessage failed:', e)
       store.updateMessage(aiMessageId, { hasError: true, displayState: 'error' })
       store.stopStreaming()
+      // ========== 埋点：错误结束 ==========
+      endTrace('error', (e as Error).message)
     } finally {
       streamAbortController = null
       store.setSendingMessage(false)
@@ -281,16 +302,36 @@ export const ChatService = {
       onFlush: (content) => useChatStore.getState().appendContent(messageId, content),
     })
 
+    // ========== 埋点状态 ==========
+    let isFirstChunk = true
+    let currentPhase: 'thinking' | 'answer' | null = null
+    let traceEnded = false
+
     try {
       await SSEParser.parseStream(reader, {
         onData: (data) => {
           const s = useChatStore.getState()
+
+          // ========== 埋点：首个 chunk ==========
+          if (isFirstChunk) {
+            recordFirstChunk()
+            isFirstChunk = false
+          }
+
+          // ========== 埋点：每个 chunk（stall 检测） ==========
+          recordChunk()
 
           if (data.type === 'thinking' && data.content) {
             if (s.streamingPhase !== 'thinking') {
               s.startStreaming(messageId, 'thinking')
               s.transitionPhase(messageId, { type: 'START_THINKING' })
               s.updateMessage(messageId, { displayState: 'streaming' })
+              // ========== 埋点：阶段切换 ==========
+              if (currentPhase && currentPhase !== 'thinking') {
+                endPhase(currentPhase)
+              }
+              startPhase('thinking')
+              currentPhase = 'thinking'
             }
             thinkingBuffer.append(data.content)
           } else if (data.type === 'answer' && data.content) {
@@ -298,6 +339,12 @@ export const ChatService = {
               s.startStreaming(messageId, 'answer')
               s.transitionPhase(messageId, { type: 'START_ANSWERING' })
               s.updateMessage(messageId, { displayState: 'streaming' })
+              // ========== 埋点：阶段切换 ==========
+              if (currentPhase && currentPhase !== 'answer') {
+                endPhase(currentPhase)
+              }
+              startPhase('answer')
+              currentPhase = 'answer'
             }
             answerBuffer.append(data.content)
           } else if (data.type === 'tool_call') {
@@ -310,6 +357,12 @@ export const ChatService = {
               toolCallId,
               name: data.name || 'unknown',
               args: { query: data.query, prompt: data.prompt },
+            })
+
+            // ========== 埋点：工具开始 ==========
+            startToolWithId(toolCallId, data.name || 'unknown', {
+              query: data.query,
+              prompt: data.prompt,
             })
             
             const msg = s.messages.find((m) => m.id === messageId)
@@ -328,7 +381,7 @@ export const ChatService = {
               displayState: 'streaming',
             })
           } else if (data.type === 'tool_progress') {
-            // 工具执行进度更新
+            // 工具执行进度更新（不埋点，太频繁）
             if (data.toolCallId && data.progress !== undefined) {
               s.transitionPhase(messageId, {
                 type: 'TOOL_PROGRESS',
@@ -349,6 +402,17 @@ export const ChatService = {
                 resultCount: data.resultCount,
                 sources: data.sources,
               },
+            })
+
+            // ========== 埋点：工具结束 ==========
+            endTool(data.name || 'unknown', {
+              toolCallId: data.toolCallId,
+              success: data.success ?? false,
+              imageUrl: data.imageUrl,
+              width: data.width,
+              height: data.height,
+              resultCount: data.resultCount,
+              sources: data.sources,
             })
 
             const msg = s.messages.find((m) => m.id === messageId)
@@ -399,6 +463,11 @@ export const ChatService = {
             s.transitionPhase(messageId, { type: 'COMPLETE' })
             s.stopStreaming()
             s.updateMessage(messageId, { displayState: 'idle' })
+
+            // ========== 埋点：完成 ==========
+            if (currentPhase) endPhase(currentPhase)
+            endTrace('complete')
+            traceEnded = true
           }
         },
         onError: (error) => {
@@ -409,6 +478,10 @@ export const ChatService = {
           s.transitionPhase(messageId, { type: 'ERROR', message: error.message })
           s.updateMessage(messageId, { hasError: true, displayState: 'error' })
           s.stopStreaming()
+          // ========== 埋点：错误 ==========
+          if (currentPhase) endPhase(currentPhase)
+          endTrace('error', error.message)
+          traceEnded = true
         },
         onComplete: () => {
           thinkingBuffer.forceFlush()
@@ -416,6 +489,11 @@ export const ChatService = {
           const s = useChatStore.getState()
           s.stopStreaming()
           s.updateMessage(messageId, { displayState: 'idle' })
+          // ========== 埋点：完成（如果还没结束） ==========
+          if (!traceEnded) {
+            if (currentPhase) endPhase(currentPhase)
+            endTrace('complete')
+          }
         },
       })
     } finally {
@@ -429,6 +507,9 @@ export const ChatService = {
    */
   async retryMessage(conversationId: string, messageId: string): Promise<void> {
     const store = useChatStore.getState()
+
+    // ========== 埋点：获取当前 Trace ID ==========
+    const previousTraceId = getCurrentTraceId()
 
     if (store.streamingMessageId) {
       store.stopStreaming('user_retry')
@@ -457,8 +538,11 @@ export const ChatService = {
       }).catch(console.error)
     }
 
-    // 重新发送
-    await this.sendMessage(conversationId, lastUserMsg.content, { createUserMessage: false })
+    // ========== 埋点：传入 previousTraceId ==========
+    await this.sendMessage(conversationId, lastUserMsg.content, { 
+      createUserMessage: false,
+      previousTraceId,
+    })
   },
 
   /**

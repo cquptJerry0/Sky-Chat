@@ -18,6 +18,8 @@ export interface Model {
   isReasoningModel: boolean
   /** 是否支持思考开关（普通模型可用 enable_thinking 参数） */
   supportsThinkingToggle: boolean
+  /** 是否支持 Function Calling（工具调用） */
+  supportsFunctionCalling: boolean
   /** 是否为默认模型 */
   default?: boolean
   /** 最大 tokens */
@@ -34,27 +36,81 @@ export interface Model {
  * - code: 代码专用模型
  */
 export const CHAT_MODELS: Model[] = [
-  // GLM 模型（默认）
+  // ========== 推理模型（不支持工具调用）==========
+  {
+    id: 'deepseek-ai/DeepSeek-R1',
+    name: 'DeepSeek-R1',
+    description: '原生推理，无工具',
+    category: 'reasoning',
+    isReasoningModel: true,
+    supportsThinkingToggle: false,
+    supportsFunctionCalling: false,
+    maxTokens: 8192,
+  },
+  {
+    id: 'Qwen/QwQ-32B',
+    name: 'QwQ-32B',
+    description: '阿里推理，无工具',
+    category: 'reasoning',
+    isReasoningModel: true,
+    supportsThinkingToggle: false,
+    supportsFunctionCalling: false,
+    maxTokens: 8192,
+  },
+
+  // ========== 对话模型 ==========
+  {
+    id: 'Qwen/Qwen2.5-72B-Instruct',
+    name: 'Qwen2.5-72B',
+    description: '工具调用最稳定',
+    category: 'chat',
+    isReasoningModel: false,
+    supportsThinkingToggle: false,
+    supportsFunctionCalling: true,
+    default: true,
+    maxTokens: 8192,
+  },
+  {
+    id: 'deepseek-ai/DeepSeek-V3',
+    name: 'DeepSeek-V3',
+    description: '最强开源，支持工具',
+    category: 'chat',
+    isReasoningModel: false,
+    supportsThinkingToggle: true,
+    supportsFunctionCalling: true,
+    maxTokens: 8192,
+  },
+  {
+    id: 'Qwen/Qwen2.5-32B-Instruct',
+    name: 'Qwen2.5-32B',
+    description: '支持工具调用',
+    category: 'chat',
+    isReasoningModel: false,
+    supportsThinkingToggle: false,
+    supportsFunctionCalling: true,
+    maxTokens: 8192,
+  },
   {
     id: 'zai-org/GLM-4.6',
     name: 'GLM-4.6',
-    description: '支持思考开关',
+    description: '支持思考+工具',
     category: 'chat',
     isReasoningModel: false,
     supportsThinkingToggle: true,
-    default: true,
+    supportsFunctionCalling: true,
     maxTokens: 2048,
   },
-  
-  // Qwen 模型
+
+  // ========== 代码模型 ==========
   {
-    id: 'Qwen/Qwen3-8B',
-    name: 'Qwen3-8B',
-    description: '支持思考开关',
-    category: 'chat',
+    id: 'Qwen/Qwen2.5-Coder-32B-Instruct',
+    name: 'Qwen2.5-Coder-32B',
+    description: '代码专用，支持工具',
+    category: 'code',
     isReasoningModel: false,
-    supportsThinkingToggle: true,
-    maxTokens: 2048,
+    supportsThinkingToggle: false,
+    supportsFunctionCalling: true,
+    maxTokens: 8192,
   },
 ]
 
@@ -62,7 +118,7 @@ export const CHAT_MODELS: Model[] = [
  * 获取默认模型
  */
 export function getDefaultModel(): Model {
-  return CHAT_MODELS.find(m => m.default) || CHAT_MODELS[4]
+  return CHAT_MODELS.find(m => m.default) || CHAT_MODELS[3]
 }
 
 /**
