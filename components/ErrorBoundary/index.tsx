@@ -9,7 +9,7 @@
  * @module components/ErrorBoundary
  */
 
-import * as React from 'react'
+import React, { useState, useEffect } from 'react'
 import { AlertCircle, RefreshCw, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -134,9 +134,9 @@ export class ErrorBoundary extends React.Component<
  * 提供简单的错误处理能力
  */
 export function useErrorHandler() {
-  const [error, setError] = React.useState<Error | null>(null)
+  const [error, setError] = useState<Error | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (error) {
       throw error
     }

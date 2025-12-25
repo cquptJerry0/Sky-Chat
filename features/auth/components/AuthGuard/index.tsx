@@ -11,7 +11,7 @@
  * @module components/AuthGuard
  */
 
-import * as React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { LoginDialog } from '@/features/auth/components/LoginDialog'
@@ -53,10 +53,10 @@ export function AuthGuard({
 }: AuthGuardProps) {
   const router = useRouter()
   const { isLoading, isAuthenticated, showLoginDialog } = useAuth()
-  const [hasRedirected, setHasRedirected] = React.useState(false)
+  const [hasRedirected, setHasRedirected] = useState(false)
 
   // 处理未登录时的重定向
-  React.useEffect(() => {
+  useEffect(() => {
     // 等待认证完成
     if (isLoading) return
 

@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
 import { useParams } from 'next/navigation'
 import { Info, UserCircle2, LogOut, Palette } from 'lucide-react'
@@ -37,7 +37,7 @@ export function Header() {
   const reset = useChatStore((s) => s.reset)
   const { data: session } = useSession()
   const { theme, setTheme } = useTheme()
-  const [aboutDialogOpen, setAboutDialogOpen] = React.useState(false)
+  const [aboutDialogOpen, setAboutDialogOpen] = useState(false)
 
   const handleLogout = async () => {
 

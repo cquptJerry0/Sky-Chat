@@ -9,7 +9,7 @@
  * - 重试错误消息
  */
 
-import * as React from 'react'
+import React, { useRef, useCallback } from 'react'
 import { Copy, Volume2, RotateCw, Check, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -52,12 +52,12 @@ export function MessageActions({
 }: MessageActionsProps) {
   const { playText, isGenerating, selectedVoice, setSelectedVoice } = useAudioPlayer()
   const { toast } = useToast()
-  const copyingRef = React.useRef(false)
+  const copyingRef = useRef(false)
 
   const currentVoice = VOICE_OPTIONS.find(v => v.id === selectedVoice) || VOICE_OPTIONS[0]
 
   // 复制到剪贴板（防抖）
-  const handleCopy = React.useCallback(async () => {
+  const handleCopy = useCallback(async () => {
     if (copyingRef.current) return
     copyingRef.current = true
 
@@ -83,7 +83,7 @@ export function MessageActions({
   }, [content, onCopy, toast])
 
   // 播放音频（防止重复点击）
-  const handlePlay = React.useCallback(async () => {
+  const handlePlay = useCallback(async () => {
     if (isGenerating) return
 
     try {

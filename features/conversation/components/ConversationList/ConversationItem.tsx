@@ -10,7 +10,7 @@
  * - 置顶
  */
 
-import * as React from 'react'
+import React, { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { MessageSquare, Trash2, Edit2, Check, X, MoreVertical, Eye, Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -45,12 +45,12 @@ export function ConversationItem({
   onTogglePin,
 }: ConversationItemProps) {
   const router = useRouter()
-  const [isEditing, setIsEditing] = React.useState(false)
-  const [editTitle, setEditTitle] = React.useState(conversation.title)
-  const [isHovered, setIsHovered] = React.useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState(conversation.title)
+  const [isHovered, setIsHovered] = useState(false)
   
   // 使用路由导航切换会话
-  const handleSelect = React.useCallback(() => {
+  const handleSelect = useCallback(() => {
     router.push(`/chat/${conversation.id}`)
   }, [router, conversation.id])
 

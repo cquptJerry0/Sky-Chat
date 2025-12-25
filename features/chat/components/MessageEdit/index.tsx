@@ -8,7 +8,7 @@
  * @module components/MessageEdit
  */
 
-import * as React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Send, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -22,11 +22,11 @@ interface MessageEditProps {
 }
 
 export function MessageEdit({ originalContent, onCancel, onSend }: MessageEditProps) {
-  const [content, setContent] = React.useState(originalContent)
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
+  const [content, setContent] = useState(originalContent)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // 自动聚焦
-  React.useEffect(() => {
+  useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.focus()
       textareaRef.current.setSelectionRange(content.length, content.length)

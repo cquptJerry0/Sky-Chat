@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react'
+import React, { useState, useEffect } from 'react'
 import { ThemeProvider as NextThemesProvider, useTheme } from 'next-themes'
 
 type ThemeProviderProps = {
@@ -13,13 +13,13 @@ type ThemeProviderProps = {
 
 function HighlightThemeLoader() {
   const { theme, systemTheme } = useTheme()
-  const [mounted, setMounted] = React.useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setMounted(true)
   }, [])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!mounted) return
 
     const currentTheme = theme === 'system' ? systemTheme : theme

@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react'
+import React, { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,8 +16,8 @@ export default function LinkAccountPage() {
   const provider = searchParams.get('provider')
   const token = searchParams.get('token')
   
-  const [isLinking, setIsLinking] = React.useState(false)
-  const [isRejecting, setIsRejecting] = React.useState(false)
+  const [isLinking, setIsLinking] = useState(false)
+  const [isRejecting, setIsRejecting] = useState(false)
 
   const providerName = provider === 'google' ? 'Google' : provider === 'github' ? 'GitHub' : provider
 

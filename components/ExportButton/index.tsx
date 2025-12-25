@@ -6,7 +6,7 @@
  * 直接点击导出为 Markdown
  */
 
-import * as React from 'react'
+import React, { useState } from 'react'
 import { Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/lib/hooks/use-toast'
@@ -18,7 +18,7 @@ interface ExportButtonProps {
 
 export function ExportButton({ conversationId, className }: ExportButtonProps) {
   const { toast } = useToast()
-  const [isExporting, setIsExporting] = React.useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   const handleExport = async () => {
     if (isExporting) return
