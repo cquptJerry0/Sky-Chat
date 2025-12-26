@@ -78,7 +78,7 @@ export function createMarkdownComponents(
         'loremflickr.com',
         'dummyimage.com',
       ]
-      if (fakeImageDomains.some(domain => src.includes(domain))) {
+      if (typeof src === 'string' && fakeImageDomains.some(domain => src.includes(domain))) {
         return null // 丢弃假图片
       }
       const data = JSON.stringify({ url: src, alt: alt || '' })
