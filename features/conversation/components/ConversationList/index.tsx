@@ -24,6 +24,7 @@ export function ConversationList() {
   // 从store获取状态
   const conversations = useConversationStore((s) => s.filteredConversations)
   const loading = useConversationStore((s) => s.conversationsLoading)
+  const hasInitiallyLoaded = useConversationStore((s) => s.hasInitiallyLoaded)
 
   // 从store获取方法
   const deleteConversation = useConversationStore((s) => s.deleteConversation)
@@ -56,11 +57,14 @@ export function ConversationList() {
     await deleteConversation(id)
   }
 
+  // 只在首次加载时显示 skeleton
+  const showSkeleton = loading && !hasInitiallyLoaded
+
   return (
     <ConversationListUI
       conversations={conversations}
       currentConversationId={currentConversationId || null}
-      loading={loading}
+      showSkeleton={showSkeleton}
       onDelete={handleDelete}
       onRename={updateConversationTitle}
       onTogglePin={toggleConversationPin}

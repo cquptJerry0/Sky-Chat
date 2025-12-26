@@ -93,6 +93,7 @@ export function ThinkingPanel({
           <MessageContent
             content={content}
             isStreaming={isStreaming}
+            disableMediaBlocks={true}
           />
           )}
         </div>

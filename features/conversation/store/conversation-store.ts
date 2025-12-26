@@ -25,6 +25,7 @@ export interface ConversationState {
   conversations: ConversationData[]
   filteredConversations: ConversationData[]
   conversationsLoading: boolean
+  hasInitiallyLoaded: boolean  // 首次加载完成标记
 
   // 搜索
   searchQuery: string
@@ -45,6 +46,7 @@ const initialState = {
   conversations: [],
   filteredConversations: [],
   conversationsLoading: false,
+  hasInitiallyLoaded: false,
   searchQuery: '',
 }
 
@@ -61,14 +63,15 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
           conversations: sortedConversations,
           filteredConversations: sortedConversations,
           conversationsLoading: false,
+          hasInitiallyLoaded: true,
         })
       } else {
         console.error('Failed to load conversations:', result.error)
-        set({ conversationsLoading: false })
+        set({ conversationsLoading: false, hasInitiallyLoaded: true })
       }
     } catch (error) {
       console.error('Failed to load conversations:', error)
-      set({ conversationsLoading: false })
+      set({ conversationsLoading: false, hasInitiallyLoaded: true })
     }
   },
 

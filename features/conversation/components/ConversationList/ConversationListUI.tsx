@@ -24,16 +24,27 @@ import {
 interface ConversationListUIProps {
   conversations: ConversationData[]
   currentConversationId: string | null
-  loading?: boolean
+  showSkeleton?: boolean
   onDelete: (id: string) => void
   onRename: (id: string, newTitle: string) => void
   onTogglePin: (id: string, isPinned: boolean) => void
 }
 
+/** Skeleton 占位组件 */
+function ConversationSkeleton() {
+  return (
+    <div className="space-y-1 px-2">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="h-10 rounded-lg bg-muted/50 animate-pulse" />
+      ))}
+    </div>
+  )
+}
+
 export function ConversationListUI({
   conversations,
   currentConversationId,
-  loading = false,
+  showSkeleton = false,
   onDelete,
   onRename,
   onTogglePin,
@@ -62,13 +73,8 @@ export function ConversationListUI({
         <span className="text-sm font-medium text-muted-foreground">历史会话</span>
       </div>
 
-      {loading ? (
-        <div className="py-4 px-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
-            <span>加载中...</span>
-          </div>
-        </div>
+      {showSkeleton ? (
+        <ConversationSkeleton />
       ) : conversations.length === 0 ? (
         <div className="py-4">
           <p className="text-xs text-muted-foreground px-3">

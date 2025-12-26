@@ -25,13 +25,17 @@ interface MessageContentProps {
   
   /** 是否正在流式传输 */
   isStreaming?: boolean
+  
+  /** 是否禁用媒体块渲染（用于 thinking 面板） */
+  disableMediaBlocks?: boolean
 }
 
 /**
  * 预处理流式内容
  * 
- * 检测未闭合的代码块，补上闭合标记让 ReactMarkdown 能正常解析
- * 这样 ChartBlock/WeatherBlock 的占位逻辑就能生效
+ * 检测未闭合的代码块，对于媒体块（chart/weather/image）：
+ * - 如果 JSON 不完整，隐藏整个代码块
+ * - 如果 JSON 完整，补上闭合标记让 ReactMarkdown 能正常解析
  * 
  * @param content - 原始内容
  * @param isStreaming - 是否正在流式传输
@@ -51,28 +55,30 @@ function preprocessStreamingContent(content: string, isStreaming: boolean): stri
   }
   
   // 有未闭合的代码块
-  // 检查是否是媒体块（image/chart/weather），如果是则隐藏直到完成
   const lastOpenBlock = content.lastIndexOf('```')
   const afterBlock = content.slice(lastOpenBlock + 3)
   const langMatch = afterBlock.match(/^(\w+)/)
   const lang = langMatch?.[1]
   
-  // 如果是媒体块且内容不完整，暂时隐藏整个代码块
+  // 如果是媒体块，需要特殊处理
   if (lang && ['image', 'chart', 'weather'].includes(lang)) {
     const blockContent = afterBlock.slice(lang.length).trim()
-    // 检查是否有完整的 JSON（必须以 { 开始，以 } 结束）
+    
+    // 检查是否有完整的 JSON
     const jsonStart = blockContent.indexOf('{')
     const jsonEnd = blockContent.lastIndexOf('}')
     
-    // JSON 不完整（没开始、没结束、或结束在开始之前），隐藏整个代码块
+    // JSON 不完整，隐藏整个代码块
     if (jsonStart === -1 || jsonEnd === -1 || jsonEnd < jsonStart) {
       return content.slice(0, lastOpenBlock)
     }
     
-    // 尝试解析 JSON，如果解析失败也隐藏
+    // 尝试解析 JSON
     const jsonStr = blockContent.slice(jsonStart, jsonEnd + 1)
     try {
       JSON.parse(jsonStr)
+      // JSON 解析成功，补上闭合标记让 ReactMarkdown 正常渲染
+      return content + '\n```'
     } catch {
       // JSON 解析失败，隐藏整个代码块
       return content.slice(0, lastOpenBlock)
@@ -92,11 +98,12 @@ function preprocessStreamingContent(content: string, isStreaming: boolean): stri
 export function MessageContent({
   content,
   isStreaming = false,
+  disableMediaBlocks = false,
 }: MessageContentProps) {
   // 根据流式状态创建 markdown 组件
   const markdownComponents = useMemo(
-    () => createMarkdownComponents(isStreaming),
-    [isStreaming]
+    () => createMarkdownComponents(isStreaming, disableMediaBlocks),
+    [isStreaming, disableMediaBlocks]
   )
   
   // 预处理内容：流式时延迟渲染未闭合的代码块
