@@ -1,12 +1,14 @@
 /**
  * SSE 流处理器
- * 
- * 处理 AI API 返回的流式响应，转发给客户端
  */
 
-import { MessageRepository } from '@/server/repositories/message.repository'
-import { ConversationRepository } from '@/server/repositories/conversation.repository'
 import { parseSSELine, splitSSEBuffer } from '@/lib/utils/sse'
+import { createChatCompletion } from '@/server/services/ai/siliconflow'
+import { toolRegistry, type ToolCall } from '@/server/services/tools'
+import { formatToolMessages } from '@/server/services/tools/handler'
+import { executeImageGeneration } from '@/server/services/tools/image-generation'
+import { SSEWriter } from './sse-writer'
+import { persistMessage, processImageResults } from './message-persister'
 
 export interface StreamContext {
   messageId: string
@@ -15,160 +17,7 @@ export interface StreamContext {
   sessionId: string
 }
 
-export interface StreamResult {
-  thinkingContent: string
-  answerContent: string
-  toolCallsData: unknown | null
-}
-
-/**
- * 创建 SSE 流响应
- */
-export function createSSEStream(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  context: StreamContext
-): ReadableStream {
-  const { messageId, conversationId, userId, sessionId } = context
-  const decoder = new TextDecoder()
-  const encoder = new TextEncoder()
-
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        let buffer = ''
-        let thinkingContent = ''
-        let answerContent = ''
-        let toolCallsData = null
-
-        while (true) {
-          const { done, value } = await reader.read()
-          
-          if (done) {
-            // 保存内容
-            await saveMessageContent(messageId, conversationId, userId, {
-              thinkingContent,
-              answerContent,
-              toolCallsData,
-            })
-
-            // 发送完成信号
-            sendEvent(controller, encoder, { type: 'complete', sessionId })
-            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-            controller.close()
-            
-            break
-          }
-
-          const chunk = decoder.decode(value, { stream: true })
-          buffer += chunk
-
-          // 按行分割，但保留最后一行（可能不完整）
-          const { lines, remaining } = splitSSEBuffer(buffer)
-          buffer = remaining
-
-          for (const line of lines) {
-            const data = parseSSELine(line)
-            if (!data) continue
-
-            try {
-              const parsed = JSON.parse(data)
-              const delta = parsed.choices?.[0]?.delta
-
-              // 处理 reasoning_content (thinking)
-              if (delta?.reasoning_content) {
-                thinkingContent += delta.reasoning_content
-                sendEvent(controller, encoder, {
-                  type: 'thinking',
-                  content: delta.reasoning_content,
-                  sessionId,
-                })
-              }
-
-              // 处理 content (answer)
-              if (delta?.content) {
-                answerContent += delta.content
-                sendEvent(controller, encoder, {
-                  type: 'answer',
-                  content: delta.content,
-                  sessionId,
-                })
-              }
-
-              // 处理 tool_calls
-              if (delta?.tool_calls) {
-                toolCallsData = delta.tool_calls
-                sendEvent(controller, encoder, {
-                  type: 'tool_calls',
-                  tool_calls: delta.tool_calls,
-                  sessionId,
-                })
-              }
-            } catch {
-              // 忽略解析错误
-            }
-          }
-        }
-      } catch (error) {
-        controller.error(error)
-      }
-    },
-  })
-}
-
-/**
- * 发送 SSE 事件
- */
-function sendEvent(
-  controller: ReadableStreamDefaultController,
-  encoder: TextEncoder,
-  data: Record<string, unknown>
-): void {
-  try {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
-  } catch {
-    // Controller 已关闭，忽略
-  }
-}
-
-/**
- * 保存消息内容到数据库
- */
-async function saveMessageContent(
-  messageId: string,
-  conversationId: string,
-  userId: string,
-  content: {
-    thinkingContent: string
-    answerContent: string
-    toolCallsData: unknown | null
-    toolResultsData?: unknown | null
-  }
-): Promise<void> {
-  try {
-    await MessageRepository.update(messageId, {
-      content: content.answerContent,
-      thinking: content.thinkingContent || undefined,
-      toolCalls: content.toolCallsData || undefined,
-      toolResults: content.toolResultsData || undefined,
-    })
-
-    await ConversationRepository.touch(conversationId, userId)
-  } catch (error) {
-    console.error('[StreamHandler] Failed to save message:', error)
-  }
-}
-
-
-import { createChatCompletion } from '@/server/services/ai/siliconflow'
-import { toolRegistry, type ToolCall } from '@/server/services/tools'
-import { executeToolCalls, formatToolMessages } from '@/server/services/tools/handler'
-
-// 消息类型（支持 tool_calls）
-type ChatMessage = {
-  role: string
-  content: string | null
-  tool_calls?: ToolCall[]
-}
+type ChatMessage = { role: string; content: string | null; tool_calls?: ToolCall[] }
 
 export interface StreamContextWithTools extends StreamContext {
   apiKey: string
@@ -178,8 +27,10 @@ export interface StreamContextWithTools extends StreamContext {
   thinkingBudget: number
 }
 
+const MAX_TOOL_ROUNDS = 5
+
 /**
- * 创建支持工具调用的 SSE 流响应（支持多轮工具调用）
+ * 创建支持工具调用的 SSE 流（并行执行）
  */
 export function createSSEStreamWithTools(
   reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -189,87 +40,64 @@ export function createSSEStreamWithTools(
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
 
-  // 最大工具调用轮数（防止无限循环）
-  const MAX_TOOL_ROUNDS = 5
-
   return new ReadableStream({
     async start(controller) {
+      const writer = new SSEWriter(controller, encoder, sessionId)
+
       try {
         let thinkingContent = ''
         let finalAnswerContent = ''
-        
-        // 累积所有轮次的工具调用和结果
         const allToolCalls: ToolCall[] = []
-        const allToolResultsData: Array<{
-          toolCallId: string
-          name: string
-          result: {
-            success: boolean
-            imageUrl?: string
-            width?: number
-            height?: number
-            resultCount?: number
-            sources?: SearchSource[]
-          }
-        }> = []
+        const allToolResults: Array<{ toolCallId: string; name: string; result: Record<string, unknown> }> = []
 
-        // 当前消息上下文（会随着工具调用不断扩展）
         let currentMessages = [...contextMessages]
         let currentReader = reader
         let round = 0
 
-        // 工具调用循环
         while (round < MAX_TOOL_ROUNDS) {
           round++
-         
+          console.log(`[Stream] === 第 ${round} 轮 ===`)
 
-          // 读取当前轮次的 AI 响应
-          const { 
-            thinkingContent: roundThinking, 
-            answerContent: roundAnswer, 
-            toolCalls: roundToolCalls 
-          } = await processAIResponse(currentReader, decoder, encoder, controller, sessionId)
+          // 读取 AI 响应，同时启动工具执行
+          const { thinkingContent: roundThinking, answerContent: roundAnswer, toolCalls: roundToolCalls, toolPromises } =
+            await processAIResponseWithParallelTools(currentReader, decoder, writer)
 
           thinkingContent += roundThinking
-          
-          // 检查是否有工具调用
+          console.log(`[Stream] AI 返回: answer=${roundAnswer.length}字, tools=${roundToolCalls.length}个`)
+
+          // 没有工具调用，结束
           if (roundToolCalls.length === 0) {
-            // 没有工具调用，这是最终回答
             finalAnswerContent = roundAnswer
             break
           }
 
-          // 有工具调用，执行它们
           allToolCalls.push(...roundToolCalls)
 
-          // 发送工具调用开始事件
-          for (const tc of roundToolCalls) {
-            sendToolCallEvent(controller, encoder, tc, sessionId)
-          }
+          // 等待所有工具完成
+          console.log('[Stream] 等待工具完成...')
+          const toolResults = await Promise.all(toolPromises)
+          console.log('[Stream] 工具全部完成')
 
-          // 执行工具调用
-          console.log('[StreamHandler] Executing tool calls:', roundToolCalls.map(tc => tc.function.name))
-          const toolResults = await executeToolCalls(roundToolCalls, toolRegistry)
-
-          // 发送工具调用结果事件并收集持久化数据
+          // 发送工具结果
           for (const result of toolResults) {
-            const resultData = sendToolResultEvent(controller, encoder, result, sessionId)
-            allToolResultsData.push(resultData)
+            writer.sendToolResult(result)
+            allToolResults.push({
+              toolCallId: result.toolCallId,
+              name: result.name,
+              result: { success: result.success, ...parseJSON(result.content) },
+            })
           }
 
-          // 构建下一轮请求的消息
+          // 构建下一轮消息
           const toolMessages = formatToolMessages(toolResults)
           currentMessages = [
             ...currentMessages,
-            {
-              role: 'assistant',
-              content: roundAnswer || null,
-              tool_calls: roundToolCalls,
-            } as ChatMessage,
+            { role: 'assistant', content: roundAnswer || null, tool_calls: roundToolCalls },
             ...(toolMessages as ChatMessage[]),
           ]
 
           // 发起下一轮 AI 请求
+          console.log('[Stream] 发起下一轮 AI 请求')
           const { reader: nextReader } = await createChatCompletion(apiKey, {
             model,
             messages: currentMessages as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
@@ -277,101 +105,56 @@ export function createSSEStreamWithTools(
             thinkingBudget,
             tools: toolRegistry.getToolDefinitions(),
           })
-
           currentReader = nextReader
         }
 
-        // 把图片生成结果插入到 answerContent 中，确保刷新后能显示
-        // 收集真实的图片 URL
-        const realImageUrls = new Set<string>()
-        for (const resultData of allToolResultsData) {
-          if (resultData.name === 'generate_image' && resultData.result?.imageUrl) {
-            realImageUrls.add(resultData.result.imageUrl)
-          }
-        }
+        // 处理图片结果
+        const contentWithImages = processImageResults(finalAnswerContent, allToolCalls, allToolResults)
 
-        // 移除所有 AI 自己输出的 image block（不管 URL 是什么格式）
-        // 因为 AI 会模仿真实 URL 格式编造假的
-        let contentWithImages = finalAnswerContent.replace(
-          /```image\n\{[^}]*\}\n```\n?/g,
-          ''
-        )
-
-        // 追加真实的图片
-        for (const resultData of allToolResultsData) {
-          if (resultData.name === 'generate_image' && resultData.result?.imageUrl) {
-            const toolCall = allToolCalls.find(tc => tc.id === resultData.toolCallId)
-            let prompt = '生成的图片'
-            if (toolCall) {
-              try {
-                const args = JSON.parse(toolCall.function.arguments)
-                prompt = args.prompt || prompt
-              } catch {
-                // 忽略解析错误
-              }
-            }
-            const imageData = JSON.stringify({
-              url: resultData.result.imageUrl,
-              alt: prompt,
-              width: resultData.result.width || 512,
-              height: resultData.result.height || 512,
-            })
-            contentWithImages += `\n\`\`\`image\n${imageData}\n\`\`\`\n`
-          }
-        }
-
-        // 保存最终内容
-        await saveMessageContent(messageId, conversationId, userId, {
+        // 保存消息
+        await persistMessage(messageId, conversationId, userId, {
           thinkingContent,
           answerContent: contentWithImages,
           toolCallsData: allToolCalls.length > 0 ? allToolCalls : null,
-          toolResultsData: allToolResultsData.length > 0 ? allToolResultsData : undefined,
+          toolResultsData: allToolResults.length > 0 ? allToolResults : null,
         })
 
-        // 发送完成信号
-        sendEvent(controller, encoder, { type: 'complete', sessionId })
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-        controller.close()
-
+        writer.sendComplete()
+        writer.close()
+        console.log('[Stream] 完成')
       } catch (error) {
-        console.error('[StreamHandler] Error in tool stream:', error)
-        controller.error(error)
+        console.error('[Stream] 错误:', error)
+        writer.error(error)
       }
     },
   })
 }
 
 /**
- * 处理单轮 AI 响应，返回 thinking、answer 和 tool_calls
+ * 处理 AI 响应，同时并行启动工具执行
  */
-async function processAIResponse(
+async function processAIResponseWithParallelTools(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   decoder: TextDecoder,
-  encoder: TextEncoder,
-  controller: ReadableStreamDefaultController,
-  sessionId: string
+  writer: SSEWriter
 ): Promise<{
   thinkingContent: string
   answerContent: string
   toolCalls: ToolCall[]
+  toolPromises: Promise<{ toolCallId: string; name: string; success: boolean; content: string }>[]
 }> {
   let buffer = ''
   let thinkingContent = ''
   let answerContent = ''
-  const toolCallsChunks: Array<{ 
-    index: number
-    id?: string
-    type?: string
-    function?: { name?: string; arguments?: string } 
-  }> = []
+  const toolCallsChunks: Array<{ index: number; id?: string; function?: { name?: string; arguments?: string } }> = []
+  const toolPromises: Promise<{ toolCallId: string; name: string; success: boolean; content: string }>[] = []
+  const startedTools = new Set<string>()
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
 
-    const chunk = decoder.decode(value, { stream: true })
-    buffer += chunk
-
+    buffer += decoder.decode(value, { stream: true })
     const { lines, remaining } = splitSSEBuffer(buffer)
     buffer = remaining
 
@@ -383,197 +166,179 @@ async function processAIResponse(
         const parsed = JSON.parse(data)
         const delta = parsed.choices?.[0]?.delta
 
+        // thinking
         if (delta?.reasoning_content) {
           thinkingContent += delta.reasoning_content
-          sendEvent(controller, encoder, {
-            type: 'thinking',
-            content: delta.reasoning_content,
-            sessionId,
-          })
+          writer.sendThinking(delta.reasoning_content)
         }
 
+        // answer
         if (delta?.content) {
           answerContent += delta.content
-          sendEvent(controller, encoder, {
-            type: 'answer',
-            content: delta.content,
-            sessionId,
-          })
+          writer.sendAnswer(delta.content)
         }
 
-        // 收集 tool_calls 片段
+        // tool_calls（流式收集）
         if (delta?.tool_calls) {
           for (const tc of delta.tool_calls) {
             const idx = tc.index ?? 0
-            if (!toolCallsChunks[idx]) {
-              toolCallsChunks[idx] = { index: idx }
-            }
+            if (!toolCallsChunks[idx]) toolCallsChunks[idx] = { index: idx }
             if (tc.id) toolCallsChunks[idx].id = tc.id
-            if (tc.type) toolCallsChunks[idx].type = tc.type
             if (tc.function) {
-              if (!toolCallsChunks[idx].function) {
-                toolCallsChunks[idx].function = {}
-              }
-              if (tc.function.name) {
-                toolCallsChunks[idx].function!.name = tc.function.name
-              }
+              if (!toolCallsChunks[idx].function) toolCallsChunks[idx].function = {}
+              if (tc.function.name) toolCallsChunks[idx].function!.name = tc.function.name
               if (tc.function.arguments) {
-                toolCallsChunks[idx].function!.arguments = 
+                toolCallsChunks[idx].function!.arguments =
                   (toolCallsChunks[idx].function!.arguments || '') + tc.function.arguments
+              }
+            }
+
+            // 检查是否可以启动工具（有完整的 id、name 和有效的 JSON arguments）
+            const chunk = toolCallsChunks[idx]
+            if (chunk.id && chunk.function?.name && !startedTools.has(chunk.id)) {
+              // 尝试解析 arguments，如果是完整的 JSON 就启动
+              const args = chunk.function.arguments || ''
+              if (isCompleteJSON(args)) {
+                startedTools.add(chunk.id)
+                const toolCall: ToolCall = {
+                  id: chunk.id,
+                  type: 'function',
+                  function: { name: chunk.function.name, arguments: args },
+                }
+                writer.sendToolCall(toolCall)
+                console.log(`[Stream] 启动工具: ${chunk.function.name}, args: ${args}`)
+                toolPromises.push(startToolExecution(toolCall, writer))
               }
             }
           }
         }
-      } catch {
-        // 忽略解析错误
-      }
+      } catch { /* ignore */ }
     }
   }
 
-  // 构建完整的 tool_calls
+  // 构建完整的 toolCalls
   const toolCalls: ToolCall[] = toolCallsChunks
     .filter(tc => tc.id && tc.function?.name)
     .map(tc => ({
       id: tc.id!,
       type: 'function' as const,
-      function: {
-        name: tc.function!.name!,
-        arguments: tc.function!.arguments || '{}',
-      },
+      function: { name: tc.function!.name!, arguments: tc.function!.arguments || '{}' },
     }))
 
-  return { thinkingContent, answerContent, toolCalls }
+  // 流结束后，启动还没启动的工具（以防 JSON 在最后才完整）
+  for (const tc of toolCalls) {
+    if (!startedTools.has(tc.id)) {
+      writer.sendToolCall(tc)
+      console.log(`[Stream] 延迟启动工具: ${tc.function.name}, args: ${tc.function.arguments}`)
+      toolPromises.push(startToolExecution(tc, writer))
+    }
+  }
+
+  return { thinkingContent, answerContent, toolCalls, toolPromises }
 }
 
 /**
- * 发送工具调用开始事件
+ * 启动工具执行（异步，带进度回调）
  */
-function sendToolCallEvent(
-  controller: ReadableStreamDefaultController,
-  encoder: TextEncoder,
-  tc: ToolCall,
-  sessionId: string
-): void {
-  const toolName = tc.function.name
+async function startToolExecution(
+  toolCall: ToolCall,
+  writer: SSEWriter
+): Promise<{ toolCallId: string; name: string; success: boolean; content: string }> {
+  const name = toolCall.function.name
   let args: Record<string, unknown> = {}
   try {
-    args = JSON.parse(tc.function.arguments)
+    args = JSON.parse(toolCall.function.arguments)
+  } catch { /* ignore */ }
+
+  try {
+    if (name === 'generate_image') {
+      // 图片生成：带进度回调
+      const result = await executeImageGeneration(args, (progress) => {
+        writer.sendToolProgress(toolCall.id, progress)
+      })
+      return { toolCallId: toolCall.id, name, success: true, content: JSON.stringify(result) }
+    } else {
+      // 其他工具：直接执行
+      const content = await toolRegistry.executeByName(name, args)
+      return { toolCallId: toolCall.id, name, success: true, content }
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : '未知错误'
+    console.error(`[Stream] 工具 ${name} 失败:`, msg)
+    return { toolCallId: toolCall.id, name, success: false, content: JSON.stringify({ error: msg }) }
+  }
+}
+
+function parseJSON(str: string): Record<string, unknown> {
+  try { return JSON.parse(str) } catch { return {} }
+}
+
+/**
+ * 检查字符串是否是完整的 JSON
+ */
+function isCompleteJSON(str: string): boolean {
+  if (!str || str.trim() === '') return false
+  try {
+    JSON.parse(str)
+    return true
   } catch {
-    // ignore
-  }
-
-  if (toolName === 'web_search') {
-    sendEvent(controller, encoder, {
-      type: 'tool_call',
-      toolCallId: tc.id,
-      name: 'web_search',
-      query: args.query as string,
-      sessionId,
-    })
-  } else if (toolName === 'generate_image') {
-    sendEvent(controller, encoder, {
-      type: 'tool_call',
-      toolCallId: tc.id,
-      name: 'generate_image',
-      prompt: args.prompt as string,
-      sessionId,
-    })
-  } else {
-    sendEvent(controller, encoder, {
-      type: 'tool_call',
-      toolCallId: tc.id,
-      name: toolName,
-      sessionId,
-    })
+    return false
   }
 }
 
 /**
- * 搜索来源类型
+ * 创建基础 SSE 流（无工具）
  */
-interface SearchSource {
-  title: string
-  url: string
-  snippet?: string
-}
+export function createSSEStream(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  context: StreamContext
+): ReadableStream {
+  const { messageId, conversationId, userId, sessionId } = context
+  const decoder = new TextDecoder()
+  const encoder = new TextEncoder()
 
-/**
- * 发送工具调用结果事件并返回持久化数据
- */
-function sendToolResultEvent(
-  controller: ReadableStreamDefaultController,
-  encoder: TextEncoder,
-  result: { toolCallId: string; name: string; success: boolean; content: string },
-  sessionId: string
-): { toolCallId: string; name: string; result: { success: boolean; imageUrl?: string; width?: number; height?: number; resultCount?: number; sources?: SearchSource[] } } {
-  if (result.name === 'web_search') {
-    // 解析搜索结果 JSON
-    let resultCount = 0
-    let sources: SearchSource[] = []
-    try {
-      const parsed = JSON.parse(result.content)
-      resultCount = parsed.resultCount || 0
-      sources = parsed.sources || []
-    } catch {
-      // 旧格式，fallback
-      resultCount = result.success ? 1 : 0
-    }
-    
-    sendEvent(controller, encoder, {
-      type: 'tool_result',
-      toolCallId: result.toolCallId,
-      name: 'web_search',
-      resultCount,
-      sources,
-      success: result.success,
-      sessionId,
-    })
-    return {
-      toolCallId: result.toolCallId,
-      name: 'web_search',
-      result: { success: result.success, resultCount, sources },
-    }
-  } else if (result.name === 'generate_image') {
-    let imageUrl: string | undefined
-    let width: number | undefined
-    let height: number | undefined
-    if (result.success) {
+  return new ReadableStream({
+    async start(controller) {
+      const writer = new SSEWriter(controller, encoder, sessionId)
+
       try {
-        const parsed = JSON.parse(result.content)
-        imageUrl = parsed.url
-        width = parsed.width
-        height = parsed.height
-      } catch {
-        // 忽略解析错误
+        let buffer = ''
+        let thinkingContent = ''
+        let answerContent = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) {
+            await persistMessage(messageId, conversationId, userId, { thinkingContent, answerContent, toolCallsData: null })
+            writer.sendComplete()
+            writer.close()
+            break
+          }
+
+          buffer += decoder.decode(value, { stream: true })
+          const { lines, remaining } = splitSSEBuffer(buffer)
+          buffer = remaining
+
+          for (const line of lines) {
+            const data = parseSSELine(line)
+            if (!data) continue
+            try {
+              const parsed = JSON.parse(data)
+              const delta = parsed.choices?.[0]?.delta
+              if (delta?.reasoning_content) {
+                thinkingContent += delta.reasoning_content
+                writer.sendThinking(delta.reasoning_content)
+              }
+              if (delta?.content) {
+                answerContent += delta.content
+                writer.sendAnswer(delta.content)
+              }
+            } catch { /* ignore */ }
+          }
+        }
+      } catch (error) {
+        writer.error(error)
       }
-    }
-    sendEvent(controller, encoder, {
-      type: 'tool_result',
-      toolCallId: result.toolCallId,
-      name: 'generate_image',
-      success: result.success,
-      imageUrl,
-      width,
-      height,
-      sessionId,
-    })
-    return {
-      toolCallId: result.toolCallId,
-      name: 'generate_image',
-      result: { success: result.success, imageUrl, width, height },
-    }
-  } else {
-    sendEvent(controller, encoder, {
-      type: 'tool_result',
-      toolCallId: result.toolCallId,
-      name: result.name,
-      success: result.success,
-      sessionId,
-    })
-    return {
-      toolCallId: result.toolCallId,
-      name: result.name,
-      result: { success: result.success },
-    }
-  }
+    },
+  })
 }

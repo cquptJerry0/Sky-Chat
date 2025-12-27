@@ -1,6 +1,3 @@
-import type { SSEData } from '@/features/chat/types/chat'
-import { parseSSELine, splitSSEBuffer } from '@/lib/utils/sse'
-
 /**
  * SSE 消息解析器
  *
@@ -9,6 +6,9 @@ import { parseSSELine, splitSSEBuffer } from '@/lib/utils/sse'
  * 2. 区分 thinking / answer / tool_calls
  * 3. 返回标准化的数据
  */
+
+import type { SSEData } from '@/features/chat/types/chat'
+import { parseSSELine, splitSSEBuffer } from '@/lib/utils/sse'
 
 export interface SSECallbacks {
   onData: (data: SSEData) => void
@@ -21,7 +21,6 @@ export class SSEParser {
    * 解析单行 SSE 数据
    */
   static parseLine(line: string): SSEData | null {
-    // 特殊处理 [DONE]
     if (line.startsWith('data: ') && line.slice(6).trim() === '[DONE]') {
       return { type: 'complete' }
     }
@@ -52,7 +51,6 @@ export class SSEParser {
         const { done, value } = await reader.read()
 
         if (done) {
-          // 处理剩余的 buffer
           if (buffer.trim()) {
             const { lines } = splitSSEBuffer(buffer + '\n')
             for (const line of lines) {
@@ -67,7 +65,6 @@ export class SSEParser {
         const chunk = decoder.decode(value, { stream: true })
         buffer += chunk
 
-        // 按行分割，但保留最后一行（可能不完整）
         const { lines, remaining } = splitSSEBuffer(buffer)
         buffer = remaining
 
@@ -77,7 +74,6 @@ export class SSEParser {
         }
       }
     } catch (error) {
-      // AbortError 是正常的中断，静默完成而不是报错
       if (error instanceof Error && error.name === 'AbortError') {
         callbacks.onComplete?.()
         return
@@ -87,4 +83,3 @@ export class SSEParser {
     }
   }
 }
-

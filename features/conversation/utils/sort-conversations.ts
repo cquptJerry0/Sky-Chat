@@ -1,4 +1,4 @@
-import type { Conversation } from '@/lib/services/conversation-api'
+import type { ConversationData } from '@/app/actions/conversation'
 
 /**
  * 会话排序工具函数
@@ -11,7 +11,7 @@ import type { Conversation } from '@/lib/services/conversation-api'
  * @param conversations - 待排序的会话列表
  * @returns 排序后的会话列表（新数组）
  */
-export function sortConversations(conversations: Conversation[]): Conversation[] {
+export function sortConversations(conversations: ConversationData[]): ConversationData[] {
   return [...conversations].sort((a, b) => {
     // 置顶的排在前面
     if (a.isPinned && !b.isPinned) return -1

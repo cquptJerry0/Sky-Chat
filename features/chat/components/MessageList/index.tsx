@@ -10,13 +10,15 @@
  */
 
 import { useRef, useEffect, useState, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { ChatMessage } from '@/features/chat/components/ChatMessage'
+import { ChatService } from '@/features/chat/services/chat.service'
 
 export function MessageList() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const conversationId = params.conversationId as string
   
   // 从 Store 获取数据
@@ -96,6 +98,8 @@ export function MessageList() {
   
   // 是否需要在加载完成后滚动
   const shouldScrollAfterLoad = useRef(false)
+  // pending message 是否已发送
+  const pendingMessageSentRef = useRef(false)
   
   // ========== 切换会话时重置状态 ==========
   useEffect(() => {
@@ -106,8 +110,38 @@ export function MessageList() {
       previousMessagesLength.current = 0
       setUserScrolledUp(false)
       shouldScrollAfterLoad.current = true
+      pendingMessageSentRef.current = false
     }
   }, [conversationId])
+  
+  // ========== 处理 URL 中的 pending message ==========
+  useEffect(() => {
+    console.log('[MessageList] pending check:', { 
+      isLoadingMessages, 
+      conversationId, 
+      pendingMessageSent: pendingMessageSentRef.current,
+      msg: searchParams.get('msg')
+    })
+    
+    // 等待加载完成
+    if (isLoadingMessages) return
+    if (pendingMessageSentRef.current) return
+    if (!conversationId) return
+    
+    const pendingMessage = searchParams.get('msg')
+    if (!pendingMessage) return
+    
+    console.log('[MessageList] Sending pending message:', pendingMessage)
+    pendingMessageSentRef.current = true
+    
+    // 清理 URL 参数
+    const url = new URL(window.location.href)
+    url.searchParams.delete('msg')
+    window.history.replaceState({}, '', url.pathname)
+    
+    // 发送消息
+    ChatService.sendMessage(conversationId, pendingMessage, { createUserMessage: true })
+  }, [isLoadingMessages, conversationId, searchParams])
   
   // ========== 消息加载完成后滚动到底部 ==========
   useEffect(() => {

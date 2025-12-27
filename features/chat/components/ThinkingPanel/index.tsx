@@ -4,12 +4,7 @@
  * Thinking Panel Component - 思考过程面板
  * 
  * 独立的可折叠面板，用于显示 AI 的推理过程
- * 
- * 特性：
- * - 可折叠/展开
- * - 独立滚动区域（最大高度 96）
- * - 流式传输状态指示
- * - 视觉上明显区别于回答区域
+ * 通过 messageId 订阅 Store，数据驱动 UI
  * 
  * @module components/ThinkingPanel
  */
@@ -17,14 +12,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Brain } from 'lucide-react'
 import { MessageContent } from '@/features/chat/components/MessageContent'
+import { useChatStore } from '@/features/chat/store/chat.store'
+import { selectMessagePhase, selectPhaseLabel, selectIsProcessing } from '@/features/chat/store/selectors'
 
 interface ThinkingPanelProps {
-  /** 思考内容（Markdown 格式） */
-  content: string
-  
-  /** 是否正在流式传输 */
-  isStreaming?: boolean
-  
+  /** 消息 ID */
+  messageId: string
   /** 默认是否展开 */
   defaultExpanded?: boolean
 }
@@ -33,15 +26,22 @@ interface ThinkingPanelProps {
  * 思考过程面板组件
  * 
  * 显示 AI 的推理过程，支持折叠/展开
- * 使用蓝色主题以区别于回答区域
  */
 export function ThinkingPanel({
-  content,
-  isStreaming = false,
+  messageId,
   defaultExpanded = true,
 }: ThinkingPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const contentRef = useRef<HTMLDivElement>(null)
+  
+  // 从 Store 订阅状态
+  const phase = useChatStore(selectMessagePhase(messageId))
+  const label = useChatStore(selectPhaseLabel(messageId))
+  const isProcessing = useChatStore(selectIsProcessing(messageId))
+  const content = useChatStore((s) => s.messages.find(m => m.id === messageId)?.thinking ?? '')
+  
+  // 计算是否正在流式传输
+  const isStreaming = isProcessing && (phase === 'thinking' || phase === 'tool_calling')
   
   // 自动滚动到底部 - 当内容更新且正在流式传输时
   useEffect(() => {
@@ -65,7 +65,7 @@ export function ThinkingPanel({
         <div className="flex items-center gap-2.5">
           <Brain className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {isStreaming ? '思考中' : '思考完成'}
+            {label}
           </span>
           {/* 流式传输指示器 */}
           {isStreaming && (
@@ -93,7 +93,7 @@ export function ThinkingPanel({
           <MessageContent
             content={content}
             isStreaming={isStreaming}
-            showCursor={true}
+            disableMediaBlocks={true}
           />
           )}
         </div>

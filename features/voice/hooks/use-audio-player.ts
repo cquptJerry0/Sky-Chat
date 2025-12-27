@@ -29,9 +29,10 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { ChatAPI } from '@/lib/services/chat-api'
+import { VoiceAPI } from '@/features/voice/services/voice-api'
 import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
 import { getDefaultVoice } from '@/features/voice/constants/voices'
+import { filterTextForTTS } from '@/features/voice/utils/filter-text-for-tts'
 
 /**
  * 音频播放器 Hook
@@ -78,13 +79,21 @@ export function useAudioPlayer() {
    * ```
    */
   const playText = useCallback(async (text: string, voice?: string) => {
+    // 过滤不适合朗读的内容（代码块、表格、图片等）
+    const filteredText = filterTextForTTS(text)
+
+    // 如果过滤后没有内容，直接返回
+    if (!filteredText) {
+      return
+    }
+
     setIsGenerating(true)
 
     try {
       // 确定使用哪个语音
       const voiceToUse = voice || selectedVoice
       // 调用 TTS API
-      const audioBlob = await ChatAPI.textToSpeech(text, voiceToUse)
+      const audioBlob = await VoiceAPI.textToSpeech(filteredText, voiceToUse)
 
       // 清理旧的音频 URL
       if (audioURLRef.current) {

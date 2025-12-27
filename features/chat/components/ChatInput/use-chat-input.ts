@@ -3,13 +3,12 @@
  * 处理输入逻辑，接收 conversationId 参数
  */
 
-import { useCallback, useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { ChatService } from '@/features/chat/services/chat.service'
 import { useAudioRecorder } from '@/features/voice/hooks/use-audio-recorder'
-import { ChatAPI } from '@/lib/services/chat-api'
+import { VoiceAPI } from '@/features/voice/services/voice-api'
 import { useToast } from '@/lib/hooks/use-toast'
-import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
 import type { FileAttachment } from '@/features/chat/types/chat'
 import type { ImageConfig } from '../ImageGenerationModal'
 
@@ -19,8 +18,6 @@ interface UseChatInputOptions {
 
 export function useChatInput({ conversationId }: UseChatInputOptions) {
   const [input, setInput] = useState('')
-  const pendingMessageSentRef = useRef(false)
-  const autoSendRef = useRef(false)
   const [uploadedFiles, setUploadedFiles] = useState<FileAttachment[]>([])
   const [isTranscribing, setIsTranscribing] = useState(false)
   const { toast } = useToast()
@@ -124,34 +121,9 @@ export function useChatInput({ conversationId }: UseChatInputOptions) {
     cancelRecording()
   }, [cancelRecording])
 
-  // 处理登录后的 pending message
-  // 填充到输入框并标记自动发送
-  useEffect(() => {
-    if (pendingMessageSentRef.current) return
-    if (!conversationId) return
-    
-    const pendingMessage = StorageManager.get<string>(STORAGE_KEYS.USER.PENDING_MESSAGE)
-    if (!pendingMessage) return
-
-    pendingMessageSentRef.current = true
-    StorageManager.remove(STORAGE_KEYS.USER.PENDING_MESSAGE)
-    
-    // 填充到输入框并标记需要自动发送
-    setInput(pendingMessage)
-    autoSendRef.current = true
-  }, [conversationId])
-
-  // 自动发送：当 input 被填充且标记了自动发送时触发
-  useEffect(() => {
-    if (!autoSendRef.current) return
-    if (!input.trim() || isSendingMessage) return
-    
-    autoSendRef.current = false
-    
-    const content = input.trim()
-    setInput('')
-    ChatService.sendMessage(conversationId, content, { createUserMessage: true })
-  }, [input, isSendingMessage, conversationId])
+  // 处理登录后的 pending message（从 URL 参数读取）
+  // 注意：这个逻辑移到了 ConversationContent 组件中处理
+  // 因为那里可以在 loadMessages 完成后直接发送
 
   useEffect(() => {
     if (!audioBlob) return
@@ -160,7 +132,7 @@ export function useChatInput({ conversationId }: UseChatInputOptions) {
       setIsTranscribing(true)
       try {
         const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' })
-        const result = await ChatAPI.speechToText(audioFile)
+        const result = await VoiceAPI.speechToText(audioFile)
 
         if (result.text) {
           setInput(result.text)

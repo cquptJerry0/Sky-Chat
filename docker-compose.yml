@@ -1,5 +1,5 @@
-# Sky Chat 开发环境 Docker Compose 配置
-# 仅用于本地开发，只包含 PostgreSQL 数据库
+# Sky Chat Docker Compose 配置
+# 包含 PostgreSQL 数据库和 Next.js 应用
 
 version: '3.8'
 
@@ -7,23 +7,43 @@ services:
   # PostgreSQL 数据库
   postgres:
     image: postgres:16-alpine
-    container_name: sky-chat-dev-postgres
+    container_name: sky-chat-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: sky_chat_dev
+      POSTGRES_USER: skychat
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: skychat
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      test: ['CMD-SHELL', 'pg_isready -U skychat']
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # Next.js 应用
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sky-chat-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://skychat:password123@postgres:5432/skychat"
+      NODE_ENV: production
+    env_file:
+      - .env
+      - .env.production
+    volumes:
+      - ./generated:/app/public/generated
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
     driver: local
-

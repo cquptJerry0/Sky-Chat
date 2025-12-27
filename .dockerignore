@@ -54,6 +54,9 @@ Dockerfile
 docker-compose.yml
 .dockerignore
 
+# Generated images (runtime volume)
+public/generated
+
 # Cursor/Windsurf
 .cursor
 .windsurf

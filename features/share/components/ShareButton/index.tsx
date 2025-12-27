@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useToast } from '@/lib/hooks/use-toast'
+import { shareConversation, unshareConversation } from '@/app/actions/conversation'
 
 interface ShareButtonProps {
   conversationId: string
@@ -41,16 +42,13 @@ export function ShareButton({ conversationId, className }: ShareButtonProps) {
     setIsLoading(true)
     
     try {
-      const response = await fetch(`/api/conversations/${conversationId}/share`, {
-        method: 'POST'
-      })
+      const result = await shareConversation(conversationId)
       
-      if (!response.ok) {
-        throw new Error('分享失败')
+      if (!result.success || !result.data) {
+        throw new Error(result.error || '分享失败')
       }
       
-      const data = await response.json()
-      setShareUrl(data.shareUrl)
+      setShareUrl(result.data.shareUrl)
       setIsShared(true)
       
       toast({
@@ -73,12 +71,10 @@ export function ShareButton({ conversationId, className }: ShareButtonProps) {
     setIsLoading(true)
     
     try {
-      const response = await fetch(`/api/conversations/${conversationId}/share`, {
-        method: 'DELETE'
-      })
+      const result = await unshareConversation(conversationId)
       
-      if (!response.ok) {
-        throw new Error('取消分享失败')
+      if (!result.success) {
+        throw new Error(result.error || '取消分享失败')
       }
       
       setShareUrl('')

@@ -7,7 +7,7 @@ import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/server/db/client'
 import { SharePageContent } from '@/features/share/components/SharePageContent'
-import { renderMarkdownToHtml } from '@/lib/utils/markdown-server'
+import { renderMarkdownToHtml } from '@/server/utils/markdown'
 
 /**
  * 生成页面元数据（SEO优化）

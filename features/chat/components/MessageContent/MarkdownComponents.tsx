@@ -7,8 +7,12 @@ import type { Components } from 'react-markdown'
 /**
  * 创建 Markdown 组件映射
  * @param isStreaming 是否正在流式传输
+ * @param disableMediaBlocks 是否禁用媒体块渲染
  */
-export function createMarkdownComponents(isStreaming: boolean = false): Components {
+export function createMarkdownComponents(
+  isStreaming: boolean = false,
+  disableMediaBlocks: boolean = false
+): Components {
   return {
     code: ({ className, children }) => {
       // 提取语言标识
@@ -18,8 +22,33 @@ export function createMarkdownComponents(isStreaming: boolean = false): Componen
 
       // 检查是否是媒体块
       if (language && isMediaBlock(language)) {
+        // 禁用媒体块时，显示为普通代码块
+        if (disableMediaBlocks) {
+          return (
+            <CodeBlock inline={false} className={className}>
+              {children}
+            </CodeBlock>
+          )
+        }
+        // image 代码块：只允许本地生成的图片（/generated/ 路径）
+        if (language === 'image') {
+          try {
+            const parsed = JSON.parse(content)
+            // 只渲染本地生成的图片，过滤模型编造的外部 URL
+            if (parsed.url && parsed.url.startsWith('/generated/')) {
+              const blockKey = `${language}-${content.slice(0, 50)}`
+              return (
+                <Suspense fallback={<div className="my-4 h-32 animate-pulse rounded-lg bg-muted" />}>
+                  <ImageBlock key={blockKey} data={content} isStreaming={isStreaming} />
+                </Suspense>
+              )
+            }
+          } catch {
+            // JSON 解析失败，忽略
+          }
+          return null // 过滤非本地图片
+        }
         const MediaComponent = mediaRegistry[language]
-        // 用 content 的 hash 作为 key，避免重复渲染
         const blockKey = `${language}-${content.slice(0, 50)}`
         return (
           <Suspense fallback={<div className="my-4 h-32 animate-pulse rounded-lg bg-muted" />}>
@@ -40,8 +69,19 @@ export function createMarkdownComponents(isStreaming: boolean = false): Componen
     // 图片使用 ImageBlock 组件渲染，支持下载、复制、放大
     img: ({ src, alt }) => {
       if (!src) return null
+      // 过滤模型编造的假图片域名
+      const fakeImageDomains = [
+        'image.pollinations.ai',
+        'placeholder.com',
+        'via.placeholder',
+        'picsum.photos',
+        'loremflickr.com',
+        'dummyimage.com',
+      ]
+      if (typeof src === 'string' && fakeImageDomains.some(domain => src.includes(domain))) {
+        return null // 丢弃假图片
+      }
       const data = JSON.stringify({ url: src, alt: alt || '' })
-      // 用 data 的 hash 作为 key
       const blockKey = `img-${data.slice(0, 50)}`
       return (
         <Suspense fallback={<div className="my-4 aspect-square animate-pulse bg-muted" />}>

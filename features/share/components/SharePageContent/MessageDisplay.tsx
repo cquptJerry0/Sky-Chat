@@ -11,7 +11,7 @@
 
 import { Bot, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useClientValue } from '@/lib/hooks/use-client-value'
+import { useClientValue } from '@/features/share/hooks/use-client-value'
 import 'highlight.js/styles/github-dark.css' // 引入高亮样式
 
 interface Message {

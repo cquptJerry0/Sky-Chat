@@ -54,11 +54,16 @@ export function ChartBlock({ data, isStreaming }: MediaBlockProps) {
     }))
   }, [chartData])
 
-  // 检查数据是否有效（JSON 解析成功且有必要字段）
-  const isValidData = chartData && Array.isArray(chartData.labels) && Array.isArray(chartData.values)
+  // 检查数据是否有效（JSON 解析成功且有必要字段且数据不为空）
+  const isValidData = chartData 
+    && Array.isArray(chartData.labels) 
+    && Array.isArray(chartData.values)
+    && chartData.labels.length > 0
+    && chartData.values.length > 0
 
-  // 流式传输中且数据无效时显示加载状态
+  // 流式传输中或数据无效时显示加载状态
   if (!isValidData) {
+    // 流式传输中，显示加载状态
     if (isStreaming) {
       return (
         <div className="my-4 overflow-hidden rounded-xl border bg-card">
@@ -71,6 +76,7 @@ export function ChartBlock({ data, isStreaming }: MediaBlockProps) {
         </div>
       )
     }
+    // 非流式且数据无效，显示错误
     return (
       <div className="my-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
         <span className="text-sm text-destructive">无法解析图表数据</span>
@@ -131,7 +137,10 @@ export function ChartBlock({ data, isStreaming }: MediaBlockProps) {
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
+                  color: 'hsl(var(--foreground))',
                 }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
+                formatter={(value: number) => [value, '数值']}
               />
               <Line
                 type="monotone"
@@ -158,7 +167,10 @@ export function ChartBlock({ data, isStreaming }: MediaBlockProps) {
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
+                  color: 'hsl(var(--foreground))',
                 }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
+                formatter={(value: number) => [value, '数值']}
               />
               <Bar
                 dataKey="value"

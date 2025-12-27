@@ -4,6 +4,7 @@ import { Providers } from '@/components/Providers'
 import { Toaster } from '@/components/ui/toaster'
 import { AccountLinkNotification } from '@/features/auth/components/AccountLinkNotification'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { GeoChecker } from '@/components/GeoChecker'
 
 export const metadata: Metadata = {
   title: 'Sky Chat',
@@ -26,6 +27,7 @@ export default function RootLayout({
             {children}
             <Toaster />
             <AccountLinkNotification />
+            <GeoChecker />
           </Providers>
         </ErrorBoundary>
       </body>

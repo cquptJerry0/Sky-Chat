@@ -19,6 +19,7 @@ export interface ChatCompletionOptions {
   enableThinking?: boolean
   thinkingBudget?: number
   tools?: unknown[]
+  toolChoice?: 'auto' | 'required' | { type: 'function'; function: { name: string } }
 }
 
 export interface SiliconFlowResponse {
@@ -32,7 +33,7 @@ export async function createChatCompletion(
   apiKey: string,
   options: ChatCompletionOptions
 ): Promise<SiliconFlowResponse> {
-  const { model, messages, enableThinking = false, thinkingBudget = 4096, tools } = options
+  const { model, messages, enableThinking = false, thinkingBudget = 4096, tools, toolChoice } = options
   
   const modelInfo = getModelById(model)
   
@@ -58,6 +59,8 @@ export async function createChatCompletion(
   // 如果提供了 tools，添加到请求中
   if (tools && Array.isArray(tools) && tools.length > 0) {
     requestBody.tools = tools
+    // 默认 auto，有工具时让 AI 自己决定
+    requestBody.tool_choice = toolChoice || 'auto'
   }
 
   const response = await fetch(SILICONFLOW_API_URL, {

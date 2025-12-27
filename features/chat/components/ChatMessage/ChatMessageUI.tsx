@@ -18,6 +18,7 @@ import { MarkdownIcon } from '@/components/icons/MarkdownIcon'
 import { TextFileIcon } from '@/components/icons/TextFileIcon'
 import { cn } from '@/lib/utils'
 import type { Message, ToolInvocation, ToolResult, SearchSource } from '@/features/chat/types/chat'
+import type { MessagePhase } from '@/features/chat/types/message-state'
 
 /**
  * 搜索状态组件 - 简洁风格，类似 Perplexity
@@ -94,14 +95,52 @@ function WebSearchStatus({ invocation }: { invocation: ToolInvocation }) {
  * 渲染单个工具调用
  * 图片生成完成后会直接插入到 content 流中，这里只显示 loading 状态
  */
-function ToolInvocationItem({ invocation }: { invocation: ToolInvocation }) {
-  // 图片生成 - 只显示 loading 和失败状态
+function ToolInvocationItem({ 
+  invocation, 
+  _messageId,
+  onCancel 
+}: { 
+  invocation: ToolInvocation
+  _messageId?: string
+  onCancel?: (toolCallId: string) => void
+}) {
+  // 图片生成 - 显示进度条、取消按钮
   if (invocation.name === 'generate_image') {
     if (invocation.state === 'running' || invocation.state === 'pending') {
+      const progress = (invocation as { progress?: number }).progress ?? 0
+      const estimatedTime = (invocation as { estimatedTime?: number }).estimatedTime
+      
       return (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          <span>正在生成图片...</span>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>正在生成图片...</span>
+              {progress > 0 && <span className="text-xs">{progress}%</span>}
+              {estimatedTime && estimatedTime > 0 && (
+                <span className="text-xs opacity-70">约 {estimatedTime}s</span>
+              )}
+            </div>
+            {onCancel && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onCancel(invocation.toolCallId)}
+                className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+              >
+                取消
+              </Button>
+            )}
+          </div>
+          {/* 进度条 */}
+          {progress > 0 && (
+            <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-primary transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
         </div>
       )
     }
@@ -110,6 +149,14 @@ function ToolInvocationItem({ invocation }: { invocation: ToolInvocation }) {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <XCircle className="h-3.5 w-3.5" />
           <span>图片生成失败</span>
+        </div>
+      )
+    }
+    if (invocation.state === 'cancelled') {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <XCircle className="h-3.5 w-3.5" />
+          <span>已取消</span>
         </div>
       )
     }
@@ -180,23 +227,26 @@ interface ChatMessageUIProps {
   /** 消息数据 */
   message: Message
   
-  /** 是否正在流式传输 thinking */
-  isStreamingThinking: boolean
+  /** 消息 ID */
+  messageId: string
   
-  /** 是否正在流式传输 answer */
-  isStreamingAnswer: boolean
+  /** 消息阶段（状态机） */
+  phase: MessagePhase
+  
+  /** 是否正在处理 */
+  isProcessing: boolean
   
   /** 是否正在等待响应 */
   isWaitingForResponse: boolean
-  
-  /** 是否是最后一条助手消息 */
-  isLastAssistantMessage?: boolean
   
   /** 重试回调 */
   onRetry?: () => void
   
   /** 编辑并重新发送回调 */
   onEdit?: (newContent: string) => void
+  
+  /** 取消工具执行回调 */
+  onCancelTool?: (toolCallId: string) => void
 }
 
 /**
@@ -208,19 +258,19 @@ interface ChatMessageUIProps {
  */
 export function ChatMessageUI({
   message,
-  isStreamingThinking,
-  isStreamingAnswer,
+  messageId,
+  phase,
+  isProcessing,
   onRetry,
   onEdit,
+  onCancelTool,
 }: ChatMessageUIProps) {
   const isUser = message.role === 'user'
   const [isEditing, setIsEditing] = useState(false)
 
-  // 获取消息显示状态
-  const displayState = message.displayState || 'idle'
-
-  // 根据 displayState 计算实际的显示状态
-  const isActuallyStreaming = displayState === 'streaming' || isStreamingThinking || isStreamingAnswer
+  // 根据状态机计算显示状态
+  const isStreaming = isProcessing
+  const isStreamingAnswer = phase === 'answering'
   
   // ============ 用户消息 ============
   if (isUser) {
@@ -305,8 +355,8 @@ export function ChatMessageUI({
   // ============ AI 消息 ============
 
   // 根据 displayState 决定显示内容
-  const showWaitingIndicator = displayState === 'waiting' && !message.thinking && !message.content
-  const showErrorIndicator = (displayState === 'error' || message.hasError) && !message.content
+  const showWaitingIndicator = !isProcessing && !message.thinking && !message.content && message.displayState === 'waiting'
+  const showErrorIndicator = (phase === 'error' || message.hasError) && !message.content
 
   return (
     <div className="w-full py-6">
@@ -328,7 +378,12 @@ export function ChatMessageUI({
 
           {/* 工具调用状态（运行时，支持多个并行） */}
           {message.toolInvocations?.map((invocation) => (
-            <ToolInvocationItem key={invocation.toolCallId} invocation={invocation} />
+            <ToolInvocationItem 
+              key={invocation.toolCallId} 
+              invocation={invocation}
+              _messageId={messageId}
+              onCancel={onCancelTool}
+            />
           ))}
 
           {/* 工具执行结果（持久化后，从数据库加载） */}
@@ -336,11 +391,10 @@ export function ChatMessageUI({
             <ToolResultItem key={result.toolCallId} result={result} />
           ))}
 
-          {/* Thinking 面板（独立组件） */}
+          {/* Thinking 面板（独立组件，自己订阅状态） */}
           {message.thinking && (
             <ThinkingPanel
-              content={message.thinking}
-              isStreaming={isActuallyStreaming && isStreamingThinking}
+              messageId={messageId}
               defaultExpanded={true}
             />
           )}
@@ -350,16 +404,13 @@ export function ChatMessageUI({
             <div className="prose-container">
               <MessageContent
                 content={message.content}
-                isStreaming={isActuallyStreaming && isStreamingAnswer}
-                showCursor={isActuallyStreaming}
+                isStreaming={isStreamingAnswer}
               />
             </div>
           )}
 
           {/* 操作按钮 */}
-          {/* 流式传输时：只显示重试按钮（用于中断） */}
-          {/* 非流式传输时：显示所有操作按钮（复制、朗读、重试） */}
-          {isActuallyStreaming && onRetry ? (
+          {isStreaming && onRetry ? (
             <div className="flex items-center gap-1">
               <Button
                 variant="ghost"

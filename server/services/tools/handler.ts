@@ -33,7 +33,7 @@ export function parseToolCalls(toolCalls: ToolCall[]): ParsedToolCall[] {
 export function formatToolMessage(result: ToolCallResult): ToolMessage {
   let content = result.content
   
-  // 如果是搜索结果的 JSON 格式，提取 content 字段给 AI
+  // 搜索结果：提取 content 字段给 AI
   if (result.name === 'web_search') {
     try {
       const parsed = JSON.parse(result.content)
@@ -43,11 +43,15 @@ export function formatToolMessage(result: ToolCallResult): ToolMessage {
     }
   }
   
-  // 图片生成结果，只给 AI 简短消息，避免 AI 复述长 URL
+  // 图片生成结果：只给 AI 简短消息
   if (result.name === 'generate_image') {
     try {
       const parsed = JSON.parse(result.content)
-      content = parsed.message || '图片已生成完成。'
+      if (parsed.error) {
+        content = parsed.error
+      } else if (parsed.url) {
+        content = '图片已生成完成。'
+      }
     } catch {
       // 不是 JSON，保持原样
     }
@@ -67,8 +71,11 @@ export async function executeToolCall(
   parsedCall: ParsedToolCall,
   registry: IToolRegistry
 ): Promise<ToolCallResult> {
+  console.log(`[ToolHandler] Executing tool: ${parsedCall.name}`, parsedCall.arguments)
+  
   try {
     const content = await registry.executeByName(parsedCall.name, parsedCall.arguments)
+    console.log(`[ToolHandler] Tool ${parsedCall.name} completed`)
     return {
       toolCallId: parsedCall.id,
       name: parsedCall.name,
@@ -77,30 +84,25 @@ export async function executeToolCall(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error(`[ToolHandler] Tool ${parsedCall.name} failed:`, message)
     return {
       toolCallId: parsedCall.id,
       name: parsedCall.name,
-      content: `工具执行失败: ${message}`,
+      content: JSON.stringify({ error: message }),
       success: false,
     }
   }
 }
 
 /**
- * 批量执行工具调用
+ * 批量执行工具调用（并行）
  */
 export async function executeToolCalls(
   toolCalls: ToolCall[],
   registry: IToolRegistry
 ): Promise<ToolCallResult[]> {
   const parsedCalls = parseToolCalls(toolCalls)
-  
-  // 并行执行所有工具调用
-  const results = await Promise.all(
-    parsedCalls.map(call => executeToolCall(call, registry))
-  )
-  
-  return results
+  return Promise.all(parsedCalls.map(call => executeToolCall(call, registry)))
 }
 
 /**
@@ -108,47 +110,4 @@ export async function executeToolCalls(
  */
 export function formatToolMessages(results: ToolCallResult[]): ToolMessage[] {
   return results.map(formatToolMessage)
-}
-
-/**
- * 从 tool_calls 中提取搜索查询（用于前端显示）
- */
-export function extractSearchQuery(toolCalls: ToolCall[]): string | null {
-  const webSearchCall = toolCalls.find(call => call.function.name === 'web_search')
-  
-  if (!webSearchCall) {
-    return null
-  }
-  
-  try {
-    const args = JSON.parse(webSearchCall.function.arguments)
-    return args.query || null
-  } catch {
-    return null
-  }
-}
-
-/**
- * 从 tool_calls 中提取图片生成 prompt（用于前端显示）
- */
-export function extractImagePrompt(toolCalls: ToolCall[]): string | null {
-  const imageCall = toolCalls.find(call => call.function.name === 'generate_image')
-  
-  if (!imageCall) {
-    return null
-  }
-  
-  try {
-    const args = JSON.parse(imageCall.function.arguments)
-    return args.prompt || null
-  } catch {
-    return null
-  }
-}
-
-/**
- * 获取 tool_calls 中的工具名称列表
- */
-export function getToolNames(toolCalls: ToolCall[]): string[] {
-  return toolCalls.map(call => call.function.name)
 }

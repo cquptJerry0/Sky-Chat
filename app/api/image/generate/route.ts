@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentUserId } from '@/server/auth/utils'
 import { generateImage } from '@/server/services/image/siliconflow'
 import { downloadAndSave } from '@/server/services/image/storage'
 
@@ -31,6 +32,13 @@ interface GenerateResponse {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse<GenerateResponse>> {
+  // 鉴权
+  try {
+    await getCurrentUserId()
+  } catch {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const body = (await request.json()) as GenerateRequest
 

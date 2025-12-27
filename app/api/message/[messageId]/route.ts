@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { MessageRepository } from '@/server/repositories/message.repository'
+import { getCurrentUserId } from '@/server/auth/utils'
 
 interface PatchRequest {
   content?: string
@@ -15,6 +16,13 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ messageId: string }> }
 ): Promise<NextResponse> {
+  // 鉴权
+  try {
+    await getCurrentUserId()
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const { messageId } = await params
     const body = (await request.json()) as PatchRequest

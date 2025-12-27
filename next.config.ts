@@ -6,7 +6,9 @@ const withBundleAnalyzer = bundleAnalyzer({
 })
 
 const nextConfig: NextConfig = {
-  
+  // Docker 部署用 standalone 模式
+  output: 'standalone',
+
   images: {
     remotePatterns: [
       {

@@ -351,6 +351,7 @@ export function ChatInputUI({
                       size="icon"
                       variant="ghost"
                       onClick={() => onThinkingToggle(!enableThinking)}
+                      disabled={disabled}
                       className={cn(
                         'h-8 w-8 rounded-lg transition-all',
                         enableThinking
