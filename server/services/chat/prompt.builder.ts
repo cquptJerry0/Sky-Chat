@@ -10,6 +10,15 @@
 const BASE_PROMPT = `You are a helpful assistant. 你是一个友好的 AI 助手。`
 
 /**
+ * 工具不可用提示
+ */
+const IMAGE_UNAVAILABLE_PROMPT = `
+
+⚠️ 图片生成功能当前不可用（网络原因）。
+当用户要求生成图片时，请直接告知："抱歉，图片生成功能暂时不可用，可能是网络问题，请稍后再试。"
+不要尝试调用 generate_image 工具，因为它不存在。`
+
+/**
  * 富媒体格式说明
  */
 const MEDIA_FORMAT_PROMPT = `
@@ -76,22 +85,29 @@ const MEDIA_FORMAT_PROMPT = `
 
 /**
  * 构建完整的系统提示词
+ * @param imageAvailable - 图片生成工具是否可用
  */
-export function buildSystemPrompt(): string {
-  return BASE_PROMPT + MEDIA_FORMAT_PROMPT
+export function buildSystemPrompt(imageAvailable: boolean = true): string {
+  let prompt = BASE_PROMPT + MEDIA_FORMAT_PROMPT
+  if (!imageAvailable) {
+    prompt += IMAGE_UNAVAILABLE_PROMPT
+  }
+  return prompt
 }
 
 /**
  * 构建消息上下文
+ * @param imageAvailable - 图片生成工具是否可用
  */
 export function buildContextMessages(
   historyMessages: Array<{ role: string; content: string }>,
-  currentUserMessage: string
+  currentUserMessage: string,
+  imageAvailable: boolean = true
 ): Array<{ role: string; content: string }> {
   return [
     {
       role: 'system',
-      content: buildSystemPrompt(),
+      content: buildSystemPrompt(imageAvailable),
     },
     // 历史消息
     ...historyMessages.map((msg) => ({

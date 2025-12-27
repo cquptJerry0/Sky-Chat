@@ -11,12 +11,11 @@
  * @module components/LandingPage/LandingInput
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoginDialog } from '@/features/auth/components/LoginDialog'
-import { StorageManager, STORAGE_KEYS } from '@/lib/utils/storage'
 
 /**
  * 输入区域组件（Client Component）
@@ -27,6 +26,7 @@ export function LandingInput() {
   const router = useRouter()
   const [message, setMessage] = useState('')
   const [showLogin, setShowLogin] = useState(false)
+  const pendingMessageRef = useRef('')
 
   /**
    * 处理发送按钮点击
@@ -36,8 +36,8 @@ export function LandingInput() {
 
     if (!trimmedMessage) return
 
-    StorageManager.set(STORAGE_KEYS.USER.PENDING_MESSAGE, trimmedMessage)
-
+    // 保存到 ref，登录成功后用
+    pendingMessageRef.current = trimmedMessage
     setShowLogin(true)
   }, [message])
 
@@ -87,9 +87,10 @@ export function LandingInput() {
         open={showLogin} 
         onOpenChange={setShowLogin}
         onSuccess={() => {
-          // 登录成功后跳转到 /chat，pending message 会在那里被读取并发送
           setShowLogin(false)
-          router.push('/chat')
+          // 带上 pending message 跳转
+          const msg = encodeURIComponent(pendingMessageRef.current)
+          router.push(`/chat?msg=${msg}`)
         }}
       />
     </>

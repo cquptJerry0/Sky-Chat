@@ -73,12 +73,7 @@ export async function handleChatRequest(
   // 3. 更新会话标题（如果是第一条消息）
   const updatedTitle = await updateConversationTitle(conversation, content)
 
-  // 4. 获取历史消息并构建上下文
-  const historyMessages = await MessageRepository.findByConversationId(conversation.id)
-  const currentUserMessage = appendAttachments(content, attachments)
-  const contextMessages = buildContextMessages(historyMessages, currentUserMessage)
-
-  // 5. 准备工具定义
+  // 4. 准备工具定义
   // - web_search: 需要用户手动开启
   // - generate_image: 始终可用（AI 自动判断何时调用）
   const enabledTools = []
@@ -86,7 +81,8 @@ export async function handleChatRequest(
     enabledTools.push(toolRegistry.get('web_search')!)
   }
   // 生图工具始终可用，让 AI 自己判断何时调用
-  if (toolRegistry.has('generate_image')) {
+  const imageAvailable = toolRegistry.has('generate_image')
+  if (imageAvailable) {
     enabledTools.push(toolRegistry.get('generate_image')!)
   }
   const tools = enabledTools.length > 0
@@ -102,6 +98,14 @@ export async function handleChatRequest(
 
   // 调试日志
   console.log('[ChatService] Enabled tools:', enabledTools.map(t => t.name))
+  if (!imageAvailable) {
+    console.log('[ChatService] Image generation unavailable, AI will be notified')
+  }
+
+  // 5. 获取历史消息并构建上下文（传递图片可用状态）
+  const historyMessages = await MessageRepository.findByConversationId(conversation.id)
+  const currentUserMessage = appendAttachments(content, attachments)
+  const contextMessages = buildContextMessages(historyMessages, currentUserMessage, imageAvailable)
 
   // 6. 调用 AI API
   const { reader } = await createChatCompletion(apiKey, {

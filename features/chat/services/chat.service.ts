@@ -118,8 +118,14 @@ export const ChatService = {
   async loadMessages(conversationId: string): Promise<void> {
     const store = useChatStore.getState()
 
+    // 如果正在发送消息，不要加载（避免覆盖刚添加的消息）
+    if (store.isSendingMessage) {
+      console.log('[ChatService] Skipping loadMessages - sending in progress')
+      return
+    }
+
     // 如果正在流式生成，先中断并保存已生成的内容
-    if (store.isSendingMessage || store.streamingMessageId) {
+    if (store.streamingMessageId) {
       this.abortStream()
     }
 
@@ -185,7 +191,12 @@ export const ChatService = {
     const { createUserMessage = true, attachments, enableImageGeneration, imageConfig, previousTraceId } = options
     const store = useChatStore.getState()
 
-    if (store.isSendingMessage) return
+    console.log('[ChatService] sendMessage called:', { content, conversationId, isSendingMessage: store.isSendingMessage })
+
+    if (store.isSendingMessage) {
+      console.log('[ChatService] Already sending, skipping')
+      return
+    }
     store.setSendingMessage(true)
 
     const userMessageId = createUserMessage ? nanoid() : undefined
@@ -196,6 +207,7 @@ export const ChatService = {
 
     // 添加用户消息
     if (createUserMessage && userMessageId) {
+      console.log('[ChatService] Adding user message:', userMessageId)
       store.addMessage({
         id: userMessageId,
         role: 'user',
@@ -205,6 +217,7 @@ export const ChatService = {
     }
 
     // 添加 AI 占位消息
+    console.log('[ChatService] Adding AI message:', aiMessageId)
     store.addMessage({
       id: aiMessageId,
       role: 'assistant',
@@ -212,6 +225,8 @@ export const ChatService = {
       thinking: '',
       displayState: 'waiting',
     })
+    
+    console.log('[ChatService] Messages after add:', useChatStore.getState().messages.length)
 
     try {
       // 创建 AbortController 用于中断
