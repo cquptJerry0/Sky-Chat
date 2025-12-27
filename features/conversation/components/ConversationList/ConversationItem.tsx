@@ -5,6 +5,7 @@
  * 
  * 展示单个会话，支持：
  * - 选中/激活状态
+ * - 多选（Ctrl/Shift+点击）
  * - 重命名
  * - 删除
  * - 置顶
@@ -32,6 +33,8 @@ import type { ConversationData } from '@/app/actions/conversation'
 interface ConversationItemProps {
   conversation: ConversationData
   isActive: boolean
+  isSelected?: boolean
+  onSelect?: (e: React.MouseEvent) => boolean // 返回 true 阻止导航
   onDelete: () => void
   onRename: (newTitle: string) => void
   onTogglePin?: (isPinned: boolean) => void
@@ -40,6 +43,8 @@ interface ConversationItemProps {
 export function ConversationItem({
   conversation,
   isActive,
+  isSelected = false,
+  onSelect,
   onDelete,
   onRename,
   onTogglePin,
@@ -50,9 +55,14 @@ export function ConversationItem({
   const [isHovered, setIsHovered] = useState(false)
   
   // 使用路由导航切换会话
-  const handleSelect = useCallback(() => {
+  const handleSelect = useCallback((e: React.MouseEvent) => {
+    // 先处理多选逻辑
+    if (onSelect) {
+      const shouldPreventNavigation = onSelect(e)
+      if (shouldPreventNavigation) return
+    }
     router.push(`/chat/${conversation.id}`)
-  }, [router, conversation.id])
+  }, [router, conversation.id, onSelect])
 
   const handleSave = () => {
     if (editTitle.trim() && editTitle !== conversation.title) {
@@ -78,9 +88,11 @@ export function ConversationItem({
     <div
       className={cn(
         'group relative flex items-center gap-2 rounded-lg px-3 py-2 transition-colors overflow-hidden',
-        isActive
-          ? 'bg-[hsl(var(--sidebar-active))]'
-          : 'hover:bg-[hsl(var(--sidebar-hover))]'
+        isSelected
+          ? 'bg-primary/10 ring-1 ring-primary/30'
+          : isActive
+            ? 'bg-[hsl(var(--sidebar-active))]'
+            : 'hover:bg-[hsl(var(--sidebar-hover))]'
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -149,7 +161,7 @@ export function ConversationItem({
               </Button>
             </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="right" className="w-36" sideOffset={8}>
-                <DropdownMenuItem onClick={handleSelect}>
+                <DropdownMenuItem onClick={() => router.push(`/chat/${conversation.id}`)}>
                   <Eye className="mr-2 h-4 w-4" />
                   <span>查看全部</span>
                 </DropdownMenuItem>

@@ -2,14 +2,17 @@
  * 网络探测模块
  * 
  * 检测 SiliconFlow S3 是否可达
+ * 定时轮询，网络恢复后自动启用生图功能
  */
 
 const S3_HOST = 's3.siliconflow.cn'
-const PROBE_TIMEOUT = 5000 // 5秒超时
+const PROBE_TIMEOUT = 15 * 1000 // 15秒超时
+const PROBE_INTERVAL = 30 * 1000 // 30秒轮询
 
 /** 探测结果缓存 */
 let probeResult: boolean | null = null
 let probePromise: Promise<boolean> | null = null
+let probeTimer: ReturnType<typeof setInterval> | null = null
 
 /**
  * 探测 SiliconFlow S3 是否可达
@@ -26,7 +29,6 @@ async function probe(): Promise<boolean> {
     })
     
     clearTimeout(timeout)
-    // 即使返回 403/404 也说明网络通
     return true
   } catch (error) {
     console.warn(`[NetworkProbe] ${S3_HOST} 不可达:`, error instanceof Error ? error.message : error)
@@ -35,9 +37,24 @@ async function probe(): Promise<boolean> {
 }
 
 /**
+ * 启动定时轮询
+ */
+function startPolling(): void {
+  if (probeTimer) return
+  
+  probeTimer = setInterval(async () => {
+    const newResult = await probe()
+    if (newResult !== probeResult) {
+      console.log(`[NetworkProbe] ${S3_HOST} 状态变化: ${probeResult} -> ${newResult}`)
+      probeResult = newResult
+    }
+  }, PROBE_INTERVAL)
+}
+
+/**
  * 检测 SiliconFlow S3 是否可用
  * 
- * 首次调用会执行探测，后续返回缓存结果
+ * 首次调用会执行探测并启动轮询
  */
 export async function isSiliconFlowS3Available(): Promise<boolean> {
   // 已有结果，直接返回
@@ -57,6 +74,10 @@ export async function isSiliconFlowS3Available(): Promise<boolean> {
   probePromise = null
   
   console.log(`[NetworkProbe] ${S3_HOST} ${probeResult ? '可达 ✓' : '不可达 ✗'}`)
+  
+  // 启动定时轮询
+  startPolling()
+  
   return probeResult
 }
 
@@ -66,4 +87,8 @@ export async function isSiliconFlowS3Available(): Promise<boolean> {
 export function resetProbeResult(): void {
   probeResult = null
   probePromise = null
+  if (probeTimer) {
+    clearInterval(probeTimer)
+    probeTimer = null
+  }
 }
