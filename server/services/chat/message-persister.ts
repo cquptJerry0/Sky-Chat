@@ -7,7 +7,13 @@
 import { MessageRepository } from '@/server/repositories/message.repository'
 import { ConversationRepository } from '@/server/repositories/conversation.repository'
 import type { ToolCall } from '@/server/services/tools'
-import type { ToolResultData } from './sse-writer'
+
+/** 工具结果数据 */
+export interface ToolResultData {
+  toolCallId: string
+  name: string
+  result: Record<string, unknown>
+}
 
 /** 消息内容 */
 export interface MessageContent {
@@ -55,13 +61,14 @@ export async function persistMessage(
 export function processImageResults(
   answerContent: string,
   allToolCalls: ToolCall[],
-  allToolResults: ToolResultData[]
+  allToolResults: Array<{ toolCallId: string; name: string; result: Record<string, unknown> }>
 ): string {
   // 收集真实的图片 URL
   const realImageUrls = new Set<string>()
   for (const resultData of allToolResults) {
-    if (resultData.name === 'generate_image' && resultData.result?.imageUrl) {
-      realImageUrls.add(resultData.result.imageUrl)
+    const imageUrl = resultData.result?.imageUrl as string | undefined
+    if (resultData.name === 'generate_image' && imageUrl) {
+      realImageUrls.add(imageUrl)
     }
   }
 
@@ -96,7 +103,11 @@ export function processImageResults(
 
   // 追加真实的图片
   for (const resultData of allToolResults) {
-    if (resultData.name === 'generate_image' && resultData.result?.imageUrl) {
+    const imageUrl = resultData.result?.imageUrl as string | undefined
+    const width = resultData.result?.width as number | undefined
+    const height = resultData.result?.height as number | undefined
+    
+    if (resultData.name === 'generate_image' && imageUrl) {
       const toolCall = allToolCalls.find(
         (tc) => tc.id === resultData.toolCallId
       )
@@ -110,10 +121,10 @@ export function processImageResults(
         }
       }
       const imageData = JSON.stringify({
-        url: resultData.result.imageUrl,
+        url: imageUrl,
         alt: prompt,
-        width: resultData.result.width || 512,
-        height: resultData.result.height || 512,
+        width: width || 512,
+        height: height || 512,
       })
       contentWithImages += `\n\`\`\`image\n${imageData}\n\`\`\`\n`
     }

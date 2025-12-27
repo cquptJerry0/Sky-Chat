@@ -7,7 +7,7 @@
 
 'use client'
 
-import type { ToolResult } from '@sky-monitor/sdk'
+import type { ToolResult } from '@jerry_aurora/sky-monitor-sdk'
 import { getMonitor } from './index'
 
 /**

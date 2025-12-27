@@ -15,7 +15,7 @@ import { MessageRepository } from '@/server/repositories/message.repository'
 import { createChatCompletion } from '@/server/services/ai/siliconflow'
 import { buildContextMessages, appendAttachments } from './prompt.builder'
 import { createSSEStream, createSSEStreamWithTools } from './stream.handler'
-import { toolRegistry } from '@/server/services/tools'
+import { toolRegistry, ensureToolsReady } from '@/server/services/tools'
 
 
 export interface ChatRequest {
@@ -47,6 +47,9 @@ export async function handleChatRequest(
   apiKey: string,
   request: ChatRequest
 ): Promise<ChatResponse> {
+  // 确保工具初始化完成
+  await ensureToolsReady()
+
   const {
     content,
     conversationId,

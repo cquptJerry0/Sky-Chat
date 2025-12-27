@@ -4,7 +4,7 @@
  * 扩展 Monitor 类型以包含插件注入的方法
  */
 
-import type { Trace, Session, IMonitor } from '@sky-monitor/sdk'
+import type { Trace, Session, IMonitor } from '@jerry_aurora/sky-monitor-sdk'
 
 /** TracePlugin 注入的方法 */
 export interface TracePluginMethods {

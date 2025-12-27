@@ -18,7 +18,7 @@ import {
   OfflineQueuePlugin,
   BrowserStorage,
   BrowserTransport,
-} from '@sky-monitor/sdk'
+} from '@jerry_aurora/sky-monitor-sdk'
 import type { MonitorWithPlugins } from './types'
 
 let monitor: MonitorWithPlugins | null = null
@@ -75,9 +75,6 @@ function initMonitor(): MonitorWithPlugins {
  * 获取 Monitor 单例（懒加载）
  */
 export function getMonitor(): MonitorWithPlugins | null {
-  // 临时禁用埋点测试性能
-  return null
-
   // 服务端渲染时返回 null
   if (typeof window === 'undefined') return null
 

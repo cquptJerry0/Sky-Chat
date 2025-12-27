@@ -119,13 +119,13 @@ export function extractSearchSources(response: TavilyResponse): SearchSource[] {
 export function createWebSearchTool(apiKey: string): Tool {
   return {
     name: 'web_search',
-    description: '搜索互联网获取最新信息。当用户询问实时信息、新闻、最新数据、当前事件时使用。',
+    description: '搜索互联网获取 2025 年及以后的最新信息。当用户询问实时信息、新闻、最新数据、当前事件时必须使用此工具。',
     parameters: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
-          description: '搜索关键词',
+          description: '搜索关键词，建议包含"2025"或具体年份以获取最新结果',
         },
       },
       required: ['query'],

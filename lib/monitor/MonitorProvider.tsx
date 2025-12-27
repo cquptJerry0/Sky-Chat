@@ -7,7 +7,7 @@
 'use client'
 
 import { useEffect, type ReactNode } from 'react'
-// import { getMonitor } from './index'
+import { getMonitor } from './index'
 
 interface MonitorProviderProps {
   children: ReactNode
@@ -19,10 +19,6 @@ interface MonitorProviderProps {
  */
 export function MonitorProvider({ children }: MonitorProviderProps) {
   useEffect(() => {
-    // 临时禁用埋点测试性能
-    return
-
-    /*
     // 服务端渲染时跳过
     if (typeof window === 'undefined') return
 
@@ -36,7 +32,6 @@ export function MonitorProvider({ children }: MonitorProviderProps) {
     return () => {
       monitor.endSession()
     }
-    */
   }, [])
 
   return <>{children}</>
