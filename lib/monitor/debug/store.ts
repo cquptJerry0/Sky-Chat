@@ -11,6 +11,7 @@ import type {
   VitalsData,
   TabType,
 } from './types'
+import type { ErrorReplayEvent } from '@jerry_aurora/sky-monitor-sdk'
 
 interface DebugStore {
   // ========== 状态 ==========
@@ -41,6 +42,10 @@ interface DebugStore {
   // Replay 状态
   replayEvents: unknown[]
 
+  // Error Replay 状态
+  errorReplayEvents: ErrorReplayEvent[]
+  pendingErrorReplays: number
+
   // ========== 操作 ==========
   addEvent: (event: MonitorEvent) => void
   setEvents: (events: MonitorEvent[]) => void
@@ -69,6 +74,10 @@ interface DebugStore {
 
   // Replay 操作
   setReplayEvents: (events: unknown[]) => void
+
+  // Error Replay 操作
+  addErrorReplayEvent: (event: ErrorReplayEvent) => void
+  clearErrorReplayEvents: () => void
 }
 
 /** localStorage key */
@@ -127,6 +136,8 @@ const MAX_EVENTS = 500
 const MAX_REQUESTS = 100
 /** 最大 Trace 历史数 */
 const MAX_TRACE_HISTORY = 20
+/** 最大错误回溯事件数 */
+const MAX_ERROR_REPLAY_EVENTS = 50
 
 export const useDebugStore = create<DebugStore>((set) => ({
   // ========== 初始状态 ==========
@@ -150,6 +161,9 @@ export const useDebugStore = create<DebugStore>((set) => ({
   offlineCount: 0,
 
   replayEvents: [],
+
+  errorReplayEvents: [],
+  pendingErrorReplays: 0,
 
   // ========== 操作实现 ==========
   addEvent: (event) =>
@@ -210,6 +224,23 @@ export const useDebugStore = create<DebugStore>((set) => ({
     set({ pendingCount: pending, offlineCount: offline }),
 
   setReplayEvents: (events) => set({ replayEvents: events }),
+
+  addErrorReplayEvent: (event) =>
+    set((state) => {
+      const newEvents = [event, ...state.errorReplayEvents].slice(0, MAX_ERROR_REPLAY_EVENTS)
+      
+      // 计算待处理的错误回溯数
+      const scheduled = newEvents.filter((e) => e.type === 'replay_scheduled').length
+      const uploaded = newEvents.filter((e) => e.type === 'replay_uploaded').length
+      const pendingCount = Math.max(0, scheduled - uploaded)
+      
+      return { 
+        errorReplayEvents: newEvents,
+        pendingErrorReplays: pendingCount,
+      }
+    }),
+
+  clearErrorReplayEvents: () => set({ errorReplayEvents: [], pendingErrorReplays: 0 }),
 }))
 
 // ========== 选择器 ==========

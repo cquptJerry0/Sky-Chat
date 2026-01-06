@@ -5,20 +5,23 @@
  * - 轮询等待 window.__SKY_MONITOR_DEBUG__ 可用
  * - 加载已缓存事件
  * - 订阅新事件
+ * - 订阅错误回溯事件
  */
 
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useDebugStore } from '../store'
-import type { MonitorEvent } from '@jerry_aurora/sky-monitor-sdk'
+import type { MonitorEvent, ErrorReplayEvent } from '@jerry_aurora/sky-monitor-sdk'
 
 /** DebugPlugin 接口 */
 interface IDebugPlugin {
   subscribe: (fn: (event: MonitorEvent) => void) => () => void
+  subscribeErrorReplay: (fn: (event: ErrorReplayEvent) => void) => () => void
   getEvents: () => MonitorEvent[]
   getEventsByType: (type: string) => MonitorEvent[]
   getStats: () => Record<string, number>
+  getErrorReplayEvents: () => ErrorReplayEvent[]
   clearEvents: () => void
 }
 
@@ -61,6 +64,7 @@ export function useDebugSubscription(
 
   const { addEvent, updateVital, addRequest, updateSession, setEvents, updateTrace, addTraceToHistory } = useDebugStore()
   const unsubscribeRef = useRef<(() => void) | null>(null)
+  const unsubscribeErrorReplayRef = useRef<(() => void) | null>(null)
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startTimeRef = useRef<number>(0)
   const currentTraceRef = useRef<{
@@ -72,6 +76,35 @@ export function useDebugSubscription(
     tools: Array<{ toolCallId: string; name: string; startTime: number; endTime?: number; success?: boolean }>
     metrics: { ttfb?: number; chunkCount?: number; duration?: number }
   } | null>(null)
+
+  /**
+   * 处理错误回溯事件
+   */
+  const handleErrorReplayEvent = useCallback(
+    (event: ErrorReplayEvent) => {
+      console.log('[DebugSubscription] ErrorReplayEvent:', event.type, event.errorMessage)
+      
+      // 添加到 store 的错误回溯事件列表
+      useDebugStore.getState().addErrorReplayEvent(event)
+      
+      // 如果是上报事件，更新 replay events
+      if (event.type === 'replay_uploaded' && event.payload) {
+        const payload = event.payload as { routes?: Array<{ events?: unknown[] }> }
+        if (payload.routes) {
+          const allEvents: unknown[] = []
+          for (const route of payload.routes) {
+            if (route.events) {
+              allEvents.push(...route.events)
+            }
+          }
+          if (allEvents.length > 0) {
+            useDebugStore.getState().setReplayEvents(allEvents)
+          }
+        }
+      }
+    },
+    []
+  )
 
   /**
    * 处理事件
@@ -283,13 +316,24 @@ export function useDebugSubscription(
       // 订阅新事件
       unsubscribeRef.current = debugPlugin.subscribe(handleEvent)
 
+      // 订阅错误回溯事件
+      unsubscribeErrorReplayRef.current = debugPlugin.subscribeErrorReplay(handleErrorReplayEvent)
+
+      // 加载已缓存的错误回溯事件
+      const cachedErrorReplayEvents = debugPlugin.getErrorReplayEvents()
+      if (cachedErrorReplayEvents.length > 0) {
+        for (const event of cachedErrorReplayEvents) {
+          useDebugStore.getState().addErrorReplayEvent(event)
+        }
+      }
+
       setStatus('connected')
       setError(null)
       return true
     }
 
     return false
-  }, [handleEvent, setEvents, updateVital, addRequest])
+  }, [handleEvent, handleErrorReplayEvent, setEvents, updateVital, addRequest])
 
   /**
    * 轮询等待 DebugPlugin
@@ -328,6 +372,10 @@ export function useDebugSubscription(
       unsubscribeRef.current()
       unsubscribeRef.current = null
     }
+    if (unsubscribeErrorReplayRef.current) {
+      unsubscribeErrorReplayRef.current()
+      unsubscribeErrorReplayRef.current = null
+    }
     if (pollTimerRef.current) {
       clearTimeout(pollTimerRef.current)
       pollTimerRef.current = null
@@ -347,6 +395,10 @@ export function useDebugSubscription(
       if (unsubscribeRef.current) {
         unsubscribeRef.current()
         unsubscribeRef.current = null
+      }
+      if (unsubscribeErrorReplayRef.current) {
+        unsubscribeErrorReplayRef.current()
+        unsubscribeErrorReplayRef.current = null
       }
       if (pollTimerRef.current) {
         clearTimeout(pollTimerRef.current)
