@@ -31,7 +31,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 
 # ================================
-# 阶段3: 运行（精简版）
+# 阶段3: 运行
 # ================================
 FROM node:22-alpine AS runner
 
@@ -41,16 +41,15 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+    adduser --system --uid 1001 nextjs && \
+    mkdir -p /app/public/generated && \
+    chown -R nextjs:nodejs /app
 
-# 只复制必要文件
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/prisma ./prisma
-
-# 图片存储目录
-RUN mkdir -p /app/public/generated && chown -R nextjs:nodejs /app
+# 使用 --chown 避免额外的权限修改层
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
 USER nextjs
 

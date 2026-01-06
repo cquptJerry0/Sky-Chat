@@ -18,6 +18,7 @@ import {
   OfflineQueuePlugin,
   BrowserStorage,
   BrowserTransport,
+  DebugPlugin,
 } from '@jerry_aurora/sky-monitor-sdk'
 import type { MonitorWithPlugins } from './types'
 
@@ -38,13 +39,20 @@ function initMonitor(): MonitorWithPlugins {
     storage: new BrowserStorage(),
   })
 
+  // ========== 调试插件（仅开发环境）==========
+  if (isDev) {
+    instance.use(new DebugPlugin({ maxEvents: 500 }))
+  }
+
   // ========== 核心插件 ==========
   instance.use(new TracePlugin())
   instance.use(new SessionPlugin())
 
   // ========== 自动采集插件 ==========
   instance.use(new ErrorPlugin())
-  instance.use(new PerformancePlugin())
+  instance.use(new PerformancePlugin({
+    realtime: isDev, // 开发环境实时上报 LCP/CLS/INP
+  }))
   instance.use(new FetchPlugin({
     excludeUrls: [/\/api\/monitor/, /\/api\/chat/],
   }))
